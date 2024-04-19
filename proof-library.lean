@@ -33,6 +33,12 @@ section
         | List.nil => Option.some a
         | List.cons _ _ => as.last
   end List
+
+  theorem subsetUnionSomethingStillSubset (a b c : Set α) : a ⊆ b -> a ⊆ b ∪ c := by
+    intro aSubB e eInA
+    apply Or.inl
+    apply aSubB
+    exact eInA
 end
 
 section
@@ -398,7 +404,7 @@ section
             ∧
             (∀ c : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)),
               c ∈ children.toList.toSet -> match c.nodeLabel with
-              | ⟨cfs, cotrg⟩ => cfs = trg.result ∧ match cotrg with
+              | ⟨cfs, cotrg⟩ => cfs = (fs ∪ trg.result) ∧ match cotrg with
                 | Option.none => False
                 | Option.some ctrg => ctrg = trg)
             ∧
@@ -443,5 +449,18 @@ section
   end ChaseTree
 end
 
--- TODO: proof this
-theorem ChaseResultIsUniversalModel (ct : ChaseTree) (kb : KnowledgeBase) : ct.kb = kb -> universallyModelsKb ct.result kb := sorry
+theorem ChaseResultIsUniversalModel (ct : ChaseTree) (kb : KnowledgeBase) : ct.kb = kb -> universallyModelsKb ct.result kb := by
+  intro h
+  constructor
+
+  case left =>
+    intros fs fsInCt
+    constructor
+    case left =>
+      sorry
+    case right =>
+      sorry
+
+  case right =>
+    intro m mModelsKb
+    sorry
