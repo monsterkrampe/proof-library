@@ -236,6 +236,9 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
               | inr nh => 
                 have : trg_on_m.val.ractive m := ⟨trg_loaded_for_m, nh⟩
                 contradiction
+
+            let subs := Classical.choose trg_obsolete_on_m
+            let hsubs := Classical.choose_spec trg_obsolete_on_m
               
             let new_h : GroundTermMapping := fun t =>
               match t_eq : t with 
@@ -253,8 +256,6 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                     let ⟨hfl, hfr⟩ := Classical.choose_spec tInResult
 
                     let idx_f := trg.val.idx_of_fact_in_result f hfl
-                    let subs := Classical.choose trg_obsolete_on_m
-                    let hsubs := Classical.choose_spec trg_obsolete_on_m
                     let atom_in_head := trg.val.rule.head.get idx_f
                     let skolem_atom_in_head := atom_in_head.skolemize trg.val.rule.id trg.val.rule.frontier
                     let idx_t_in_f := f.terms.idx_of t (List.listToSetElementAlsoListElement _ _ hfr)
@@ -293,12 +294,6 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
               intro fact fact_in_chase
               unfold Set.element at fact_in_chase
 
-              -- CONTINUE HERE
-
-
-
-              -- OLD APPROACH: fails because fact' and subs might different from the one used in new_h...
-
               cases fact_in_chase with | intro fact' h_fact' =>
                 cases h_fact' with | intro h_fact'_in_chase apply_h_f_and_f'_eq =>
                   cases h_fact'_in_chase with 
@@ -310,36 +305,46 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                     rw [f_is_at_its_idx]
                     unfold applyFact
 
-                    cases trg_obsolete_on_m with | intro subs hsubs => 
-                      apply hsubs.right
-                      apply List.getIsInToSet
-                      exists ⟨idx_f.val, (by simp [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]; apply idx_f.isLt)⟩ 
-                      simp [SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.get_map, GroundSubstitution.apply_function_free_atom, Trigger.mapped_head]
-                      rw [List.combine_nested_map]
-                      rw [← List.map_eq_map_iff]
-                      intro t ht 
-                      cases t with 
-                      | const ct => simp [VarOrConst.skolemize, GroundSubstitution.apply_term, GroundSubstitution.apply_var_or_const]
-                      | var vt => 
-                        simp [GroundSubstitution.apply_term, GroundSubstitution.apply_var_or_const]
+                    -- cases trg_obsolete_on_m with | intro subs hsubs => 
+                    apply hsubs.right
+                    apply List.getIsInToSet
+                    exists ⟨idx_f.val, (by simp [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]; apply idx_f.isLt)⟩ 
+                    simp [SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.get_map, GroundSubstitution.apply_function_free_atom, Trigger.mapped_head]
+                    rw [List.combine_nested_map]
+                    rw [← List.map_eq_map_iff]
+                    intro t ht 
+                    cases t with 
+                    | const ct => simp [VarOrConst.skolemize, GroundSubstitution.apply_term, GroundSubstitution.apply_var_or_const]
+                    | var vt => 
+                      simp [GroundSubstitution.apply_term, GroundSubstitution.apply_var_or_const]
+                      split 
+                      case h_1 c h_c_eq =>
+                        have : trg.val.rule.frontier.elem vt := by 
+                          apply Decidable.byContradiction
+                          intro opp
+                          simp [VarOrConst.skolemize, opp] at h_c_eq
+                        rw [hsubs.left vt this]
+                        simp [VarOrConst.skolemize, this]
+                        simp [VarOrConst.skolemize, this] at h_c_eq
+                        rw [h_c_eq]
+                        rw [ih_h.left (GroundTerm.const c)]
+                      case h_2 ft h_ft_eq => 
                         split 
-                        case h_1 c h_c_eq =>
-                          have : trg.val.rule.frontier.elem vt := by 
-                            apply Decidable.byContradiction
-                            intro opp
-                            simp [VarOrConst.skolemize, opp] at h_c_eq
-                          rw [hsubs.left vt this]
-                          simp [VarOrConst.skolemize, this]
-                          simp [VarOrConst.skolemize, this] at h_c_eq
-                          rw [h_c_eq]
-                          rw [ih_h.left (GroundTerm.const c)]
-                        case h_2 ft h_ft_eq => 
+                        case h_1 _ exis_f _ => 
+                          sorry
+                        case h_2 _ n_exis_f _ => 
                           split 
-                          case h_1 _ exis_f _ => sorry
-                          case h_2 _ n_exis_f _ => 
-                            split 
-                            case h_1 _ n_exis_f' _ => sorry
-                            case h_2 _ exis_f' _ => sorry
+                          case h_1 _ n_exis_f' _ => 
+                            apply False.elim 
+                            apply n_exis_f'
+                            exists fact'
+                            constructor 
+                            exact hl 
+                            rw [f_is_at_its_idx]
+                            
+                            sorry
+                          case h_2 _ exis_f' _ => 
+                            sorry
                   | inr hr => 
                     apply ih_h.right 
                     exists fact'
