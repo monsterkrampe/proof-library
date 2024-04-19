@@ -292,6 +292,13 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
             . rw [← trg_res]
               intro fact fact_in_chase
               unfold Set.element at fact_in_chase
+
+              -- CONTINUE HERE
+
+
+
+              -- OLD APPROACH: fails because fact' and subs might different from the one used in new_h...
+
               cases fact_in_chase with | intro fact' h_fact' =>
                 cases h_fact' with | intro h_fact'_in_chase apply_h_f_and_f'_eq =>
                   cases h_fact'_in_chase with 
@@ -316,17 +323,23 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                       | var vt => 
                         simp [GroundSubstitution.apply_term, GroundSubstitution.apply_var_or_const]
                         split 
-                        case h_1 c hceq =>
+                        case h_1 c h_c_eq =>
                           have : trg.val.rule.frontier.elem vt := by 
                             apply Decidable.byContradiction
                             intro opp
-                            simp [VarOrConst.skolemize, opp] at hceq
+                            simp [VarOrConst.skolemize, opp] at h_c_eq
                           rw [hsubs.left vt this]
                           simp [VarOrConst.skolemize, this]
-                          simp [VarOrConst.skolemize, this] at hceq
-                          rw [hceq]
+                          simp [VarOrConst.skolemize, this] at h_c_eq
+                          rw [h_c_eq]
                           rw [ih_h.left (GroundTerm.const c)]
-                        case h_2 ft heq => sorry
+                        case h_2 ft h_ft_eq => 
+                          split 
+                          case h_1 _ exis_f _ => sorry
+                          case h_2 _ n_exis_f _ => 
+                            split 
+                            case h_1 _ n_exis_f' _ => sorry
+                            case h_2 _ exis_f' _ => sorry
                   | inr hr => 
                     apply ih_h.right 
                     exists fact'
