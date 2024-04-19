@@ -1,4 +1,24 @@
 section
+  namespace Option
+    def unwrap : (opt : Option α) -> (opt ≠ none) -> α
+      | none, h => absurd rfl h
+      | some a, _ => a
+
+    theorem someRevertsUnwrap (opt : Option α) (h : opt ≠ none) : some (opt.unwrap h) = opt := by
+      cases opt with
+        | none => exact absurd rfl h
+        | some x => rfl
+
+    theorem someNotNone : opt = some x -> opt ≠ none := by
+      intro h
+      have noConf : some x ≠ none := by
+        intro g
+        exact Option.noConfusion g
+      rw [h]
+      exact noConf
+
+  end Option
+
   def Set (α) := α -> Prop
 
   namespace Set
@@ -32,6 +52,16 @@ section
 
     instance : Coe (List α) (Set α) where
       coe := toSet
+
+    def sum : List Nat -> Nat
+      | nil => 0
+      | cons h tail => h + tail.sum
+
+    def before_index : List α -> Nat -> List α
+      | nil => fun _ => nil
+      | cons h tail => fun i => match i with
+        | 0 => nil
+        | i => cons h (tail.before_index (i - 1))
 
     /- NOTE: inductive lists are always finite!
     def isFinite (l : List α) : Prop :=
@@ -166,7 +196,7 @@ section
     mutual
       def mapLeaves (f : β -> FiniteTree α γ) (t : FiniteTree α β) : FiniteTree α γ := match t with
         | FiniteTree.leaf b => f b
-        | FiniteTree.inner a ts => Tree.inner a (mapLeavesList f ts)
+        | FiniteTree.inner a ts => FiniteTree.inner a (mapLeavesList f ts)
 
       def mapLeavesList (f : β -> FiniteTree α γ) (ts : FiniteTreeList α β) : FiniteTreeList α γ := match ts with
         | FiniteTreeList.nil => FiniteTreeList.nil
@@ -215,18 +245,48 @@ section
     value : α
     number_of_children : Nat
 
-  -- TODO: continue defining this!
   structure PossiblyInfiniteTree (α : Type u) where
     data : PossiblyInfiniteList (List (NodeInformation α))
-    is_consistent : ∀ depth : Nat, match (data.infinite_list depth) with
+    consistency : ∀ depth : Nat, match (data.infinite_list depth) with
       | none => True
-      | some list => sorry
+      | some list => match (list.map (fun ni => ni.number_of_children)).sum with
+        | 0 => (data.infinite_list (depth + 1)) = none
+        | no_children => (data.infinite_list (depth + 1)) = some next_layer ∧ next_layer.length = no_children
 
   structure NodeInPossiblyInfiniteTree (α) where
-    node_info : NodeInformation α
     tree : PossiblyInfiniteTree α
     depth : Nat
     position_in_layer : Nat
+    layer_exists : ∃ layer, tree.data.infinite_list depth = some layer
+    layer_large_enough : ∀ layer, tree.data.infinite_list depth = some layer -> position_in_layer < layer.length
+
+  namespace NodeInPossiblyInfiniteTree
+    def layer (node : NodeInPossiblyInfiniteTree α) : List (NodeInformation α) :=
+      let layer_opt := node.tree.data.infinite_list node.depth
+      let layer := layer_opt.unwrap (by
+        cases node.layer_exists with | intro x h =>
+          exact layer_opt.someNotNone h
+      )
+      layer
+
+    theorem nodeLayerIsLayerAtDepth (node : NodeInPossiblyInfiniteTree α) : node.tree.data.infinite_list node.depth = some node.layer := by
+      cases node.layer_exists with | intro x h =>
+        simp [layer]
+        rw [Option.someRevertsUnwrap]
+
+    def node_info (node : NodeInPossiblyInfiniteTree α) : NodeInformation α :=
+      let layer := node.layer
+      layer.get ⟨node.position_in_layer, (by
+        have h := node.layer_large_enough layer
+        apply h
+        rw [nodeLayerIsLayerAtDepth]
+      )⟩
+
+    /- TODO: continue here and define this;
+    def children (node : NodeInPossiblyInfiniteTree α) : List (NodeInPossiblyInfiniteTree α) :=
+    -/
+    /- TODO: maybe also define siblings similarly, i.e. as node.layer but with NodeInPossiblyInfiniteTree instead of just NodeInformation -/
+  end NodeInPossiblyInfiniteTree
 end
 
 section
