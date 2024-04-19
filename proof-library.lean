@@ -17,6 +17,14 @@ section
       rw [h]
       exact noConf
 
+    theorem notSomeIsNone : (∀ x, opt ≠ some x) -> opt = none := by
+      intro h
+      cases opt with
+        | none => rfl
+        | some y =>
+          have someYNeqSomeY := h y
+          exact absurd rfl someYNeqSomeY
+
   end Option
 
   def Set (α) := α -> Prop
