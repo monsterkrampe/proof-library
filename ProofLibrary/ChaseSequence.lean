@@ -520,7 +520,21 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
 
 theorem inductive_homomorphism_same_on_terms_in_next_step (kb : KnowledgeBase) (cs : ChaseSequence kb) (m : FactSet) (mIsModel : m.modelsKb kb) : ∀ i f t, f ∈ cs.fact_sets i ∧ t ∈ f.terms.toSet -> (inductive_homomorphism kb cs m mIsModel i).val t = (inductive_homomorphism kb cs m mIsModel (Nat.succ i)).val t := by 
   intro i f t ⟨f_in_step_i, t_is_term_in_f⟩
-  sorry
+  conv =>
+    rhs
+    unfold inductive_homomorphism
+    simp
+  split
+  case h_1 _ n_ex_trg _ => simp [n_ex_trg]
+  case h_2 _ _ _ => 
+    split
+    simp
+    split
+    case h_1 c => exact (inductive_homomorphism kb cs m mIsModel i).property.left (GroundTerm.const c)
+    case h_2 ft => 
+      split 
+      case h_1 _ ex_f _ => rfl
+      case h_2 _ n_ex_f _ => apply False.elim; apply n_ex_f; exists f
 
 theorem inductive_homomorphism_same_on_all_following_terms (kb : KnowledgeBase) (cs : ChaseSequence kb) (m : FactSet) (mIsModel : m.modelsKb kb) : ∀ i j f t, f ∈ cs.fact_sets i ∧ t ∈ f.terms.toSet -> (inductive_homomorphism kb cs m mIsModel i).val t = (inductive_homomorphism kb cs m mIsModel (i + j)).val t := by 
   intro i j f t
