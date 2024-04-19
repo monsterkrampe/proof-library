@@ -12,14 +12,14 @@ structure Fact where
 
 structure FunctionFreeAtom where
   predicate : Predicate
-  terms : List VariableOrConstant
+  terms : List VarOrConst
 
 structure Atom where
   predicate : Predicate
   terms : List Term
 
 -- TODO: remove duplicates here maybe
-def FunctionFreeAtom.variables (a : FunctionFreeAtom) : List Variable := List.foldl (fun acc t => acc ++ Term.variables t) List.nil a.terms
+def FunctionFreeAtom.variables (a : FunctionFreeAtom) : List Variable := VarOrConst.filterVars a.terms
 
 def FunctionFreeConjunction := List FunctionFreeAtom
 -- def Conjunction := List Atom

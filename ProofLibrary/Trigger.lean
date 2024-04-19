@@ -10,7 +10,7 @@ namespace Trigger
   def mapped_body (trg : Trigger) : List Fact := SubsTarget.apply trg.subs trg.rule.body
   def mapped_head (trg : Trigger) : List Fact := List.map (fun (i, a) => {
       predicate := a.predicate 
-      terms := List.map ((SubsTarget.apply trg.subs) ∘ (Term.skolemize i trg.rule.frontier)) a.terms
+      terms := List.map ((SubsTarget.apply trg.subs) ∘ (VarOrConst.skolemize i trg.rule.frontier)) a.terms
     }) (List.enum trg.rule.head)
 
   def result (trg : Trigger) : FactSet :=

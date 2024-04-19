@@ -1,5 +1,46 @@
 import ProofLibrary.Set
 
+section
+  -- copied from mathlib
+  theorem Nat.min_le_right (a b : Nat) : min a b ≤ b := by rw [Nat.min_def]; split; trivial; simp
+  theorem Nat.min_le_left (a b : Nat) : min a b ≤ a := by 
+    rw [Nat.min_def]
+    split 
+    simp 
+    cases Nat.lt_or_ge a b with 
+    | inl hl => have : a ≤ b := Nat.le_of_lt hl; contradiction
+    | inr hr => trivial
+  theorem Nat.min_eq_left {a b : Nat} (h : a ≤ b) : min a b = a := by simp [Nat.min_def, h]
+  theorem Nat.min_eq_right {a b : Nat} (h : b ≤ a) : min a b = b := by 
+    simp [Nat.min_def]
+    cases Nat.eq_or_lt_of_le h with  
+    | inl hl => simp [hl] 
+    | inr hr => simp [Nat.not_le_of_gt hr]
+  theorem Nat.zero_min (a : Nat) : min 0 a = 0 := Nat.min_eq_left (zero_le a)
+  theorem Nat.min_zero (a : Nat) : min a 0 = 0 := Nat.min_eq_right (zero_le a)
+  theorem Nat.succ_le_succ_iff {a b : Nat} : succ a ≤ succ b ↔ a ≤ b :=
+    ⟨le_of_succ_le_succ, succ_le_succ⟩
+  theorem Nat.min_succ_succ (x y : Nat) : min (succ x) (succ y) = succ (min x y) := by
+    simp [Nat.min_def, Nat.succ_le_succ_iff]; split <;> rfl
+
+  theorem List.take_succ_cons : (a :: as).take (i + 1) = a :: as.take i := rfl
+  theorem List.length_take : ∀ (i : Nat) (l : List α), length (take i l) = min i (length l)
+    | 0, l => by simp [List.length, Nat.zero_min]
+    | Nat.succ n, [] => by simp [List.length, Nat.min_zero]
+    | Nat.succ n, _ :: l => by simp [Nat.min_succ_succ, Nat.add_one, length_take, take_succ_cons]
+  theorem List.length_take_le (n) (l : List α) : length (take n l) ≤ n := by simp [List.length_take, Nat.min_le_left]
+
+  theorem List.get?_eq_get : ∀ {l : List α} {n} (h : n < l.length), l.get? n = some (get l ⟨n, h⟩)
+  | _ :: _, 0, _ => rfl
+  | _ :: l, _+1, _ => get?_eq_get (l := l) _
+  theorem List.get?_map (f : α → β) : ∀ l n, (map f l).get? n = (l.get? n).map f
+    | [], _ => rfl
+    | _ :: _, 0 => rfl
+    | _ :: l, n+1 => get?_map f l n
+  theorem List.get_map (f : α → β) {l n} : get (map f l) n = f (get l ⟨n, length_map l f ▸ n.2⟩) := 
+    Option.some.inj <| by rw [← get?_eq_get, get?_map, get?_eq_get]; rfl
+end 
+
 namespace List
   def toSet : List α -> Set α
     | nil => ∅
@@ -137,12 +178,45 @@ namespace List
         let res := tail.idx_of_with_count e (by unfold elem at e_in_l; simp [eq] at e_in_l; exact e_in_l) (c + 1) 
         ⟨res.val, by simp [length]; rw [@Nat.add_comm tail.length 1, ← Nat.add_assoc]; exact res.isLt⟩
 
+  theorem idx_of_with_count_succ [DecidableEq α] (l : List α) (e : α) (e_in_l : l.elem e) (c : Nat) : (idx_of_with_count l e e_in_l (c + 1)).val = (idx_of_with_count l e e_in_l c).val + 1 := by
+    induction l generalizing c with 
+    | nil => contradiction
+    | cons b bs ih =>
+      unfold idx_of_with_count
+      by_cases e == b
+      case inl hl => simp [hl]
+      case inr hr => simp [hr]; apply ih
+
   def idx_of [DecidableEq α] (l : List α) (e : α) (e_in_l : l.elem e) : Fin l.length :=
     let tmp_fin := l.idx_of_with_count e e_in_l 0
     have tmp_fin_isLt := tmp_fin.isLt
     ⟨tmp_fin.val, by simp at tmp_fin_isLt; exact tmp_fin_isLt⟩
 
-  theorem idx_of_get [DecidableEq α] (l : List α) (e : α) (e_in_l : l.elem e) (isLt : (l.idx_of e e_in_l < l.length)) : l.get ⟨(l.idx_of e e_in_l).val, isLt⟩ = e := by sorry
+  theorem get_prepend_succ [DecidableEq α] (l : List α) (a : α) (i : Fin l.length) (j : Fin (a::l).length) (h : j = Fin.succ i) : l.get i = (a::l).get j := by rw [h]; simp [get]
+
+  theorem idx_of_prepend_succ [DecidableEq α] (l : List α) (e a : α) (e_in_l : l.elem e) (h : e ≠ a) : ((a::l).idx_of e (by unfold elem; split <;> trivial)) = Fin.succ (l.idx_of e e_in_l) := by 
+    simp [idx_of, idx_of_with_count, h, Fin.succ]
+    apply idx_of_with_count_succ
+
+  theorem idx_of_get [DecidableEq α] (l : List α) (e : α) (e_in_l : l.elem e) (isLt : (l.idx_of e e_in_l < l.length)) : e = l.get ⟨(l.idx_of e e_in_l).val, isLt⟩ := by 
+    induction l with 
+    | nil => contradiction
+    | cons a as ih =>
+      by_cases h : e = a
+      . simp [get, h, idx_of, idx_of_with_count]
+      . have e_in_as : as.elem e := by 
+          unfold elem at e_in_l
+          split at e_in_l 
+          case h_1 heq => 
+            have : e = a := LawfulBEq.eq_of_beq heq
+            contradiction
+          case h_2 => trivial
+        have isLt_as : (as.idx_of e e_in_as).val < as.length := by 
+          exact (as.idx_of e e_in_as).isLt
+        have ih_plugged_in := ih e_in_as isLt_as    
+        apply Eq.trans 
+        exact ih_plugged_in
+        rw [get_prepend_succ as a (as.idx_of e e_in_as) ((a::as).idx_of e e_in_l) (idx_of_prepend_succ as e a e_in_as h)]
 
   theorem length_enum_from (l : List α) (n m : Nat): (l.enumFrom n).length = (l.enumFrom m).length := by 
     induction l generalizing n m with 
@@ -153,5 +227,9 @@ namespace List
     induction l with 
     | nil => simp [enum, enumFrom]
     | cons a as ih => unfold enum at *; unfold enumFrom; unfold length; simp; rw [← ih]; apply length_enum_from
+
+  theorem get_enum (l : List α) (i : Fin l.length) : l.enum.get ⟨i.val, (by rw [length_enum]; exact i.isLt)⟩ = (i.val, l.get i) := by 
+    simp [get, enum, enumFrom]
+    sorry
 end List
 

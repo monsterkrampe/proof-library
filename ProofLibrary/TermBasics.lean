@@ -65,10 +65,17 @@ def Term.variables : Term -> List Variable
   | Term.const _ => List.nil
   | Term.func ft => VarOrConst.filterVars ft.leaves
 
-def Term.skolemize (ruleId : Nat) (frontier : List Variable) (t : Term) : Term :=
-  match t with
-    | Term.var v => ite (List.elem v frontier)
+def VarOrConst.skolemize (ruleId : Nat) (frontier : List Variable) (voc : VarOrConst) : Term :=
+  match voc with
+    | VarOrConst.var v => ite (List.elem v frontier)
       (Term.var v)
       (Term.func (FiniteTree.inner { ruleId := ruleId, var := v} (FiniteTreeList.fromList (List.map (fun fv => FiniteTree.leaf (VarOrConst.var fv)) frontier))))
-    | t => t
+    | VarOrConst.const c => Term.const c
+
+-- def Term.skolemize (ruleId : Nat) (frontier : List Variable) (t : Term) : Term :=
+--   match t with
+--     | Term.var v => ite (List.elem v frontier)
+--       (Term.var v)
+--       (Term.func (FiniteTree.inner { ruleId := ruleId, var := v} (FiniteTreeList.fromList (List.map (fun fv => FiniteTree.leaf (VarOrConst.var fv)) frontier))))
+--     | t => t
 

@@ -258,10 +258,21 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                       let atom_in_head := trg.val.rule.head.get idx_f
                       let idx_t_in_f := f.terms.idx_of t (List.listToSetElementAlsoListElement _ _ hfr)
                       have idx_t_in_f_isLt := idx_t_in_f.isLt
-                      have f_is_at_its_idx : f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact idx_f.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; sorry -- apply List.idx_of_get trg.val.mapped_head f; sorry
-                      have atom_arity_same_as_fact : f.terms.length = atom_in_head.terms.length := by simp; sorry
-                      let variable_corresponding_to_t := atom_in_head.terms.get ⟨idx_t_in_f.val, by rw [← atom_arity_same_as_fact]; exact idx_t_in_f_isLt⟩
-                      subs variable_corresponding_to_t
+                      have f_is_at_its_idx : f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact idx_f.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; apply List.idx_of_get
+                      have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by 
+                        rw [f_is_at_its_idx]
+                        unfold Trigger.mapped_head
+                        rw [List.get_map]
+                        rw [List.get_enum]
+                        simp
+
+                      let var_or_const_corresponding_to_t := atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
+                        rw [← atom_arity_same_as_fact]
+                        exact idx_t_in_f_isLt
+                      )⟩
+                      match var_or_const_corresponding_to_t with 
+                      | VarOrConst.var v => subs v 
+                      | VarOrConst.const c => GroundTerm.const c
                 | Decidable.isFalse _ => t
             exists new_h
             constructor 
