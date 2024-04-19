@@ -1,4 +1,5 @@
 -- NOTE: Inductive Trees are always finite!
+import ProofLibrary.List
 
 mutual
   inductive FiniteTree (α : Type u) (β : Type v) where
@@ -112,6 +113,24 @@ namespace FiniteTreeList
 
   instance : Coe (List (FiniteTree α β)) (FiniteTreeList α β) where
     coe := fromList
+
+  theorem eqIffFromListEq (as bs : List (FiniteTree α β)) : as = bs ↔ fromList as = fromList bs := by 
+    induction as generalizing bs with 
+    | nil => cases bs; constructor; intros; rfl; intros; rfl; constructor; intros; contradiction; intros; contradiction
+    | cons a as ih => 
+      cases bs with 
+      | nil => constructor; intros; contradiction; intros; contradiction
+      | cons b bs => 
+        constructor
+        intro h
+        injection h with head tail
+        simp [fromList]
+        constructor; exact head; rw [← ih]; exact tail
+        intro h 
+        simp [fromList] at h
+        simp [h.left]
+        rw [ih]
+        exact h.right
 end FiniteTreeList
 
 namespace FiniteTree
@@ -143,6 +162,37 @@ namespace FiniteTree
     def mapLeavesList (f : β -> FiniteTree α γ) (ts : FiniteTreeList α β) : FiniteTreeList α γ := match ts with
       | FiniteTreeList.nil => FiniteTreeList.nil
       | FiniteTreeList.cons t ts => FiniteTreeList.cons (mapLeaves f t) (mapLeavesList f ts)
+  end
+
+  -- TODO: should we remove this? I think we do not need this anymore...
+  mutual
+    theorem mapLeavesEqIfMapEqOnLeaves (f : β -> FiniteTree α γ) (g : β -> FiniteTree α γ) (t : FiniteTree α β) : t.leaves.map f = t.leaves.map g -> t.mapLeaves f = t.mapLeaves g := by 
+      cases t with 
+      | leaf _ => unfold mapLeaves; unfold leaves; simp [List.map]; intros; assumption
+      | inner _ _ => 
+        unfold mapLeaves; unfold leaves; simp
+        apply mapLeavesListEqIfMapEqOnLeavesList
+
+    theorem mapLeavesListEqIfMapEqOnLeavesList (f : β -> FiniteTree α γ) (g : β -> FiniteTree α γ) (ts : FiniteTreeList α β) : (leavesList ts).map f = (leavesList ts).map g -> mapLeavesList f ts = mapLeavesList g ts := by 
+      cases ts with 
+      | nil => unfold mapLeavesList; unfold leavesList; simp [List.map]
+      | cons t ts => 
+        unfold mapLeavesList; unfold leavesList
+        intro h
+        have h : t.leaves.map f = t.leaves.map g ∧ (leavesList ts).map f = (leavesList ts).map g := by 
+          apply List.concatEqMeansPartsEqIfSameLength
+          . simp [List.length_map]
+          . rw [List.mapConcatEqMapParts] at h
+            rw [List.mapConcatEqMapParts] at h
+            exact h
+        have : t.mapLeaves f = t.mapLeaves g := by 
+          apply mapLeavesEqIfMapEqOnLeaves
+          apply h.left
+        rw [this]
+        have : mapLeavesList f ts = mapLeavesList g ts := by 
+          apply mapLeavesListEqIfMapEqOnLeavesList
+          apply h.right
+        rw [this]
   end
 
   def nodeLabel : FiniteTree α α -> α

@@ -18,7 +18,7 @@ structure FunctionFreeAtom where
 
 structure Atom where
   predicate : Predicate
-  terms : List Term
+  terms : List SkolemTerm
 
 -- TODO: remove duplicates here maybe
 def FunctionFreeAtom.variables (a : FunctionFreeAtom) : List Variable := VarOrConst.filterVars a.terms
@@ -29,7 +29,7 @@ theorem FunctionFreeAtom.skolemize_same_length (ruleId : Nat) (frontier : List V
   unfold skolemize
   rw [List.length_map]
 
-theorem FunctionFreeAtom.skolem_term_in_skolem_atom_if_term_in_atom (ruleId : Nat) (frontier : List Variable) (a : FunctionFreeAtom) (t : VarOrConst) : t ∈ a.terms.toSet -> (t.skolemize ruleId frontier) ∈ (a.skolemize ruleId frontier).terms.toSet := by 
+theorem FunctionFreeAtom.skolem_term_in_skolem_atom_if_term_in_atom (ruleId : Nat) (frontier : List Variable) (a : FunctionFreeAtom) (t : VarOrConst) : t ∈ a.terms.toSet -> (↑(t.skolemize ruleId frontier)) ∈ (a.skolemize ruleId frontier).terms.toSet := by 
   unfold skolemize
   induction a.terms with 
   | nil => intros; contradiction

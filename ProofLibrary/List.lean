@@ -463,5 +463,25 @@ namespace List
       . exact h_flatten
     )
 
+  theorem concatEqMeansPartsEqIfSameLength (as bs cs ds : List α) (h : as.length = cs.length) : as ++ bs = cs ++ ds -> as = cs ∧ bs = ds := by 
+    induction as generalizing cs with 
+    | nil => cases cs with | nil => simp; intros; assumption | cons _ _ => contradiction
+    | cons a as ih => 
+      cases cs with 
+      | nil => contradiction
+      | cons c cs => 
+        intro h_eq
+        injection h_eq with head tail
+        injection h with h
+        simp at h
+        constructor
+        . rw [head]
+          rw [(ih cs h tail).left]
+        . exact (ih cs h tail).right
+
+  theorem mapConcatEqMapParts (as bs : List α) (f : α -> β) : List.map f (as ++ bs) = as.map f ++ bs.map f := by 
+    induction as with 
+    | nil => simp [map]
+    | cons a as ih => simp [map]; apply ih
 end List
 

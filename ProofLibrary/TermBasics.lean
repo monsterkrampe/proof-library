@@ -28,6 +28,17 @@ inductive GroundTerm where
   | func (ft : FiniteTree SkolemFS Constant) : GroundTerm
   deriving DecidableEq
 
+inductive SkolemTerm where
+  | var (v : Variable) : SkolemTerm
+  | const (c : Constant) : SkolemTerm
+  | func (fs : SkolemFS) (frontier : List Variable) : SkolemTerm
+  deriving DecidableEq
+
+def SkolemTerm.variables : SkolemTerm -> List Variable
+  | .var v => List.cons v List.nil
+  | .const _ => List.nil
+  | .func _ vs => vs
+
 def GroundTerm.depth : GroundTerm -> Nat
   | GroundTerm.const _ => 0
   | GroundTerm.func ft => FiniteTree.depth ft
@@ -64,30 +75,38 @@ theorem VarOrConst.filterVars_occur_in_original_list (l : List VarOrConst) (v : 
       apply ih
       apply h
 
-inductive Term where
-  | var (v : Variable) : Term
-  | const (c : Constant) : Term
-  | func (ft : FiniteTree SkolemFS VarOrConst) : Term
-  deriving DecidableEq
+-- inductive Term where
+--   | var (v : Variable) : Term
+--   | const (c : Constant) : Term
+--   | func (ft : FiniteTree SkolemFS VarOrConst) : Term
+--   deriving DecidableEq
+--
+-- def GroundTerm.toTerm : GroundTerm -> Term
+--   | .const c => Term.const c
+--   | .func ft => Term.func (FiniteTree.mapLeaves (fun c => FiniteTree.leaf (VarOrConst.const c)) ft)
+--
+-- instance : Coe GroundTerm Term where
+--   coe := GroundTerm.toTerm
+--
+-- def SkolemTerm.toTerm : SkolemTerm -> Term
+--   | .var v => Term.var v
+--   | .const c => Term.const c
+--   | .func fs frontier => Term.func (FiniteTree.inner fs (FiniteTreeList.fromList (frontier.map (fun fv => FiniteTree.leaf (VarOrConst.var fv)))))
+--
+-- instance : Coe SkolemTerm Term where
+--   coe := SkolemTerm.toTerm
+--
+-- def Term.variables : Term -> List Variable
+--   | Term.var v => List.cons v List.nil
+--   | Term.const _ => List.nil
+--   | Term.func ft => VarOrConst.filterVars ft.leaves
 
-def GroundTerm.toTerm : GroundTerm -> Term
-  | GroundTerm.const c => Term.const c
-  | GroundTerm.func ft => Term.func (FiniteTree.mapLeaves (fun c => FiniteTree.leaf (VarOrConst.const c)) ft)
-
-instance : Coe GroundTerm Term where
-  coe := GroundTerm.toTerm
-
-def Term.variables : Term -> List Variable
-  | Term.var v => List.cons v List.nil
-  | Term.const _ => List.nil
-  | Term.func ft => VarOrConst.filterVars ft.leaves
-
-def VarOrConst.skolemize (ruleId : Nat) (frontier : List Variable) (voc : VarOrConst) : Term :=
+def VarOrConst.skolemize (ruleId : Nat) (frontier : List Variable) (voc : VarOrConst) : SkolemTerm :=
   match voc with
     | VarOrConst.var v => ite (List.elem v frontier)
-      (Term.var v)
-      (Term.func (FiniteTree.inner { ruleId := ruleId, var := v} (FiniteTreeList.fromList (List.map (fun fv => FiniteTree.leaf (VarOrConst.var fv)) frontier))))
-    | VarOrConst.const c => Term.const c
+      (SkolemTerm.var v)
+      (SkolemTerm.func { ruleId := ruleId, var := v} frontier)
+    | VarOrConst.const c => SkolemTerm.const c
 
 theorem VarOrConst.skolemize_injective (ruleId : Nat) (frontier : List Variable) (s t : VarOrConst) : s.skolemize ruleId frontier = t.skolemize ruleId frontier -> s = t := by 
   cases s with 
@@ -109,6 +128,16 @@ theorem VarOrConst.skolemize_injective (ruleId : Nat) (frontier : List Variable)
       simp [skolemize]
       split <;> intros <;> assumption
     | const _ => simp [skolemize]; intros; assumption
+
+-- def VarOrConst.skolemize_into_functional_term (ruleId : Nat) (frontier : List Variable) (v : Variable) (v_not_frontier : ¬ frontier.elem v) : FiniteTree SkolemFS Variable := 
+--   match eq : skolemize ruleId frontier (VarOrConst.var v) with 
+--   | .var _ => by simp [skolemize, v_not_frontier] at eq
+--   | .const _ => by simp [skolemize, v_not_frontier] at eq
+--   | .func ft => 
+--     let mapper : VarOrConst
+--     ft
+--
+-- theorem VarOrConst.skolemize_leaves_is_frontier (ruleId : Nat) (frontier : List Variable) (v : Variable) (v_not_frontier : ¬ frontier.elem v) : (skolemize_into_functional_term ruleId frontier v v_not_frontier).leaves = frontier := by sorry
 
 -- def Term.skolemize (ruleId : Nat) (frontier : List Variable) (t : Term) : Term :=
 --   match t with

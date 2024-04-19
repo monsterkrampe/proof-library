@@ -31,7 +31,7 @@ namespace Trigger
       GroundSubstitution.apply_atom, 
       List.get_map, 
       List.combine_nested_map,
-      SubsTarget.apply
+      SubsTarget.apply,
     ]
   
   def loaded (trg : Trigger) (F : FactSet) : Prop :=

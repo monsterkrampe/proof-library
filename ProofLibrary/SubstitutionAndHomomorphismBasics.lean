@@ -7,21 +7,29 @@ def GroundTermMapping := GroundTerm -> GroundTerm
 
 namespace GroundSubstitution
   def apply_var_or_const (σ : GroundSubstitution) : VarOrConst -> GroundTerm
-    | VarOrConst.var v => σ v
-    | VarOrConst.const c => GroundTerm.const c
+    | .var v => σ v
+    | .const c => GroundTerm.const c
 
-  def apply_term (σ : GroundSubstitution) : Term -> GroundTerm
-    | Term.var v => σ v
-    | Term.const c => GroundTerm.const c
-    | Term.func ft => GroundTerm.func (FiniteTree.mapLeaves (fun voc => match voc with
-      | VarOrConst.var v => match σ v with
-        | GroundTerm.const c => FiniteTree.leaf c
-        | GroundTerm.func ft => ft
-      | VarOrConst.const c => FiniteTree.leaf c
-    ) ft)
+  def apply_skolem_term (σ : GroundSubstitution) : SkolemTerm -> GroundTerm
+    | .var v => σ v
+    | .const c => GroundTerm.const c
+    | .func fs frontier => GroundTerm.func (FiniteTree.inner fs (FiniteTreeList.fromList (frontier.map (fun fv => match σ fv with 
+      | .const c => FiniteTree.leaf c
+      | .func ft => ft
+    ))))
+
+  -- def apply_term (σ : GroundSubstitution) : Term -> GroundTerm
+  --   | .var v => σ v
+  --   | .const c => GroundTerm.const c
+  --   | .func ft => GroundTerm.func (FiniteTree.mapLeaves (fun voc => match voc with
+  --     | .var v => match σ v with
+  --       | .const c => FiniteTree.leaf c
+  --       | .func ft => ft
+  --     | .const c => FiniteTree.leaf c
+  --   ) ft)
 
   def apply_atom (σ : GroundSubstitution) (ϕ : Atom) : Fact :=
-    { predicate := ϕ.predicate, terms := List.map (apply_term σ) ϕ.terms }
+    { predicate := ϕ.predicate, terms := List.map (apply_skolem_term σ) ϕ.terms }
 
   def apply_function_free_atom (σ : GroundSubstitution) (ϕ : FunctionFreeAtom) : Fact :=
     { predicate := ϕ.predicate, terms := List.map (apply_var_or_const σ) ϕ.terms }
@@ -36,12 +44,12 @@ namespace GroundSubstitution
     rw [← h]
     simp [apply_atom]
 
-  theorem eq_under_subs_means_term_is_eq (σ : GroundSubstitution) (a : Atom) (f : Fact) (idx : Fin a.terms.length) (h : σ.apply_atom a = f) : (σ.apply_term (a.terms.get idx) = f.terms.get { val := idx.val, isLt := (by rw [← eq_under_subs_means_same_length σ a f h]; exact idx.isLt) }) := by
+  theorem eq_under_subs_means_term_is_eq (σ : GroundSubstitution) (a : Atom) (f : Fact) (idx : Fin a.terms.length) (h : σ.apply_atom a = f) : (σ.apply_skolem_term (a.terms.get idx) = f.terms.get { val := idx.val, isLt := (by rw [← eq_under_subs_means_same_length σ a f h]; exact idx.isLt) }) := by
     cases h
     simp [apply_atom, List.get_map]
 
   -- TODO: is the extra assumption with injectivity reasonable?
-  theorem eq_under_subs_means_elements_are_preserved [DecidableEq Term] (σ : GroundSubstitution) (a : Atom) (f : Fact) (h : σ.apply_atom a = f) : ∀ t, (∀ s, s ∈ a.terms.toSet ∧ σ.apply_term t = σ.apply_term s -> t = s) -> (f.terms.elem (σ.apply_term t) ↔ a.terms.elem t) := by 
+  theorem eq_under_subs_means_elements_are_preserved [DecidableEq SkolemTerm] (σ : GroundSubstitution) (a : Atom) (f : Fact) (h : σ.apply_atom a = f) : ∀ t, (∀ s, s ∈ a.terms.toSet ∧ σ.apply_skolem_term t = σ.apply_skolem_term s -> t = s) -> (f.terms.elem (σ.apply_skolem_term t) ↔ a.terms.elem t) := by 
     intro t ht
     rw [List.listElementIffToSetElement] 
     rw [List.listElementIffToSetElement] 
@@ -63,8 +71,8 @@ namespace GroundSubstitution
       rw [hi]
 
   -- TODO: is the extra assumption with injectivity reasonable?
-  theorem eq_under_subs_means_indices_of_elements_are_preserved [DecidableEq Term] (σ : GroundSubstitution) (a : Atom) (f : Fact) (h : σ.apply_atom a = f) (t : Term) (ht : a.terms.elem t) (hs : ∀ s, s ∈ a.terms.toSet ∧ σ.apply_term t = σ.apply_term s -> t = s) : (f.terms.idx_of (σ.apply_term t) (by rw [eq_under_subs_means_elements_are_preserved σ a f h t hs]; exact ht)).val = ((a.terms.idx_of t) ht).val := by 
-    have : f.terms = a.terms.map σ.apply_term := by rw [← h]; unfold apply_atom; simp
+  theorem eq_under_subs_means_indices_of_elements_are_preserved [DecidableEq SkolemTerm] (σ : GroundSubstitution) (a : Atom) (f : Fact) (h : σ.apply_atom a = f) (t : SkolemTerm) (ht : a.terms.elem t) (hs : ∀ s, s ∈ a.terms.toSet ∧ σ.apply_skolem_term t = σ.apply_skolem_term s -> t = s) : (f.terms.idx_of (σ.apply_skolem_term t) (by rw [eq_under_subs_means_elements_are_preserved σ a f h t hs]; exact ht)).val = ((a.terms.idx_of t) ht).val := by 
+    have : f.terms = a.terms.map σ.apply_skolem_term := by rw [← h]; unfold apply_atom; simp
     rw [List.idx_of_eq_of_list_eq _ _ this _ _]
     apply Eq.symm
     apply List.idx_of_eq_under_map
@@ -75,8 +83,10 @@ end GroundSubstitution
 class SubsTarget (α) (β) where
   apply : GroundSubstitution -> α -> β
 
-instance : SubsTarget Term GroundTerm where
-  apply := GroundSubstitution.apply_term
+instance : SubsTarget SkolemTerm GroundTerm where
+  apply := GroundSubstitution.apply_skolem_term
+-- instance : SubsTarget Term GroundTerm where
+--   apply := GroundSubstitution.apply_term
 instance : SubsTarget Atom Fact where
   apply := GroundSubstitution.apply_atom
 instance : SubsTarget FunctionFreeAtom Fact where
