@@ -15,12 +15,24 @@ section
     infixr:50 " ⊆ " => subset
   end Set
 
-  def List.toSet : List α -> Set α
-    | nil => ∅
-    | cons h tail => (fun e => e = h) ∪ (List.toSet tail)
+  namespace List
+    def toSet : List α -> Set α
+      | nil => ∅
+      | cons h tail => (fun e => e = h) ∪ (List.toSet tail)
 
-  instance : Coe (List α) (Set α) where
-    coe := List.toSet
+    instance : Coe (List α) (Set α) where
+      coe := toSet
+
+    def isFinite (l : List α) : Prop :=
+      ∃ k : Nat,
+        l.length <= k
+
+    def last : List α -> Option α
+      | List.nil => Option.none
+      | List.cons a as => match as with
+        | List.nil => Option.some a
+        | List.cons _ _ => as.last
+  end List
 end
 
 section
@@ -326,42 +338,110 @@ section
   end Trigger
 end
 
-structure ChaseTree where
-  kb : KnowledgeBase
-  tree : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger))
-  isSkolem :
-    -- 1. we have nodes, edges, fact labels and trigger labels (no need to check this)
-    -- 2. root is labeled with (db, none)
-    (match Tree.nodeLabel tree with
-      | ⟨fs, otrg⟩ => fs = kb.db ∧ otrg = Option.none)
-    ∧
-    -- 3. children of nodes are labeled properly
-    (Tree.forEach tree (fun t => match t with
-      | Tree.leaf _ => True
-      | Tree.inner ⟨fs, _⟩ children =>
-        ∃ trg : Trigger,
-          trg.sactive fs
-          ∧
-          children.toList.length = 1
-          ∧
-          (∀ c : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)),
-            c ∈ children.toList.toSet -> match c.nodeLabel with
-            | ⟨cfs, cotrg⟩ => cfs = trg.result ∧ match cotrg with
-              | Option.none => False
-              | Option.some ctrg => ctrg = trg)
-          ∧
-          ((not trg.rule.isDatalog) -> ∀ dltrg : Trigger,
-            dltrg.rule.isDatalog -> ¬ (dltrg.sactive fs))
-    ))
-    ∧
-    -- 4a. leaf nodes are closed under all rules
-    (Tree.forEach tree (fun t => match t with
-      | Tree.inner _ _ => True
-      | Tree.leaf ⟨fs, _⟩ =>
-        ∀ trg : Trigger, ¬ (trg.sactive fs)
-    ))
-    ∧
-    -- 4b. triggers are not active after finitely many steps (fairness)
-    (∀ trg : Trigger, ∃ k : Nat,
-      ∀ fs : FactSet, fs ∈ (List.map (fun t => match t with | Tree.leaf ⟨fs, _⟩ => fs | Tree.inner ⟨fs, _⟩ _ => fs) (tree.nodesInDepthK k)).toSet -> ¬ (trg.sactive fs)
-    )
+section
+  def isHomomorphism (h : GroundTerm -> GroundTerm) : Prop :=
+    ∀ t : GroundTerm, match t with
+      | GroundTerm.const _ => h t = t
+      | _ => True
+
+  def applyFact (h : GroundTerm -> GroundTerm) (f : Fact) : Fact :=
+    { predicate := f.predicate, terms := List.map h f.terms }
+
+  def applyFactSet (h : GroundTerm -> GroundTerm) (fs : FactSet) : FactSet :=
+    fun f' : Fact => ∃ f : Fact, (f ∈ fs) ∧ ((applyFact h f) = f')
+end
+
+namespace FactSet
+  def modelsDb (fs : FactSet) (db : Database) : Prop :=
+    db.toFactSet ⊆ fs
+
+  def modelsRule (fs : FactSet) (rule : Rule) : Prop :=
+    ∀ trg : Trigger,
+      (trg.rule = rule ∧ trg.loaded fs)
+      -> ¬ trg.ractive fs -- the rule is ractive iff it is not satisfied under FOL semantics
+
+  def modelsRules (fs : FactSet) (rules : RuleSet) : Prop :=
+    ∀ r, r ∈ rules -> fs.modelsRule r
+
+  def modelsKb (fs : FactSet) (kb : KnowledgeBase) : Prop :=
+    fs.modelsDb kb.db ∧ fs.modelsRules kb.rules
+end FactSet
+
+def universallyModelsKb (lfs : List FactSet) (kb : KnowledgeBase) : Prop :=
+  (∀ fs : FactSet, fs ∈ lfs.toSet -> fs.modelsKb kb) ∧
+  (∀ m : FactSet,
+    m.modelsKb kb ->
+    ∃ (fs : FactSet) (h : GroundTerm -> GroundTerm),
+      fs ∈ lfs.toSet ∧
+      isHomomorphism h ∧
+      (applyFactSet h fs) ⊆ m
+  )
+
+section
+  structure ChaseTree where
+    kb : KnowledgeBase
+    tree : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger))
+    isSkolem :
+      -- 1. we have nodes, edges, fact labels and trigger labels (no need to check this)
+      -- 2. root is labeled with (db, none)
+      (match Tree.nodeLabel tree with
+        | ⟨fs, otrg⟩ => fs = kb.db ∧ otrg = Option.none)
+      ∧
+      -- 3. children of nodes are labeled properly
+      (Tree.forEach tree (fun t => match t with
+        | Tree.leaf _ => True
+        | Tree.inner ⟨fs, _⟩ children =>
+          ∃ trg : Trigger,
+            trg.sactive fs
+            ∧
+            children.toList.length = 1
+            ∧
+            (∀ c : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)),
+              c ∈ children.toList.toSet -> match c.nodeLabel with
+              | ⟨cfs, cotrg⟩ => cfs = trg.result ∧ match cotrg with
+                | Option.none => False
+                | Option.some ctrg => ctrg = trg)
+            ∧
+            ((not trg.rule.isDatalog) -> ∀ dltrg : Trigger,
+              dltrg.rule.isDatalog -> ¬ (dltrg.sactive fs))
+      ))
+      ∧
+      -- 4a. leaf nodes are closed under all rules
+      (Tree.forEach tree (fun t => match t with
+        | Tree.inner _ _ => True
+        | Tree.leaf ⟨fs, _⟩ =>
+          ∀ trg : Trigger, ¬ (trg.sactive fs)
+      ))
+      ∧
+      -- 4b. triggers are not active after finitely many steps (fairness)
+      (∀ trg : Trigger, ∃ k : Nat,
+        ∀ fs : FactSet, fs ∈ (List.map (fun t => match t with | Tree.leaf ⟨fs, _⟩ => fs | Tree.inner ⟨fs, _⟩ _ => fs) (tree.nodesInDepthK k)).toSet -> ¬ (trg.sactive fs)
+      )
+
+  namespace ChaseTree
+    mutual
+      def privateBranches (t : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger))) (branch : List (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) : List (List (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) :=
+        match t with
+          | Tree.leaf _ => [branch ++ [t]]
+          | Tree.inner _ ts => ChaseTree.privateBranchesList ts (branch ++ [t])
+          --List.foldl (fun acc t' => acc ++ ChaseTree.privateBranches t' (branch ++ [t])) List.nil ts
+
+      def privateBranchesList (ts : TreeList (FactSet × (Option Trigger)) (FactSet × (Option Trigger))) (branch : List (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) : List (List (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) :=
+        match ts with
+          | TreeList.nil => [branch]
+          | TreeList.cons t ts' => (ChaseTree.privateBranches t branch) ++ (ChaseTree.privateBranchesList ts' branch)
+    end
+
+    def branches (ct : ChaseTree) : List (List (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) :=
+      ChaseTree.privateBranches ct.tree []
+
+    def terminates (ct : ChaseTree) : Prop :=
+      ∀ b, b ∈ ct.branches.toSet -> b.isFinite
+
+    def result (ct : ChaseTree) : List FactSet :=
+      ct.branches.map (fun b => match b.last with | Option.none => ∅ | Option.some t => match t.nodeLabel with | ⟨fs, _⟩ => fs)
+  end ChaseTree
+end
+
+-- TODO: proof this
+theorem ChaseResultIsUniversalModel (ct : ChaseTree) (kb : KnowledgeBase) : ct.kb = kb -> universallyModelsKb ct.result kb := sorry
