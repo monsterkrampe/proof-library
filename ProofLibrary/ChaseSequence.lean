@@ -4,15 +4,17 @@ import ProofLibrary.Logic
 
 def InfiniteList (α : Type u) := Nat → α  
 
+def RTrigger (r : RuleSet) := { trg : Trigger // trg.rule ∈ r}
+
 structure ChaseSequence (kb : KnowledgeBase) where
   fact_sets : InfiniteList FactSet
   database_first : fact_sets 0 = kb.db
   triggers_exist : ∀ n : Nat, (
-      ∃ trg : Trigger, trg.ractive (fact_sets n) ∧ trg.result ∪ fact_sets n = fact_sets (n + 1)
+      ∃ trg : (RTrigger kb.rules), trg.val.ractive (fact_sets n) ∧ trg.val.result ∪ fact_sets n = fact_sets (n + 1)
     ) ∨ (
-      ¬(∃ trg : Trigger, trg.ractive (fact_sets n)) ∧ fact_sets n = fact_sets (n + 1)
+      ¬(∃ trg : (RTrigger kb.rules), trg.val.ractive (fact_sets n)) ∧ fact_sets n = fact_sets (n + 1)
     )
-  fairness : ∀ (trg : Trigger) (i : Nat), (trg.ractive (fact_sets i)) → ∃ j : Nat, j ≥ i ∧ (¬ trg.ractive (fact_sets j))
+  fairness : ∀ (trg : (RTrigger kb.rules)) (i : Nat), (trg.val.ractive (fact_sets i)) → ∃ j : Nat, j ≥ i ∧ (¬ trg.val.ractive (fact_sets j))
 
 namespace ChaseSequence
   def result {kb : KnowledgeBase} (cs : ChaseSequence kb) : FactSet := fun f => ∃ n : Nat, f ∈ cs.fact_sets n
@@ -169,7 +171,7 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
   intro ⟨ trgRule, trgLoaded ⟩
   intro contra 
   cases (trgRActiveForChaseResultMeansRActiveAtSomeIndex kb cs trg contra) with | intro i ractiveI => 
-    have notActiveAtSomePoint := cs.fairness trg i ractiveI 
+    have notActiveAtSomePoint := cs.fairness ⟨trg, by rw [← trgRule] at h; apply h⟩ i ractiveI 
     cases notActiveAtSomePoint with | intro j ractiveJ => 
       have ⟨jGeI, notRActiveJ⟩ := ractiveJ 
       simp [Trigger.ractive] at notRActiveJ 
@@ -199,8 +201,8 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
     cases elInSet with | intro f hf => 
       apply mIsModel.left
       simp [Set.element] 
-      have : f = el := by have hfr := hf.right; simp [applyFact, List.map_id] at hfr; exact hfr
-      rw [this] at hf 
+      have : f = el := by have hfr := hf.right; simp [applyFact, List.map_id'] at hfr; exact hfr
+      rw [this] at hf
       exact hf.left
     
     case succ k ih_k => 
@@ -211,10 +213,72 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
           rw [← sequence_finished.right]
           exact ih_h
         case inl triggers_exist => 
-          let new_h : GroundTermMapping := sorry
-          sorry
+          cases triggers_exist with | intro trg h_trg =>
+            let ⟨trg_act, trg_res⟩ := h_trg
+            have m_models_trg : m.modelsRule trg.val.rule := by exact mIsModel.right trg.val.rule trg.property 
+
+            let new_h : GroundTermMapping := fun t =>
+              let dec := Classical.propDecidable (∃ f, f ∈ (cs.fact_sets k ∪ trg.val.result) ∧ t ∈ f.terms.toSet)
+              match dec with 
+                | Decidable.isTrue p => 
+                  let f := Classical.choose p 
+                  let ⟨hfl, hfr⟩ := Classical.choose_spec p
+                  let hfllDec := Classical.propDecidable (f ∈ cs.fact_sets k)
+                  match hfllDec with 
+                    | Decidable.isTrue _ => h t
+                    | Decidable.isFalse nhfll => 
+                      have hflr : f ∈ trg.val.result := by
+                        cases hfl with 
+                          | inl => contradiction
+                          | inr => assumption
+                      sorry
+                | Decidable.isFalse _ => t
+            sorry
   let global_h : GroundTermMapping := fun t => 
-    if ∃ f, f ∈ cs.result ∧ t ∈ f.terms.toSet then sorry else t
-  sorry
+    let dec := Classical.propDecidable (∃ f, f ∈ cs.result ∧ t ∈ f.terms.toSet)
+    match dec with
+      | Decidable.isTrue p => 
+        let f := Classical.choose p 
+        let ⟨hfl, hfr⟩ := Classical.choose_spec p
+        let i := Classical.choose hfl
+        let hi := Classical.choose_spec hfl
+        let target_h := Classical.choose (inductive_claim i)
+        target_h t
+      | Decidable.isFalse _ => t
+  exists global_h
+  constructor
+  intro gt 
+  cases gt with
+    | const c => 
+      simp
+      cases Classical.propDecidable (∃ f, f ∈ ChaseSequence.result cs ∧ GroundTerm.const c ∈ List.toSet f.terms) with 
+        | isTrue p => 
+          simp 
+          let f := Classical.choose p 
+          let ⟨hfl, hfr⟩ := Classical.choose_spec p
+          let i := Classical.choose hfl
+          let hi := Classical.choose_spec hfl
+          let target_h := Classical.choose (inductive_claim i)
+          let target_h_is_hom := (Classical.choose_spec (inductive_claim i)).left
+          simp
+          exact target_h_is_hom (GroundTerm.const c)
+        | isFalse np => simp
+    | _ => simp
+  intro f hf
+  unfold ChaseSequence.result at hf
+  unfold Set.element at hf
+  unfold applyFactSet at hf
+  cases hf with | intro e he =>
+    let ⟨hel, her⟩ := he 
+    simp [Set.element] at hel
+    cases hel with | intro n hn =>
+      let target_h := Classical.choose (inductive_claim n)
+      let target_h_apply := (Classical.choose_spec (inductive_claim n)).right
+      have global_eq_target_on_e : applyFact global_h e = applyFact target_h e := by 
+        sorry
+      rw [← her, global_eq_target_on_e]
+      apply target_h_apply
+      apply applyPreservesElement
+      apply hn
   
 

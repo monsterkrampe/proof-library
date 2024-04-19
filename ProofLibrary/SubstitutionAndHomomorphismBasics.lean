@@ -41,3 +41,10 @@ def applyFact (h : GroundTermMapping) (f : Fact) : Fact :=
 
 def applyFactSet (h : GroundTermMapping) (fs : FactSet) : FactSet :=
   fun f' : Fact => ∃ f : Fact, (f ∈ fs) ∧ ((applyFact h f) = f')
+
+theorem applyPreservesElement (h : GroundTermMapping) (f : Fact) (fs : FactSet) : f ∈ fs -> applyFact h f ∈ applyFactSet h fs := by 
+  intro hf
+  simp [Set.element] at *
+  unfold applyFactSet
+  exists f
+

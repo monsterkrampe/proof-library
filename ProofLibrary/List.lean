@@ -16,7 +16,7 @@ namespace List
         | zero => simp [List.get, List.toSet, Set.element, Set.union]
         | succ n => simp [List.get, List.toSet, Set.element, Set.union]; apply Or.inr; apply listGetInToSet
 
-  theorem map_id (L : List α) : L.map id = L := by
+  theorem map_id' (L : List α) : L.map id = L := by
     induction L 
     case nil => simp [List.map]
     case cons _ ih => simp [List.map, ih]
