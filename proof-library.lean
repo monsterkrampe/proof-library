@@ -19,6 +19,60 @@ def List.toSet : List α -> Set α
 instance : Coe (List α) (Set α) where
   coe := List.toSet
 
+mutual
+    inductive Tree (α : Type u) (β : Type v) where
+      | leaf : β -> Tree α β
+      | inner : α -> TreeList α β -> Tree α β
+
+    inductive TreeList (α : Type u) (β : Type v)where
+      | nil  : TreeList α β
+      | cons : Tree α β -> TreeList α β -> TreeList α β
+end
+
+def TreeList.toList : TreeList α β -> List (Tree α β)
+  | TreeList.nil => List.nil
+  | TreeList.cons t ts => List.cons t (TreeList.toList ts)
+
+def TreeList.fromList : List (Tree α β) -> TreeList α β
+  | List.nil => TreeList.nil
+  | List.cons t ts => TreeList.cons t (TreeList.fromList ts)
+
+instance : Coe (TreeList α β) (List (Tree α β)) where
+  coe := TreeList.toList
+
+instance : Coe (List (Tree α β)) (TreeList α β) where
+  coe := TreeList.fromList
+
+mutual
+  def Tree.depth : Tree α β -> Nat
+    | Tree.leaf _ => 1
+    | Tree.inner _ ts => 1 + TreeList.depth ts
+
+  def TreeList.depth : TreeList α β -> Nat
+    | TreeList.nil => 0
+    | TreeList.cons t ts => max (Tree.depth t) (TreeList.depth ts)
+end
+
+mutual
+  def Tree.leaves : Tree α β -> List β
+    | Tree.leaf b => List.cons b List.nil
+    | Tree.inner _ ts => TreeList.leaves ts
+
+  def TreeList.leaves : TreeList α β -> List β
+    | TreeList.nil => List.nil
+    | TreeList.cons t ts => (Tree.leaves t) ++ (TreeList.leaves ts)
+end
+
+mutual
+  def Tree.mapLeaves (f : β -> Tree α γ) (t : Tree α β) : Tree α γ := match t with
+    | Tree.leaf b => f b
+    | Tree.inner a ts => Tree.inner a (TreeList.mapLeaves f ts)
+
+  def TreeList.mapLeaves (f : β -> Tree α γ) (ts : TreeList α β) : TreeList α γ := match ts with
+    | TreeList.nil => TreeList.nil
+    | TreeList.cons t ts => TreeList.cons (Tree.mapLeaves f t) (TreeList.mapLeaves f ts)
+end
+
 structure Predicate where
   id : Nat
 
@@ -37,81 +91,69 @@ structure FunctionSymbol where
 -/
 
 structure SkolemFS where
-  rule : Rule
+  ruleId : Nat
   var : Variable
 
-mutual
-  inductive GroundTerm where
-    | Constant (c : Constant) : GroundTerm
-    | Functional (f : SkolemFS) (ts : GroundTermList) : GroundTerm
+inductive GroundTerm where
+  | const (c : Constant) : GroundTerm
+  | func (ft : Tree SkolemFS Constant) : GroundTerm
 
-  inductive GroundTermList where
-    | Single (t : GroundTerm) : GroundTermList
-    | List (t : GroundTerm) (ts : GroundTermList) : GroundTermList
-end
+def GroundTerm.depth : GroundTerm -> Nat
+  | GroundTerm.const _ => 0
+  | GroundTerm.func ft => Tree.depth ft
 
-mutual
-  def GroundTerm.depth : GroundTerm -> Nat
-    | GroundTerm.Constant _ => 0
-    | GroundTerm.Functional f ts => 1 + GroundTermList.depth ts
+inductive VarOrConst where
+  | var (v : Variable) : VarOrConst
+  | const (c : Constant) : VarOrConst
 
-  def GroundTermList.depth : GroundTermList -> Nat
-    | GroundTermList.Single t => GroundTerm.depth t
-    | GroundTermList.List t ts => GroundTerm.depth t + GroundTermList.depth ts
-end
+def VarOrConst.isVar : VarOrConst -> Bool
+  | VarOrConst.var _ => true
+  | VarOrConst.const _ => false
 
-mutual
-  inductive Term where
-    | Variable (v : Variable) : Term
-    | Constant (c : Constant) : Term
-    | Functional (f : SkolemFS) (ts : TermList) : Term
+def VarOrConst.filterVars : List VarOrConst -> List Variable
+  | List.nil => List.nil
+  | List.cons voc vocs => match voc with
+    | VarOrConst.var v => List.cons v (VarOrConst.filterVars vocs)
+    | VarOrConst.const _ => (VarOrConst.filterVars vocs)
 
-  inductive TermList where
-    | Single (t : Term) : TermList
-    | List (t : Term) (ts : TermList) : TermList
-end
+inductive Term where
+  | var (v : Variable) : Term
+  | const (c : Constant) : Term
+  | func (ft : Tree SkolemFS VarOrConst) : Term
 
-mutual
-  def GroundTerm.toTerm : GroundTerm -> Term
-    | GroundTerm.Constant c => Term.Constant c
-    | GroundTerm.Functional f ts => Term.Functional f (GroundTermList.toTerm ts)
-
-  def GroundTermList.toTerm : GroundTermList -> TermList
-    | GroundTermList.Single t => TermList.Single (GroundTerm.toTerm t)
-    | GroundTermList.List t ts => TermList.List (GroundTerm.toTerm t) (GroundTermList.toTerm ts)
-end
+def GroundTerm.toTerm : GroundTerm -> Term
+  | GroundTerm.const c => Term.const c
+  | GroundTerm.func ft => Term.func (Tree.mapLeaves (fun c => Tree.leaf (VarOrConst.const c)) ft)
 
 instance : Coe GroundTerm Term where
   coe := GroundTerm.toTerm
 
-mutual
-  def Term.variable : Term -> Option Variable
-    | Term.Variable v => Option.some v
-    | Term.Constant _ => Option.none
-    | Term.Functional _ _ => Option.none
+def Term.variables : Term -> List Variable
+  | Term.var v => List.cons v List.nil
+  | Term.const _ => List.nil
+  | Term.func ft => VarOrConst.filterVars (Tree.leaves ft)
 
-  def TermList.variables : TermList -> List Variable
-    | TermList.Single t => match (Term.variable t) with
-      | some v => List.cons v List.nil
-      | none => List.nil
-    | TermList.List t ts => match (Term.variable t) with
-      | some v => List.cons v (TermList.variables ts)
-      | none => TermList.variables ts
-end
+def Term.skolemize (ruleId : Nat) (frontier : List Variable) (t : Term) : Term :=
+  match t with
+    | Term.var v => ite (List.elem v frontier)
+      (Term.var v)
+      (Term.func (Tree.inner { ruleId := ruleId, var := v} (TreeList.fromList (List.map (fun fv => Tree.leaf (VarOrConst.var fv)) frontier))))
+    | t => t
 
 structure FunctionFreeFact where
-  predicate : Fact
+  predicate : Predicate
   terms : List Constant
 
 structure Fact where
   predicate : Predicate
-  terms : GroundTermList
+  terms : List GroundTerm
 
 structure Atom where
   predicate : Predicate
-  terms : TermList
+  terms : List Term
 
-def Atom.variables (a : Atom) : List Variable := TermList.variables a.terms
+-- TODO: remove duplicates here maybe
+def Atom.variables (a : Atom) : List Variable := List.foldl (fun acc t => acc ++ Term.variables t) List.nil a.terms
 
 def Conjunction := List Atom
 
@@ -123,18 +165,17 @@ structure Rule where
   body : Conjunction
   head : Conjunction
 
+
 def Rule.frontier (r : Rule) : List Variable :=
   -- NOTE: using ∈ does not really work here because it produces a Prop which can not always be simply cast into Bool
   List.filter (fun v => not (List.elem v (Conjunction.vars r.head))) (Conjunction.vars r.body)
 
 def Rule.skolemize (r : Rule) : Rule :=
   { body := r.body, head :=
-    List.map (fun a => { predicate := a.predicate, terms :=
-      (List.map (fun t => match t with
-        | Term.Variable v => v -- TODO: skolemize here
-        | t => t
-      ) a.terms)
-    }) r.head
+    List.map (fun (i, a) => {
+      predicate := a.predicate,
+      terms := List.map (Term.skolemize i (Rule.frontier r)) a.terms
+    }) (List.enum r.head)
   }
 
 def RuleSet := Set Rule
@@ -149,19 +190,18 @@ structure KnowledgeBase where
 
 def GroundSubstitution := Variable -> GroundTerm
 
-mutual
-  def GroundSubstitution.apply_term (σ : GroundSubstitution) : Term -> GroundTerm
-    | Term.Variable v => σ v
-    | Term.Constant c => GroundTerm.Constant c
-    | Term.Functional f ts => GroundTerm.Functional f (GroundSubstitution.apply_list σ ts)
-
-  def GroundSubstitution.apply_list (σ : GroundSubstitution) : TermList -> GroundTermList
-    | TermList.Single t => GroundTermList.Single (GroundSubstitution.apply_term σ t)
-    | TermList.List t ts => GroundTermList.List (GroundSubstitution.apply_term σ t) (GroundSubstitution.apply_list σ ts)
-end
+def GroundSubstitution.apply_term (σ : GroundSubstitution) : Term -> GroundTerm
+  | Term.var v => σ v
+  | Term.const c => GroundTerm.const c
+  | Term.func ft => GroundTerm.func (Tree.mapLeaves (fun voc => match voc with
+    | VarOrConst.var v => match σ v with
+      | GroundTerm.const c => Tree.leaf c
+      | GroundTerm.func ft => ft
+    | VarOrConst.const c => Tree.leaf c
+  ) ft)
 
 def GroundSubstitution.apply_atom (σ : GroundSubstitution) (ϕ : Atom) : Fact :=
-  { predicate := ϕ.predicate, terms := GroundSubstitution.apply_list σ ϕ.terms }
+  { predicate := ϕ.predicate, terms := List.map (GroundSubstitution.apply_term σ) ϕ.terms }
 def GroundSubstitution.apply_conj (σ : GroundSubstitution) (conj : Conjunction) : List Fact :=
   (List.map (GroundSubstitution.apply_atom σ)) conj
 
@@ -170,8 +210,6 @@ class SubsTarget (α) (β) where
 
 instance : SubsTarget Term GroundTerm where
   apply := GroundSubstitution.apply_term
-instance : SubsTarget TermList GroundTermList where
-  apply := GroundSubstitution.apply_list
 instance : SubsTarget Atom Fact where
   apply := GroundSubstitution.apply_atom
 instance : SubsTarget Conjunction (List Fact) where
@@ -185,8 +223,18 @@ def Trigger.loaded (trg : Trigger) (F : FactSet) : Prop :=
   let l : List Fact := SubsTarget.apply trg.subs trg.rule.body
   l ⊆ F
 
-/- FIXME
-def Trigger.sactive (trg : Trigger) (F : FactSet) : Prop := sorry
+def Trigger.sactive (trg : Trigger) (F : FactSet) : Prop :=
+  Trigger.loaded trg F ∧ ¬ (
+    let l : List Fact := SubsTarget.apply trg.subs (Rule.skolemize trg.rule).head
+    l ⊆ F
+  )
 
-def Trigger.ractive (trg : Trigger) (F : FactSet) : Prop := sorry
--/
+def Trigger.ractive (trg : Trigger) (F : FactSet) : Prop :=
+  Trigger.loaded trg F ∧ ¬ (
+    ∃ s : GroundSubstitution,
+      (∀ v, List.elem v (Rule.frontier trg.rule) → s v = trg.subs v) ∧
+      (
+        let l : List Fact := SubsTarget.apply s trg.rule.head
+        l ⊆ F
+      )
+  )
