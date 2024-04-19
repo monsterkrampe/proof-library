@@ -98,15 +98,6 @@ namespace Trigger
         apply ih
         intro _ hf'; apply base; apply Or.inr; apply hf'
         exact hr 
-
-
-
-
-  -- TODO: remove this
-  -- theorem funcTermForExisVarInMultipleTriggersMeansTheyAreTheSame (trg : Trigger) (var : Variable) (var_in_head : ∃ headAtom : FunctionFreeAtom, trg.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var)) (var_not_in_frontier : trg.rule.frontier.elem var = false) : ∀ trg': Trigger, (∃ f: Fact, f ∈ trg'.result ∧ (trg.subs.apply_skolem_term (VarOrConst.skolemize trg.rule.id trg.rule.frontier (VarOrConst.var var))) ∈ f.terms.toSet) -> trg.rule = trg'.rule ∧ ∀ v, v ∈ trg.rule.frontier.toSet -> trg.subs v = trg'.subs v := by 
-  --   intro trg' exis_f
-  --   sorry
-
 end Trigger
 
 namespace FactSet

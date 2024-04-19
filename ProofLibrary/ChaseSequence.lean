@@ -141,58 +141,15 @@ theorem rObsoletenessSubsetMonotone (trg : Trigger) (F G : FactSet) : F ⊆ G �
     exact hs.right 
     exact sub 
 
--- TODO: I think the commented theorem can be deleted
--- theorem factInChaseSeqMustComeFromDBOrTriggerResult (kb : KnowledgeBase) (cs : ChaseSequence kb) (f : Fact) (i : Nat) : f ∈ cs.fact_sets i -> f ∈ kb.db.toFactSet ∨ ∃ j, j ≤ i ∧ f ∈ cs.fact_sets j ∧ ¬ (f ∈ cs.fact_sets (j-1)) ∧ ∃ trg : RTrigger kb.rules, (f ∈ trg.val.result ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j) := by
--- -- ∃ trg : RTrigger kb.rules, (f ∈ trg.val.result ∧ trg.val.result ⊆ cs.fact_sets i) := by 
---   intro h 
---   induction i with 
---   | zero => rw [cs.database_first] at h; apply Or.inl; exact h 
---   | succ j ih => 
---     have trg_exis := cs.triggers_exist j 
---     cases trg_exis with 
---     | inr hr => 
---       rw [← hr.right] at h
---       cases ih h with
---       | inl _ => apply Or.inl; assumption 
---       | inr hr => apply Or.inr; cases hr with | intro k hk => exists k; constructor; apply Nat.le_succ_of_le; exact hk.left; exact hk.right
---         --exists trg; constructor; exact htrg.left; apply Set.subsetTransitive; constructor; apply htrg.right; apply chaseSequenceSetIsSubsetOfNext
---     | inl hl => 
---       cases hl with | intro trg h_trg => 
---         rw [← h_trg.right] at h
---         cases h with 
---         | inr hlr =>  
---           cases ih hlr with 
---           | inl _ => apply Or.inl; assumption
---           | inr hr => apply Or.inr; cases hr with | intro k hk => exists k; constructor; apply Nat.le_succ_of_le; exact hk.left; exact hk.right
---             --exists trg; constructor; exact htrg.left; apply Set.subsetTransitive; constructor; apply htrg.right; apply chaseSequenceSetIsSubsetOfNext
---         | inl hll => 
---           -- TODO: this should actually be decidable but we need to change the implementation for this
---           cases Classical.em (f ∈ cs.fact_sets j) with 
---           | inl h_f_in_j => 
---             cases ih h_f_in_j with 
---             | inl hl => apply Or.inl; exact hl
---             | inr hr => apply Or.inr; cases hr with | intro k hk => exists k; constructor; apply Nat.le_succ_of_le; exact hk.left; exact hk.right
---           | inr h_f_not_in_j => 
---             apply Or.inr
---             exists j+1
---             constructor
---             . simp 
---             constructor
---             . rw [← h_trg.right]; apply Or.inl; exact hll
---             constructor
---             . exact h_f_not_in_j
---             . exists trg; constructor; exact hll; rw [← h_trg.right]; rfl
-
-theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (∃ headAtom : FunctionFreeAtom, trg.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var)) ∧ (trg.val.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ ((trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet)) -> ∃ j, j ≤ i ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j := by 
-  -- TODO: simplify: var_in_head not required
-  intro ⟨var_in_head, var_not_in_frontier, exis_f⟩
+theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (trg.val.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ ((trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet)) -> ∃ j, j ≤ i ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j := by 
+  intro ⟨var_not_in_frontier, exis_f⟩
   induction i with 
   | zero => 
     cases exis_f with | intro f hf =>
       let ⟨f_in_db, functional_term_in_f⟩ := hf
       rw [cs.database_first] at f_in_db
-      have : ∀ t, t ∈ f.terms.toSet -> t ≠ GroundSubstitution.apply_skolem_term trg.val.subs (VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var var)) := by 
-        intro t t_in_f
+      have : ∀ t, t ≠ GroundSubstitution.apply_skolem_term trg.val.subs (VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var var)) := by 
+        intro t
         unfold Database.toFactSet at f_in_db 
         unfold Fact.toFunctionFreeFact at f_in_db 
         simp [Set.element] at f_in_db
@@ -214,7 +171,6 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
             contradiction
       apply False.elim 
       apply this
-      apply functional_term_in_f
       rfl
   | succ j ih =>
     -- TODO: this should actually be decidable but we need to change the implementation for this
@@ -265,14 +221,13 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                   exact hf.right
               . exact hf.right
           
-          -- TODO: use "this" (above) to show
           have : ∃ var2, trg'.val.rule.frontier.elem var2 = false ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const (VarOrConst.var var2)) := by 
             cases this with | intro f hf =>
               have ⟨f_in_res, apply_var_in_f_terms⟩ := hf
               let i := trg'.val.idx_of_fact_in_result f f_in_res
               let atom_for_f := trg'.val.rule.head.get i
 
-              cases List.inToSetMeansExistsIndex _ _ apply_var_in_f_terms with | intro j hj =>
+              cases List.inToSetMeansExistsIndex _ _ apply_var_in_f_terms with | intro k hk =>
                 have f_is_at_its_idx : f = trg'.val.mapped_head.get ⟨i.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact i.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; apply List.idx_of_get
 
                 have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_for_f) := by 
@@ -282,22 +237,22 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                   rw [List.get_map]
                   simp
 
-                let term_for_f := atom_for_f.terms.get ⟨j.val, (by 
+                let term_for_f := atom_for_f.terms.get ⟨k.val, (by 
                   rw [← atom_arity_same_as_fact]
-                  exact j.isLt
+                  exact k.isLt
                 )⟩
 
-                have : (trg'.val.apply_to_var_or_const term_for_f) = f.terms.get j := by 
-                  simp
-
-                  have : f.terms = (trg'.val.mapped_head.get ⟨i.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact i.isLt⟩).terms:= by conv => lhs; rw [f_is_at_its_idx]
-                  -- rw [List.get_eq_of_lists_eq _ _ _ this]
-                  -- rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
-                  sorry
+                -- TODO: this is similar to stuff going on around line 745; check if we can unify
+                have : (trg'.val.apply_to_var_or_const term_for_f) = f.terms.get k := by 
+                  have : f.terms = (trg'.val.apply_to_function_free_atom atom_for_f).terms := by
+                    conv => lhs; rw [f_is_at_its_idx]
+                    rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
+                  rw [List.get_eq_of_eq this]
+                  simp [Trigger.apply_to_function_free_atom, List.get_map]
 
                 have : (trg.val.apply_to_var_or_const (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const term_for_f) := by 
-                  rw [← this] at hj 
-                  exact hj
+                  rw [← this] at hk
+                  exact hk
 
                 cases eq_term_for_f : term_for_f with 
                 | const c => 
@@ -311,9 +266,29 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                     intro h 
                     simp at h
                     rw [eq_term_for_f] at this
-                    simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier] at this
-                    simp [h] at this
-                    sorry
+
+                    apply f_not_in_j
+                    have var_for_f_occurs_in_body_atom := trg'.val.rule.frontier_var_occurs_in_fact_in_body var_for_f h
+                    cases var_for_f_occurs_in_body_atom with | intro body_atom_for_f h_body_atom_for_f =>
+                      exists (SubsTarget.apply trg'.val.subs body_atom_for_f)
+                      constructor 
+                      . have trg'_loaded := h_trg'.left.left
+                        apply trg'_loaded
+                        unfold Trigger.mapped_body
+                        simp [SubsTarget.apply]
+                        unfold GroundSubstitution.apply_function_free_conj
+                        apply List.mappedElemInMappedList
+                        apply h_body_atom_for_f.left
+                      . simp [SubsTarget.apply, GroundSubstitution.apply_function_free_atom]
+                        simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const] at this
+                        rw [this]
+                        simp [GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, h]
+                        apply List.existsIndexMeansInToSet
+                        cases (List.inToSetMeansExistsIndex _ _ h_body_atom_for_f.right) with | intro l h_l =>
+                          exists ⟨l, (by rw [List.length_map]; exact l.isLt)⟩
+                          simp [List.get_map]
+                          rw [← h_l]
+                          simp [GroundSubstitution.apply_var_or_const]
 
                   constructor
                   . exact var_for_f_not_in_frontier
@@ -363,7 +338,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
           rw [this]
           exact h_trg'.right
 
-theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (∃ headAtom : FunctionFreeAtom, trg.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var)) ∧ (trg.val.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ (trg.val.subs.apply_skolem_term (VarOrConst.skolemize trg.val.rule.id trg.val.rule.frontier (VarOrConst.var var))) ∈ f.terms.toSet) -> trg.val.result ⊆ cs.fact_sets i := by 
+theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (trg.val.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ (trg.val.subs.apply_skolem_term (VarOrConst.skolemize trg.val.rule.id trg.val.rule.frontier (VarOrConst.var var))) ∈ f.terms.toSet) -> trg.val.result ⊆ cs.fact_sets i := by 
   intro h 
   cases funcTermForExisVarInChaseMeansTriggerIsUsed kb cs trg var i h with | intro j hj =>
     have : trg.val.result ⊆ cs.fact_sets j := by 
@@ -377,83 +352,6 @@ theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (
     cases Nat.le.dest hj.left with | intro k hk => 
       rw [← hk]
       apply chaseSequenceSetIsSubsetOfAllFollowing
-    
-  -- TODO: I think the commented stuff here can be deleted
-  -- intro ⟨var_in_head, var_not_in_frontier, exis_f⟩
-  -- cases exis_f with | intro f hf => 
-  --   have ⟨f_in_chase, var_in_f_terms⟩ := hf 
-  --
-  --   -- FIXME: we should not do this for f but for the fact that freshly introduces the functional term 
-  --   -- this might happen before f
-  --
-  --   have f_res_from_trg' : ∃ j, j ≤ i ∧ f ∈ cs.fact_sets j ∧ ¬ (f ∈ cs.fact_sets (j-1)) ∧ ∃ trg : RTrigger kb.rules, (f ∈ trg.val.result ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j) := by
-  --   -- ∃ trg : RTrigger kb.rules, (f ∈ trg.val.result ∧ trg.val.result ⊆ cs.fact_sets i) := by 
-  --     cases factInChaseSeqMustComeFromDBOrTriggerResult kb cs f i f_in_chase with 
-  --     | inr _ => assumption
-  --     | inl hl => 
-  --       apply False.elim 
-  --       simp [Database.toFactSet, Set.element, Fact.toFunctionFreeFact] at hl 
-  --
-  --       have : ¬(List.all f.terms fun t =>
-  --         match t with
-  --         | GroundTerm.const c => true
-  --         | x => false) := by 
-  --           apply List.neg_all_of_any_neg
-  --           apply List.any_of_exists
-  --           exists GroundSubstitution.apply_skolem_term trg.subs (VarOrConst.skolemize trg.rule.id trg.rule.frontier (VarOrConst.var var))
-  --           constructor
-  --           . apply var_in_f_terms
-  --           . simp [GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier]
-  --       split at hl 
-  --       exact hl 
-  --       case h_2 _ _ heq => apply (Option.someNotNone heq); split; contradiction; rfl
-  --
-  --   cases f_res_from_trg' with | intro j hj => 
-  --     let ⟨j_leq_i, h_in_j, h_not_in_before_j, h_ex_trg⟩ := hj
-  --     cases h_ex_trg with | intro trg' htrg' =>
-  --         --have : trg.rule = trg'.val.rule ∧ ∀ v, v ∈ trg.rule.frontier.toSet -> trg.subs.apply_term (VarOrConst.skolemize trg.rule.id trg.rule.frontier (VarOrConst.var v)) = trg'.val.subs.apply_term (VarOrConst.skolemize trg'.val.rule.id trg'.val.rule.frontier (VarOrConst.var v)) := by sorry
-  --       -- FIXME: this might actually not hold!!!
-  --       have : trg.rule = trg'.val.rule ∧ ∀ v, v ∈ trg.rule.frontier.toSet -> trg.subs v = trg'.val.subs v := by sorry
-  --       have : trg.mapped_head = trg'.val.mapped_head := by 
-  --         unfold Trigger.mapped_head
-  --         rw [← this.left]
-  --         apply List.map_eq_map_if_functions_eq
-  --         intro a ha
-  --         simp
-  --         apply List.map_eq_map_if_functions_eq
-  --         intro voc hvoc
-  --         cases voc with 
-  --         | const c => simp [SubsTarget.apply, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] 
-  --         | var v =>
-  --           cases Decidable.em (trg.rule.frontier.elem v) with 
-  --           | inl v_in_frontier => 
-  --             simp [VarOrConst.skolemize, v_in_frontier, SubsTarget.apply, GroundSubstitution.apply_skolem_term]
-  --             apply this.right
-  --             apply List.listElementAlsoToSetElement
-  --             apply v_in_frontier
-  --           | inr v_not_in_frontier => 
-  --             simp [VarOrConst.skolemize, v_not_in_frontier, SubsTarget.apply, GroundSubstitution.apply_skolem_term]
-  --             rw [← FiniteTreeList.eqIffFromListEq]
-  --             apply List.map_eq_map_if_functions_eq
-  --             intro w hw
-  --             rw [← this.right w]
-  --             exact hw
-  --
-  --       have : trg.result = trg'.val.result := by 
-  --         unfold Trigger.result 
-  --         rw [this]
-  --       rw [this]
-  --       have : trg'.val.result ⊆ cs.fact_sets j := by 
-  --         rw [← htrg'.right]
-  --         apply Set.subsetUnionSomethingStillSubset
-  --         apply Set.subsetOfSelf
-  --
-  --       apply Set.subsetTransitive
-  --       constructor
-  --       apply this
-  --       cases Nat.le.dest j_leq_i with | intro k hk => 
-  --         rw [← hk]
-  --         apply chaseSequenceSetIsSubsetOfAllFollowing
 
 namespace KnowledgeBase
   def terminates (kb : KnowledgeBase) : Prop :=
@@ -603,14 +501,6 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                 case h_2 ft h_ft_eq => 
                   split 
                   case h_1 _ exis_f _ => 
-                    have vtInHead : ∃ headAtom : FunctionFreeAtom, trg.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var vt) := by 
-                      exists trg.val.rule.head.get idx_f
-                      simp [List.elem, List.get]
-                      constructor 
-                      . apply List.listToSetElementAlsoListElement
-                        apply List.listGetInToSet
-                      . apply List.listToSetElementAlsoListElement
-                        apply ht
                     have vtInFrontier : trg.val.rule.frontier.elem vt := by 
                       apply Decidable.byContradiction
                       intro vtNotInFrontier
@@ -618,8 +508,6 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
 
                       have : trg.val.result ⊆ cs.fact_sets j := by 
                         apply funcTermForExisVarInChaseMeansTriggerResultOccurs
-                        constructor 
-                        apply vtInHead
                         constructor
                         apply vtNotInFrontier
                         simp [GroundSubstitution.apply_skolem_term]
