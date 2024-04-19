@@ -185,6 +185,36 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
       contradiction
   -- universality
   intro m mIsModel
+  have inductive_claim : ∀ i : Nat, ∃ h, isHomomorphism h ∧ applyFactSet h (cs.fact_sets i) ⊆ m := by 
+    intro i 
+    induction i 
+    exists id -- is the ID ok here?
+    constructor 
+    unfold isHomomorphism ; intro gt ; cases gt <;> simp
+    rw [cs.database_first]
+    simp [applyFactSet]
+    intro el 
+    simp [Set.element]
+    intro elInSet 
+    cases elInSet with | intro f hf => 
+      apply mIsModel.left
+      simp [Set.element] 
+      have : f = el := by have hfr := hf.right; simp [applyFact, List.map_id] at hfr; exact hfr
+      rw [this] at hf 
+      exact hf.left
+    
+    case succ k ih_k => 
+      cases ih_k with | intro h ih_h => 
+        cases cs.triggers_exist k
+        case inr sequence_finished => 
+          exists h 
+          rw [← sequence_finished.right]
+          exact ih_h
+        case inl triggers_exist => 
+          let new_h : GroundTermMapping := sorry
+          sorry
+  let global_h : GroundTermMapping := fun t => 
+    if ∃ f, f ∈ cs.result ∧ t ∈ f.terms.toSet then sorry else t
   sorry
   
 
