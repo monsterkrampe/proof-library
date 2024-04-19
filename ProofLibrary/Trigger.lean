@@ -7,29 +7,31 @@ structure Trigger where
   subs : GroundSubstitution
 
 namespace Trigger
-  def loaded (trg : Trigger) (F : FactSet) : Prop :=
-    let l : List Fact := SubsTarget.apply trg.subs trg.rule.body
-    l ⊆ F
-
-  def sactive (trg : Trigger) (F : FactSet) : Prop :=
-    loaded trg F ∧ ¬ (
-      let l : List Fact := SubsTarget.apply trg.subs (Rule.skolemize trg.rule).head
-      l ⊆ F
-    )
-
-  def ractive (trg : Trigger) (F : FactSet) : Prop :=
-    loaded trg F ∧ ¬ (
-      ∃ s : GroundSubstitution,
-        (∀ v, List.elem v (Rule.frontier trg.rule) → s v = trg.subs v) ∧
-        (
-          let l : List Fact := SubsTarget.apply s trg.rule.head
-          l ⊆ F
-        )
-    )
+  def mapped_body (trg : Trigger) : List Fact := SubsTarget.apply trg.subs trg.rule.body
+  def mapped_head (trg : Trigger) : List Fact := SubsTarget.apply trg.subs (Rule.skolemize trg.rule).head
 
   def result (trg : Trigger) : FactSet :=
-    let l : List Fact := SubsTarget.apply trg.subs (Rule.skolemize trg.rule).head
-    List.toSet l
+    trg.mapped_head.toSet
+  
+  def loaded (trg : Trigger) (F : FactSet) : Prop :=
+    trg.mapped_body ⊆ F
+
+  def sobsolete (trg : Trigger) (F : FactSet) : Prop := 
+    trg.mapped_head ⊆ F
+
+  def sactive (trg : Trigger) (F : FactSet) : Prop :=
+    trg.loaded F ∧ ¬ (trg.sobsolete F)
+
+  def robsolete (trg : Trigger) (F : FactSet) : Prop := 
+    ∃ s : GroundSubstitution,
+      (∀ v, List.elem v (Rule.frontier trg.rule) → s v = trg.subs v) ∧
+      (
+        let l : List Fact := SubsTarget.apply s trg.rule.head
+        l ⊆ F
+      )
+
+  def ractive (trg : Trigger) (F : FactSet) : Prop :=
+    trg.loaded F ∧ ¬ (trg.robsolete F)
 end Trigger
 
 namespace FactSet

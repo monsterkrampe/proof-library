@@ -1,4 +1,6 @@
-import Mathlib.Data.Stream.Defs
+-- import Mathlib.Data.Stream.Defs
+
+def Stream' (α : Type u) := Nat -> α 
 
 structure PossiblyInfiniteList (α) where
   infinite_list : Stream' (Option α)
