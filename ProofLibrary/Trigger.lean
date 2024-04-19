@@ -35,6 +35,29 @@ namespace Trigger
   def result (trg : Trigger) : FactSet :=
     trg.mapped_head.toSet
 
+  theorem subs_application_is_injective_for_freshly_introduced_terms {t : Variable} (trg : Trigger) (t_not_in_frontier : ¬ trg.rule.frontier.elem t) : ∀ s, (trg.apply_to_var_or_const (VarOrConst.var t) = trg.apply_to_var_or_const (VarOrConst.var s)) -> trg.skolemize_var_or_const (VarOrConst.var t) = trg.skolemize_var_or_const (VarOrConst.var s) := by 
+    intro s apply_eq_for_t_and_s
+    cases Decidable.em (trg.rule.frontier.elem s) with 
+    | inr hr => 
+      simp [t_not_in_frontier, hr, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at apply_eq_for_t_and_s
+      simp [t_not_in_frontier, hr, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]
+      injection apply_eq_for_t_and_s with tree_node_eq
+      injection tree_node_eq
+    | inl hl => 
+      simp [t_not_in_frontier, hl, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at apply_eq_for_t_and_s
+      apply False.elim
+      let tree_for_s := trg.apply_to_var_or_const (VarOrConst.var s)
+      let ts := trg.rule.frontier.map (fun fv => trg.subs fv)
+      let a : SkolemFS := { ruleId := trg.rule.id, var := t }
+      apply FiniteTree.tree_eq_while_contained_is_impossible tree_for_s ts a
+      simp [apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
+      apply apply_eq_for_t_and_s
+      simp [apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
+      apply List.listToSetElementAlsoListElement
+      apply List.mappedElemInMappedList
+      apply List.listElementAlsoToSetElement
+      apply hl
+
   def idx_of_fact_in_result (trg : Trigger) (f : Fact) (f_in_res : f ∈ trg.result) : Fin trg.rule.head.length :=
     let fin_mapped := trg.mapped_head.idx_of f (trg.mapped_head.listToSetElementAlsoListElement f f_in_res)
     have fin_mapped_isLt := fin_mapped.isLt
@@ -132,9 +155,7 @@ namespace RTrigger
     {rs : RuleSet} 
     (trg1 trg2 : RTrigger rs) 
     (var1 var2 : Variable) 
-    -- (var1_in_head : ∃ headAtom : FunctionFreeAtom, trg1.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var1)) 
     (var1_not_in_frontier : trg1.val.rule.frontier.elem var1 = false) 
-    -- (var2_in_head : ∃ headAtom : FunctionFreeAtom, trg2.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var2)) 
     (var2_not_in_frontier : trg2.val.rule.frontier.elem var2 = false) 
     : 
     (trg1.val.apply_to_var_or_const (VarOrConst.var var1)) = (trg2.val.apply_to_var_or_const (VarOrConst.var var2))

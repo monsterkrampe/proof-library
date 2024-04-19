@@ -231,4 +231,7 @@ namespace FiniteTree
   end
 
   def nodesInDepthK (t : FiniteTree α β) (depth : Nat) : List (FiniteTree α β) := t.privateNodesInDepthK depth 0
+
+  theorem tree_eq_while_contained_is_impossible [DecidableEq α] [DecidableEq β] (t : FiniteTree α β) (ts : List (FiniteTree α β)) (a : α) (h_eq : FiniteTree.inner a ts = t) (h_contains : ts.elem t) : False := by 
+    sorry
 end FiniteTree

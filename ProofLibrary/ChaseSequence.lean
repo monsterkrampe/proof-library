@@ -418,13 +418,13 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
     let hsubs := Classical.choose_spec trg_obsolete_on_m
 
     let new_h : GroundTermMapping := fun t =>
-      match t_eq : t with 
+      match t with 
       | FiniteTree.leaf _ => t
       | FiniteTree.inner _ _ =>
         let tInChaseKDec := Classical.propDecidable (∃ f, f ∈ (cs.fact_sets j) ∧ t ∈ f.terms.toSet)
         match tInChaseKDec with 
         | Decidable.isTrue _ => prev_hom.val t
-        | Decidable.isFalse tNotInChaseK =>
+        | Decidable.isFalse _ =>
           let tInResultDec := Classical.propDecidable (∃ f, f ∈ trg.val.result ∧ t ∈ f.terms.toSet)
           match tInResultDec with 
           | Decidable.isFalse _ => t
@@ -434,7 +434,6 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
 
             let idx_f := trg.val.idx_of_fact_in_result f hfl
             let atom_in_head := trg.val.rule.head.get idx_f
-            -- let skolem_atom_in_head := atom_in_head.skolemize trg.val.rule.id trg.val.rule.frontier
             let idx_t_in_f := f.terms.idx_of t (List.listToSetElementAlsoListElement _ _ hfr)
             have idx_t_in_f_isLt := idx_t_in_f.isLt
             have f_is_at_its_idx : f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact idx_f.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; apply List.idx_of_get
@@ -498,7 +497,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                   have this := prev_hom.property.left (FiniteTree.leaf c)
                   simp at this
                   rw [this]
-                case h_2 ft h_ft_eq => 
+                case h_2 => 
                   split 
                   case h_1 _ exis_f _ => 
                     have vtInFrontier : trg.val.rule.frontier.elem vt := by 
@@ -515,7 +514,6 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
 
                       have : trg.val.robsolete (cs.fact_sets j) := by 
                         let obs_subs := fun v : Variable => trg.val.apply_to_var_or_const (VarOrConst.var v)
-                          -- trg.val.subs.apply_skolem_term (VarOrConst.skolemize (trg.val.rule.id) (trg.val.rule.frontier) (VarOrConst.var v))
 
                         exists obs_subs
                         constructor
@@ -529,9 +527,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                           unfold Trigger.mapped_head
                           unfold Trigger.apply_to_function_free_atom
 
-                          have : ∀ a : FunctionFreeAtom, (List.map (GroundSubstitution.apply_var_or_const obs_subs 
-                          -- fun v => GroundSubstitution.apply_skolem_term trg.val.subs (VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var v))
-                            ) a.terms) = (List.map (trg.val.apply_to_var_or_const) a.terms) := by 
+                          have : ∀ a : FunctionFreeAtom, (List.map (GroundSubstitution.apply_var_or_const obs_subs) a.terms) = (List.map (trg.val.apply_to_var_or_const) a.terms) := by 
                             intro a 
                             induction a.terms with 
                             | nil => simp [List.map]
@@ -617,30 +613,35 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
 
                         let skolem_term_corresponding_to_t := trg.val.skolemize_var_or_const term_corresponding_to_t
 
-                        have subs_application_is_injective_for_freshly_introduced_terms : ∀ s, s ∈ atom_in_head.terms.toSet ∧ trg.val.apply_to_skolemized_term skolem_t = trg.val.apply_to_var_or_const s -> skolem_t = trg.val.skolemize_var_or_const s := by 
-                          -- TODO: resolve this by arguing that subs application is basically injective on fresh skolem term
-                          sorry
+                        have subs_application_is_injective_for_freshly_introduced_terms : ∀ s, trg.val.apply_to_skolemized_term skolem_t = trg.val.apply_to_var_or_const s -> skolem_t = trg.val.skolemize_var_or_const s := by 
+                          intro s hs
+                          simp
+                          cases s with 
+                          | const const_s => 
+                            simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, VarOrConst.skolemize, vtNotInFrontier, GroundSubstitution.apply_skolem_term] at hs
+                            contradiction
+                          | var var_s =>
+                            apply Trigger.subs_application_is_injective_for_freshly_introduced_terms
+                            apply vtNotInFrontier
+                            apply hs
 
                         have skolemized_ts_are_equal : skolem_term_corresponding_to_t = skolem_t := by 
                           apply Eq.symm 
                           apply subs_application_is_injective_for_freshly_introduced_terms
-                          constructor
-                          . apply List.listGetInToSet 
-                          . unfold Trigger.apply_to_var_or_const at t_is_at_its_idx
-                            simp at t_is_at_its_idx
-                            rw [t_is_at_its_idx]
+                          unfold Trigger.apply_to_var_or_const at t_is_at_its_idx
+                          simp at t_is_at_its_idx
+                          rw [t_is_at_its_idx]
 
-                            have : chosen_f.terms = (trg.val.apply_to_function_free_atom atom_in_head).terms := by 
-                              rw [f_is_at_its_idx]
-                              rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
+                          have : chosen_f.terms = (trg.val.apply_to_function_free_atom atom_in_head).terms := by 
+                            rw [f_is_at_its_idx]
+                            rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
 
-                            rw [List.get_eq_of_eq this]
+                          rw [List.get_eq_of_eq this]
 
-                            simp [Trigger.apply_to_function_free_atom, List.get_map]
+                          simp [Trigger.apply_to_function_free_atom, List.get_map]
 
                         have : term_corresponding_to_t = t := by 
                           apply VarOrConst.skolemize_injective trg.val.rule.id (Rule.frontier trg.val.rule)
-                          -- rw [this]
                           apply skolemized_ts_are_equal
 
                         simp at this
@@ -758,7 +759,6 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
     intro t t_is_term_in_f
     split 
     case a.h_2 _ n_ex_f' _ => 
-      -- contradiction
       apply False.elim 
       apply n_ex_f' 
       exists f 
