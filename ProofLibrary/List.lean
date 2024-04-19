@@ -64,7 +64,22 @@ namespace List
       | Nat.succ i => cons h (tail.before_index i)
 
   theorem before_and_element_le_sum (L : List Nat) (pos : Fin (L.length)) : (L.before_index pos.val).sum + (L.get pos) ≤ L.sum := by
-    sorry
+    let ⟨index, indexSmallEnough⟩ := pos
+    cases L with
+      | nil => simp [List.length] at indexSmallEnough; exact absurd indexSmallEnough (Nat.not_lt_zero index)
+      | cons head tail =>
+        simp [before_index]
+        cases index with
+          | zero => simp [sum, List.get, Nat.le_add_right]
+          | succ j =>
+            simp [sum, List.get]
+            rw [Nat.add_assoc]
+            apply Nat.add_le_add_left
+            apply before_and_element_le_sum tail ⟨j, (by
+              simp at indexSmallEnough
+              apply Nat.lt_of_succ_lt_succ
+              exact indexSmallEnough
+            )⟩
 
   /- NOTE: inductive lists are always finite!
   def isFinite (l : List α) : Prop :=

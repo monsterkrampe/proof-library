@@ -67,9 +67,18 @@ namespace NodeInPossiblyInfiniteTree
       apply List.everyElementLeSum
       exact no_children_in_mapped_layer
 
-    have no_c_before_add_no_c_le_layer_length : number_of_children_before + number_of_children ≤ layer_mapped.sum := by
+    let fin_pos : Fin layer_mapped.length := ⟨node.position_in_layer, (by
+      have h := node.layer_large_enough node.layer
+      rw [← List.length_map node.layer (fun ni => ni.number_of_children)] at h
+      apply h
+      rw [nodeLayerIsLayerAtDepth]
+    )⟩
+    have no_children_is_at_pos_in_mapped_layer : number_of_children = layer_mapped.get fin_pos := by
       simp [NodeInPossiblyInfiniteTree.node_info]
-      sorry
+
+    have no_c_before_add_no_c_le_layer_length : number_of_children_before + number_of_children ≤ layer_mapped.sum := by
+      rw [no_children_is_at_pos_in_mapped_layer]
+      apply List.before_and_element_le_sum layer_mapped fin_pos
 
     match equality_noc : node_info.number_of_children with
       | Nat.zero => List.nil
@@ -96,7 +105,7 @@ namespace NodeInPossiblyInfiniteTree
             let next_layer := next_layer_opt.unwrap nextLayerExists
             let child_information := (next_layer.drop number_of_children_before).take number_of_children
 
-            child_information.enum_with_lt.map (fun (indexFin, info) => {
+            child_information.enum_with_lt.map (fun (indexFin, _) => {
               tree := node.tree,
               depth := node.depth + 1,
               position_in_layer := number_of_children_before + indexFin.val,
