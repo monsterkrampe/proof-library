@@ -1,6 +1,7 @@
 import ProofLibrary.Option
 import ProofLibrary.List
 import ProofLibrary.PossiblyInfiniteList
+import Std.Data.List.Lemmas
 
 structure NodeInformation (α) where
   value : α
@@ -64,6 +65,9 @@ namespace NodeInPossiblyInfiniteTree
       apply List.everyElementLeSum
       exact no_children_in_mapped_layer
 
+    have no_c_before_add_no_c_le_layer_length : number_of_children_before + number_of_children ≤ layer_mapped.sum := by
+      sorry
+
     match equality_noc : node_info.number_of_children with
       | Nat.zero => List.nil
       | Nat.succ n =>
@@ -89,10 +93,10 @@ namespace NodeInPossiblyInfiniteTree
             let next_layer := next_layer_opt.unwrap nextLayerExists
             let child_information := (next_layer.drop number_of_children_before).take number_of_children
 
-            child_information.enum.map (fun (i, info) => {
+            child_information.enum_with_lt.map (fun (indexWithLt, info) => {
               tree := node.tree,
               depth := node.depth + 1,
-              position_in_layer := number_of_children_before + i,
+              position_in_layer := number_of_children_before + indexWithLt.index,
               layer_exists := by
                 exists next_layer
                 simp
@@ -110,6 +114,8 @@ namespace NodeInPossiblyInfiniteTree
                   have nextEqNextPrime : next_layer = next_layer' := Option.someEqImpliesEq exis
                   rw [← nextEqNextPrime] at count
                   rw [count, ← equality_sum]
+                  have indexLt := indexWithLt.lt
+                  have child_info_length_le_no_children : child_information.length ≤ number_of_children := by apply List.length_take_le
                   -- TODO: continue here
                   sorry
             })

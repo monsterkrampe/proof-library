@@ -76,4 +76,26 @@ namespace List
       | List.nil => Option.some a
       | List.cons _ _ => as.last
   -/
+
+  -- TODO: is there some more idiomatic way to get a lt proof with indices in enum?
+  structure IndexWithLt (length : Nat) where
+    index : Nat
+    lt : index < length
+
+  def enum_with_lt_from : (l : List α) -> (start totalLength : Nat) -> (start + l.length = totalLength) -> List ((IndexWithLt totalLength) × α)
+    | nil => fun _ _ _ => nil
+    | cons head tail => fun s tl h =>
+      cons ({ index := s, lt := (by
+        rw [← h]
+        simp
+        apply Nat.lt_succ_of_le
+        apply Nat.le_add_right
+      ) }, head) (tail.enum_with_lt_from (s + 1) tl (by
+        rw [← h]
+        rw [Nat.add_assoc, Nat.add_comm 1 _, ← Nat.succ_eq_add_one]
+        simp
+      ))
+
+  def enum_with_lt (l : List α) : List ((IndexWithLt l.length) × α) :=
+    l.enum_with_lt_from 0 l.length (by simp)
 end List
