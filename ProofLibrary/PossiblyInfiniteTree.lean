@@ -1,7 +1,48 @@
 import ProofLibrary.Option
 import ProofLibrary.List
 import ProofLibrary.PossiblyInfiniteList
-import Std.Data.List.Lemmas
+-- import Std.Data.List.Lemmas
+
+section
+  -- copied from mathlib
+  theorem Nat.min_le_right (a b : Nat) : min a b ≤ b := by rw [Nat.min_def]; split; trivial; simp
+  theorem Nat.min_le_left (a b : Nat) : min a b ≤ a := by 
+    rw [Nat.min_def]
+    split 
+    simp 
+    cases Nat.lt_or_ge a b with 
+    | inl hl => have : a ≤ b := Nat.le_of_lt hl; contradiction
+    | inr hr => trivial
+  theorem Nat.min_eq_left {a b : Nat} (h : a ≤ b) : min a b = a := by simp [Nat.min_def, h]
+  theorem Nat.min_eq_right {a b : Nat} (h : b ≤ a) : min a b = b := by 
+    simp [Nat.min_def]
+    cases Nat.eq_or_lt_of_le h with  
+    | inl hl => simp [hl] 
+    | inr hr => simp [Nat.not_le_of_gt hr]
+  theorem Nat.zero_min (a : Nat) : min 0 a = 0 := Nat.min_eq_left (zero_le a)
+  theorem Nat.min_zero (a : Nat) : min a 0 = 0 := Nat.min_eq_right (zero_le a)
+  theorem Nat.succ_le_succ_iff {a b : Nat} : succ a ≤ succ b ↔ a ≤ b :=
+    ⟨le_of_succ_le_succ, succ_le_succ⟩
+  theorem Nat.min_succ_succ (x y : Nat) : min (succ x) (succ y) = succ (min x y) := by
+    simp [Nat.min_def, Nat.succ_le_succ_iff]; split <;> rfl
+
+  theorem List.take_succ_cons : (a :: as).take (i + 1) = a :: as.take i := rfl
+  theorem List.length_take : ∀ (i : Nat) (l : List α), length (take i l) = min i (length l)
+    | 0, l => by simp [List.length, Nat.zero_min]
+    | Nat.succ n, [] => by simp [List.length, Nat.min_zero]
+    | Nat.succ n, _ :: l => by simp [Nat.min_succ_succ, Nat.add_one, length_take, take_succ_cons]
+  theorem List.length_take_le (n) (l : List α) : length (take n l) ≤ n := by simp [List.length_take, Nat.min_le_left]
+
+  theorem List.get?_eq_get : ∀ {l : List α} {n} (h : n < l.length), l.get? n = some (get l ⟨n, h⟩)
+  | _ :: _, 0, _ => rfl
+  | _ :: l, _+1, _ => get?_eq_get (l := l) _
+  theorem List.get?_map (f : α → β) : ∀ l n, (map f l).get? n = (l.get? n).map f
+    | [], _ => rfl
+    | _ :: _, 0 => rfl
+    | _ :: l, n+1 => get?_map f l n
+  theorem List.get_map (f : α → β) {l n} : get (map f l) n = f (get l ⟨n, length_map l f ▸ n.2⟩) := 
+    Option.some.inj <| by rw [← get?_eq_get, get?_map, get?_eq_get]; rfl
+end
 
 structure NodeInformation (α) where
   value : α
@@ -74,7 +115,7 @@ namespace NodeInPossiblyInfiniteTree
       rw [nodeLayerIsLayerAtDepth]
     )⟩
     have no_children_is_at_pos_in_mapped_layer : number_of_children = layer_mapped.get fin_pos := by
-      simp [NodeInPossiblyInfiniteTree.node_info]
+      simp [NodeInPossiblyInfiniteTree.node_info, List.get_map]
 
     have no_c_before_add_no_c_le_layer_length : number_of_children_before + number_of_children ≤ layer_mapped.sum := by
       rw [no_children_is_at_pos_in_mapped_layer]
