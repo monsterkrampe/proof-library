@@ -91,7 +91,7 @@ instance : SubsTarget FunctionFreeAtom Fact where
 instance : SubsTarget FunctionFreeConjunction (List Fact) where
   apply := GroundSubstitution.apply_function_free_conj
 
-def isHomomorphism (h : GroundTermMapping) : Prop :=
+def isIdOnConstants (h : GroundTermMapping) : Prop :=
   ∀ t : GroundTerm, match t with
     | GroundTerm.const _ => h t = t
     | _ => True
@@ -101,6 +101,9 @@ def applyFact (h : GroundTermMapping) (f : Fact) : Fact :=
 
 def applyFactSet (h : GroundTermMapping) (fs : FactSet) : FactSet :=
   fun f' : Fact => ∃ f : Fact, (f ∈ fs) ∧ ((applyFact h f) = f')
+
+def isHomomorphism (h : GroundTermMapping) (A B : FactSet) : Prop :=
+  isIdOnConstants h ∧ (applyFactSet h A ⊆ B)
 
 theorem applyPreservesElement (h : GroundTermMapping) (f : Fact) (fs : FactSet) : f ∈ fs -> applyFact h f ∈ applyFactSet h fs := by 
   intro hf

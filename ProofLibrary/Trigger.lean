@@ -85,7 +85,7 @@ namespace Trigger
   def ractive (trg : Trigger) (F : FactSet) : Prop :=
     trg.loaded F ∧ ¬ (trg.robsolete F)
 
-  theorem term_mapping_preserves_loadedness (trg : Trigger) (F : FactSet) (h : GroundTermMapping) (hh : isHomomorphism h) : trg.loaded F -> { rule := trg.rule, subs := h ∘ trg.subs : Trigger }.loaded (applyFactSet h F) := by 
+  theorem term_mapping_preserves_loadedness (trg : Trigger) (F : FactSet) (h : GroundTermMapping) (hh : isIdOnConstants h) : trg.loaded F -> { rule := trg.rule, subs := h ∘ trg.subs : Trigger }.loaded (applyFactSet h F) := by 
     simp [loaded, mapped_body]
     induction trg.rule.body with 
     | nil => intro _ _ _; contradiction
@@ -137,12 +137,7 @@ namespace FactSet
 
   def universallyModelsKb (fs : FactSet) (kb : KnowledgeBase) : Prop :=
     fs.modelsKb kb ∧ 
-    (∀ m : FactSet,
-      m.modelsKb kb ->
-      ∃ (h : GroundTermMapping),
-        isHomomorphism h ∧
-        (applyFactSet h fs) ⊆ m
-    )
+    (∀ m : FactSet, m.modelsKb kb -> ∃ (h : GroundTermMapping), isHomomorphism h fs m)
 end FactSet
 
 def RTrigger (r : RuleSet) := { trg : Trigger // trg.rule ∈ r.rules}

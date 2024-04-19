@@ -361,10 +361,10 @@ namespace KnowledgeBase
     ∀ cs : ChaseSequence kb, cs.terminates
 end KnowledgeBase
 
-noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequence kb) (m : FactSet) (mIsModel : m.modelsKb kb) : (i : Nat) -> { hom : GroundTermMapping // isHomomorphism hom ∧ applyFactSet hom (cs.fact_sets i) ⊆ m }
+noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequence kb) (m : FactSet) (mIsModel : m.modelsKb kb) : (i : Nat) -> { hom : GroundTermMapping // isHomomorphism hom (cs.fact_sets i) m }
 | .zero => ⟨id, (by 
   constructor 
-  unfold isHomomorphism ; intro gt ; cases gt <;> simp
+  unfold isIdOnConstants ; intro gt ; cases gt <;> simp
   rw [cs.database_first]
   intro el 
   simp [Set.element]

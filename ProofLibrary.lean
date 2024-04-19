@@ -77,8 +77,7 @@ def universallyModelsKb (lfs : List FactSet) (kb : KnowledgeBase) : Prop :=
     m.modelsKb kb ->
     ∃ (fs : FactSet) (h : GroundTermMapping),
       fs ∈ lfs.toSet ∧
-      isHomomorphism h ∧
-      (applyFactSet h fs) ⊆ m
+      isHomomorphism h fs m 
   )
 /-
 section
