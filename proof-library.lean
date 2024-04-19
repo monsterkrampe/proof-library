@@ -57,11 +57,19 @@ section
       | nil => 0
       | cons h tail => h + tail.sum
 
+    theorem elementSuccThenAlsoSumSucc (L : List Nat) : (∃ e, L.elem e ∧ ∃ n, e = Nat.succ n) -> ∃ m, L.sum = Nat.succ m := by
+      intro h
+      cases h with | intro e h' =>
+        have ⟨in_list, h''⟩ := h'
+        cases h'' with | intro n is_succ =>
+        -- TODO: continue here
+
+
     def before_index : List α -> Nat -> List α
       | nil => fun _ => nil
       | cons h tail => fun i => match i with
-        | 0 => nil
-        | i => cons h (tail.before_index (i - 1))
+        | Nat.zero => nil
+        | Nat.succ i => cons h (tail.before_index i)
 
     /- NOTE: inductive lists are always finite!
     def isFinite (l : List α) : Prop :=
@@ -250,8 +258,8 @@ section
     consistency : ∀ depth : Nat, match (data.infinite_list depth) with
       | none => True
       | some list => match (list.map (fun ni => ni.number_of_children)).sum with
-        | 0 => (data.infinite_list (depth + 1)) = none
-        | no_children => (data.infinite_list (depth + 1)) = some next_layer ∧ next_layer.length = no_children
+        | Nat.zero => (data.infinite_list (depth + 1)) = none
+        | Nat.succ n => (data.infinite_list (depth + 1)) = some next_layer ∧ next_layer.length = Nat.succ n
 
   structure NodeInPossiblyInfiniteTree (α) where
     tree : PossiblyInfiniteTree α
@@ -282,9 +290,21 @@ section
         rw [nodeLayerIsLayerAtDepth]
       )⟩
 
-    /- TODO: continue here and define this;
     def children (node : NodeInPossiblyInfiniteTree α) : List (NodeInPossiblyInfiniteTree α) :=
-    -/
+      let current_layer := node.layer
+      let next_layer_opt := node.tree.data.infinite_list (node.depth + 1)
+      let current_layer_before_this := current_layer.before_index node.position_in_layer
+      let number_of_children := node.node_info.number_of_children
+
+      match equality : number_of_children with
+        | Nat.zero => List.nil
+        | Nat.succ n =>
+          have consistency := node.tree.consistency node.depth
+          have something := by
+            simp [nodeLayerIsLayerAtDepth] at consistency
+
+          sorry
+
     /- TODO: maybe also define siblings similarly, i.e. as node.layer but with NodeInPossiblyInfiniteTree instead of just NodeInformation -/
   end NodeInPossiblyInfiniteTree
 end
