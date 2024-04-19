@@ -1,0 +1,13 @@
+image: alpine
+
+stages:
+  - build
+
+build:
+  stage: build
+  before_script:
+    - apk add curl
+    - curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain $(cat lean-toolchain)
+    - lake update
+  script:
+    - lake build
