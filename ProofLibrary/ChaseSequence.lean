@@ -129,7 +129,7 @@ theorem trgRActiveForChaseResultMeansRActiveAtSomeIndex (kb : KnowledgeBase) (cs
         have actualContra := Set.subsetTransitive _ _ _ (And.intro rActiveSRight (chaseSequenceSetIsSubsetOfResult kb cs n))
         contradiction
 
-theorem rObsoletenessSubsetMonotone (trg : Trigger) (F G : FactSet) : F ⊆ G ∧ trg.robsolete F -> trg.robsolete G := by 
+theorem rObsoletenessSubsetMonotone {trg : Trigger} {F G : FactSet} : F ⊆ G ∧ trg.robsolete F -> trg.robsolete G := by 
   intro ⟨sub, robsF⟩ 
   simp [Trigger.robsolete] at * 
   cases robsF with | intro s hs => 
@@ -242,7 +242,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                   exact k.isLt
                 )⟩
 
-                -- TODO: this is similar to stuff going on around line 745; check if we can unify
+                -- TODO: this is similar to stuff going on around line 590; check if we can unify
                 have : (trg'.val.apply_to_var_or_const term_for_f) = f.terms.get k := by 
                   have : f.terms = (trg'.val.apply_to_function_free_atom atom_for_f).terms := by
                     conv => lhs; rw [f_is_at_its_idx]
@@ -338,7 +338,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
           rw [this]
           exact h_trg'.right
 
-theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (trg.val.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ (trg.val.subs.apply_skolem_term (VarOrConst.skolemize trg.val.rule.id trg.val.rule.frontier (VarOrConst.var var))) ∈ f.terms.toSet) -> trg.val.result ⊆ cs.fact_sets i := by 
+theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (trg.val.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet) -> trg.val.result ⊆ cs.fact_sets i := by 
   intro h 
   cases funcTermForExisVarInChaseMeansTriggerIsUsed kb cs trg var i h with | intro j hj =>
     have : trg.val.result ⊆ cs.fact_sets j := by 
@@ -508,7 +508,6 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                         apply funcTermForExisVarInChaseMeansTriggerResultOccurs
                         constructor
                         apply vtNotInFrontier
-                        simp [GroundSubstitution.apply_skolem_term]
                         apply exis_f
 
                       have : trg.val.robsolete (cs.fact_sets j) := by 
@@ -702,19 +701,20 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
   constructor
 
   -- DB in CS
-  simp [FactSet.modelsDb, ChaseSequence.result]
+  unfold FactSet.modelsDb 
+  unfold ChaseSequence.result
   intro f 
   intro h 
-  simp [Set.element]
   exists 0
   rw [cs.database_first]
   exact h
   
   -- Rules modelled
-  simp [FactSet.modelsRules]
+  unfold FactSet.modelsRules
   intro r 
   intro h 
-  simp [FactSet.modelsRule]
+  unfold FactSet.modelsRule
+  simp
   intro trg trgRule _ contra 
   cases (trgRActiveForChaseResultMeansRActiveAtSomeIndex kb cs trg contra) with | intro i ractiveI => 
     have notActiveAtSomePoint := cs.fairness ⟨trg, by rw [← trgRule] at h; apply h⟩ i ractiveI 
@@ -728,7 +728,7 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
         apply ractiveI.left 
         cases Nat.le.dest jGeI with | intro m hm => rw [← hm]; apply chaseSequenceSetIsSubsetOfAllFollowing kb cs i m
       ))
-      have obsoleteResult := rObsoletenessSubsetMonotone _ _ _ (And.intro (chaseSequenceSetIsSubsetOfResult kb cs j) obsoleteJ)
+      have obsoleteResult := rObsoletenessSubsetMonotone (And.intro (chaseSequenceSetIsSubsetOfResult kb cs j) obsoleteJ)
       have notObsoleteResult := contra.right 
       contradiction
   
