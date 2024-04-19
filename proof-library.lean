@@ -11,12 +11,18 @@ section
     def union (X Y : Set α) : Set α := fun e => e ∈ X ∨ e ∈ Y
     infixr:65 " ∪ " => union
 
-    def subset (X Y : Set α) : Prop := ∀ e : α, e ∈ X → e ∈ Y
+    def subset (X Y : Set α) : Prop := ∀ e : α, e ∈ X -> e ∈ Y
     infixr:50 " ⊆ " => subset
 
     theorem subsetOfSelf (X : Set α) : X ⊆ X := by
       intros _ h
       exact h
+
+    theorem subsetUnionSomethingStillSubset (a b c : Set α) : a ⊆ b -> a ⊆ b ∪ c := by
+      intro aSubB e eInA
+      apply Or.inl
+      apply aSubB
+      exact eInA
   end Set
 
   namespace List
@@ -42,19 +48,24 @@ section
     -/
   end List
 
-  theorem subsetUnionSomethingStillSubset (a b c : Set α) : a ⊆ b -> a ⊆ b ∪ c := by
-    intro aSubB e eInA
-    apply Or.inl
-    apply aSubB
-    exact eInA
+  structure FiniteSet (α) where
+    S : Set α
+    isFinite : ∃ L : List α, ∀ e : α, e ∈ S -> e ∈ L.toSet
+
+  def InfiniteList (α) := Nat -> α
+
+  structure PossiblyInfiniteList (α) where
+    infinite_list : InfiniteList (Option α)
+    no_holes : ∀ n : Nat, infinite_list n ≠ none -> ∀ m : Nat, m < n -> infinite_list m ≠ none
 
   structure NEList (α) where
-    list : List α
-    non_empty : ∃ h t, list = List.cons h t
+    list : PossiblyInfiniteList α
+    non_empty : list.infinite_list 0 ≠ none
 
   namespace NEList
-    def toList (nel : NEList α) : List α := nel.list
+    def toList (nel : NEList α) : PossiblyInfiniteList α := nel.list
 
+    /- NOTE: this does not really work if the list if infinite; maybe we do not need it anymore
     def last (nel : NEList α) : α := nel.list.getLast (by
       cases nel.non_empty
       case intro head tailhyp =>
@@ -66,6 +77,7 @@ section
           rw [← h] at g
           exact absurd hn g
     )
+    -/
 
     /-
     def last (ne : NEList α) : α :=
@@ -79,9 +91,10 @@ section
           | Option.some a' => a'
     -/
 
-    instance : Coe (NEList α) (List α) where
+    instance : Coe (NEList α) (PossiblyInfiniteList α) where
       coe := toList
 
+    /- NOTE: concating does not really work for infinite lists; maybe we do not need this anymore
     theorem concatAlsoNonEmpty (ne : NEList α) (l : List α) : ∃ h t, (NEList.toList ne) ++ l = h :: t := by
       let branch_ne := ne.non_empty
       cases branch_ne
@@ -97,105 +110,123 @@ section
               rw [hypne]
               rfl
             exact essentially_goal
+    -/
   end NEList
 end
 
 -- NOTE: Inductive Trees are always finite!
 section
   mutual
-      inductive Tree (α : Type u) (β : Type v) where
-        | leaf : β -> Tree α β
-        | inner : α -> TreeList α β -> Tree α β
+      inductive FiniteTree (α : Type u) (β : Type v) where
+        | leaf : β -> FiniteTree α β
+        | inner : α -> FiniteTreeList α β -> FiniteTree α β
 
-      inductive TreeList (α : Type u) (β : Type v)where
-        | nil  : TreeList α β
-        | cons : Tree α β -> TreeList α β -> TreeList α β
+      inductive FiniteTreeList (α : Type u) (β : Type v) where
+        | nil  : FiniteTreeList α β
+        | cons : FiniteTree α β -> FiniteTreeList α β -> FiniteTreeList α β
   end
 
-  namespace TreeList
-    def toList : TreeList α β -> List (Tree α β)
-      | TreeList.nil => List.nil
-      | TreeList.cons t ts => List.cons t (toList ts)
+  namespace FiniteTreeList
+    def toList : FiniteTreeList α β -> List (FiniteTree α β)
+      | FiniteTreeList.nil => List.nil
+      | FiniteTreeList.cons t ts => List.cons t (toList ts)
 
-    def fromList : List (Tree α β) -> TreeList α β
-      | List.nil => TreeList.nil
-      | List.cons t ts => TreeList.cons t (fromList ts)
+    def fromList : List (FiniteTree α β) -> FiniteTreeList α β
+      | List.nil => FiniteTreeList.nil
+      | List.cons t ts => FiniteTreeList.cons t (fromList ts)
 
-    instance : Coe (TreeList α β) (List (Tree α β)) where
+    instance : Coe (FiniteTreeList α β) (List (FiniteTree α β)) where
       coe := toList
 
-    instance : Coe (List (Tree α β)) (TreeList α β) where
+    instance : Coe (List (FiniteTree α β)) (FiniteTreeList α β) where
       coe := fromList
-  end TreeList
+  end FiniteTreeList
 
-  namespace Tree
+  namespace FiniteTree
     mutual
-      def depth : Tree α β -> Nat
-        | Tree.leaf _ => 1
-        | Tree.inner _ ts => 1 + depthList ts
+      def depth : FiniteTree α β -> Nat
+        | FiniteTree.leaf _ => 1
+        | FiniteTree.inner _ ts => 1 + depthList ts
 
-      def depthList : TreeList α β -> Nat
-        | TreeList.nil => 0
-        | TreeList.cons t ts => max (depth t) (depthList ts)
+      def depthList : FiniteTreeList α β -> Nat
+        | FiniteTreeList.nil => 0
+        | FiniteTreeList.cons t ts => max (depth t) (depthList ts)
     end
 
     mutual
-      def leaves : Tree α β -> List β
-        | Tree.leaf b => List.cons b List.nil
-        | Tree.inner _ ts => leavesList ts
+      def leaves : FiniteTree α β -> List β
+        | FiniteTree.leaf b => List.cons b List.nil
+        | FiniteTree.inner _ ts => leavesList ts
 
-      def leavesList : TreeList α β -> List β
-        | TreeList.nil => List.nil
-        | TreeList.cons t ts => (leaves t) ++ (leavesList ts)
+      def leavesList : FiniteTreeList α β -> List β
+        | FiniteTreeList.nil => List.nil
+        | FiniteTreeList.cons t ts => (leaves t) ++ (leavesList ts)
     end
 
     mutual
-      def mapLeaves (f : β -> Tree α γ) (t : Tree α β) : Tree α γ := match t with
-        | Tree.leaf b => f b
-        | Tree.inner a ts => Tree.inner a (mapLeavesList f ts)
+      def mapLeaves (f : β -> FiniteTree α γ) (t : FiniteTree α β) : FiniteTree α γ := match t with
+        | FiniteTree.leaf b => f b
+        | FiniteTree.inner a ts => Tree.inner a (mapLeavesList f ts)
 
-      def mapLeavesList (f : β -> Tree α γ) (ts : TreeList α β) : TreeList α γ := match ts with
-        | TreeList.nil => TreeList.nil
-        | TreeList.cons t ts => TreeList.cons (mapLeaves f t) (mapLeavesList f ts)
+      def mapLeavesList (f : β -> FiniteTree α γ) (ts : FiniteTreeList α β) : FiniteTreeList α γ := match ts with
+        | FiniteTreeList.nil => FiniteTreeList.nil
+        | FiniteTreeList.cons t ts => FiniteTreeList.cons (mapLeaves f t) (mapLeavesList f ts)
     end
 
-    def nodeLabel : Tree α α -> α
-      | Tree.leaf a => a
-      | Tree.inner a _ => a
+    def nodeLabel : FiniteTree α α -> α
+      | FiniteTree.leaf a => a
+      | FiniteTree.inner a _ => a
 
     -- check that f holds for each node in the tree
     mutual
-      def forEach (t : Tree α β) (f : (Tree α β) -> Prop) : Prop :=
+      def forEach (t : FiniteTree α β) (f : (FiniteTree α β) -> Prop) : Prop :=
         match t with
-          | Tree.leaf _ => f t
-          | Tree.inner _ ts => (f t) ∧ (forEachList ts f)
+          | FiniteTree.leaf _ => f t
+          | FiniteTree.inner _ ts => (f t) ∧ (forEachList ts f)
 
-      def forEachList (ts : TreeList α β) (f : (Tree α β) -> Prop) : Prop :=
+      def forEachList (ts : FiniteTreeList α β) (f : (FiniteTree α β) -> Prop) : Prop :=
         match ts with
-          | TreeList.nil => True
-          | TreeList.cons t ts => (forEach t f) ∧ (forEachList ts f)
+          | FiniteTreeList.nil => True
+          | FiniteTreeList.cons t ts => (forEach t f) ∧ (forEachList ts f)
     end
 
     mutual
-      def privateNodesInDepthK (t : Tree α β) (depth : Nat) (currentDepth : Nat) : List (Tree α β) :=
+      def privateNodesInDepthK (t : FiniteTree α β) (depth : Nat) (currentDepth : Nat) : List (FiniteTree α β) :=
         ite (currentDepth > depth) [] (
           ite (currentDepth = depth) [t] (match t with
-            | Tree.leaf _ => [t]
-            | Tree.inner _ ts => privateNodesInDepthKList ts depth (currentDepth + 1)
+            | FiniteTree.leaf _ => [t]
+            | FiniteTree.inner _ ts => privateNodesInDepthKList ts depth (currentDepth + 1)
           )
         )
 
-      def privateNodesInDepthKList (ts : TreeList α β) (depth : Nat) (currentDepth : Nat) : List (Tree α β) :=
+      def privateNodesInDepthKList (ts : FiniteTreeList α β) (depth : Nat) (currentDepth : Nat) : List (FiniteTree α β) :=
         ite (currentDepth > depth) [] (
           ite (currentDepth = depth) ts.toList (match ts with
-            | TreeList.nil => []
-            | TreeList.cons t ts => (privateNodesInDepthK t depth currentDepth) ++ (privateNodesInDepthKList ts depth currentDepth)
+            | FiniteTreeList.nil => []
+            | FiniteTreeList.cons t ts => (privateNodesInDepthK t depth currentDepth) ++ (privateNodesInDepthKList ts depth currentDepth)
           )
         )
     end
 
-    def nodesInDepthK (t : Tree α β) (depth : Nat) : List (Tree α β) := t.privateNodesInDepthK depth 0
-  end Tree
+    def nodesInDepthK (t : FiniteTree α β) (depth : Nat) : List (FiniteTree α β) := t.privateNodesInDepthK depth 0
+  end FiniteTree
+
+  structure NodeInformation (α) where
+    value : α
+    number_of_children : Nat
+
+  -- TODO: continue defining this!
+  structure PossiblyInfiniteTree (α : Type u) where
+    data : PossiblyInfiniteList (List (NodeInformation α))
+    is_consistent : ∀ depth : Nat, match (data.infinite_list depth) with
+      | none => True
+      | some list => sorry
+
+  structure NodeInPossiblyInfiniteTree (α) where
+    node_info : NodeInformation α
+    tree : PossiblyInfiniteTree α
+    depth : Nat
+    position_in_layer : Nat
 end
 
 section
@@ -222,11 +253,11 @@ section
 
   inductive GroundTerm where
     | const (c : Constant) : GroundTerm
-    | func (ft : Tree SkolemFS Constant) : GroundTerm
+    | func (ft : FiniteTree SkolemFS Constant) : GroundTerm
 
   def GroundTerm.depth : GroundTerm -> Nat
     | GroundTerm.const _ => 0
-    | GroundTerm.func ft => Tree.depth ft
+    | GroundTerm.func ft => FiniteTree.depth ft
 
   inductive VarOrConst where
     | var (v : Variable) : VarOrConst
@@ -245,11 +276,11 @@ section
   inductive Term where
     | var (v : Variable) : Term
     | const (c : Constant) : Term
-    | func (ft : Tree SkolemFS VarOrConst) : Term
+    | func (ft : FiniteTree SkolemFS VarOrConst) : Term
 
   def GroundTerm.toTerm : GroundTerm -> Term
     | GroundTerm.const c => Term.const c
-    | GroundTerm.func ft => Term.func (Tree.mapLeaves (fun c => Tree.leaf (VarOrConst.const c)) ft)
+    | GroundTerm.func ft => Term.func (FiniteTree.mapLeaves (fun c => FiniteTree.leaf (VarOrConst.const c)) ft)
 
   instance : Coe GroundTerm Term where
     coe := GroundTerm.toTerm
@@ -257,13 +288,13 @@ section
   def Term.variables : Term -> List Variable
     | Term.var v => List.cons v List.nil
     | Term.const _ => List.nil
-    | Term.func ft => VarOrConst.filterVars (Tree.leaves ft)
+    | Term.func ft => VarOrConst.filterVars ft.leaves
 
   def Term.skolemize (ruleId : Nat) (frontier : List Variable) (t : Term) : Term :=
     match t with
       | Term.var v => ite (List.elem v frontier)
         (Term.var v)
-        (Term.func (Tree.inner { ruleId := ruleId, var := v} (TreeList.fromList (List.map (fun fv => Tree.leaf (VarOrConst.var fv)) frontier))))
+        (Term.func (FiniteTree.inner { ruleId := ruleId, var := v} (FiniteTreeList.fromList (List.map (fun fv => FiniteTree.leaf (VarOrConst.var fv)) frontier))))
       | t => t
 end
 
@@ -348,11 +379,11 @@ section
     def apply_term (σ : GroundSubstitution) : Term -> GroundTerm
       | Term.var v => σ v
       | Term.const c => GroundTerm.const c
-      | Term.func ft => GroundTerm.func (Tree.mapLeaves (fun voc => match voc with
+      | Term.func ft => GroundTerm.func (FiniteTree.mapLeaves (fun voc => match voc with
         | VarOrConst.var v => match σ v with
-          | GroundTerm.const c => Tree.leaf c
+          | GroundTerm.const c => FiniteTree.leaf c
           | GroundTerm.func ft => ft
-        | VarOrConst.const c => Tree.leaf c
+        | VarOrConst.const c => FiniteTree.leaf c
       ) ft)
 
     def apply_atom (σ : GroundSubstitution) (ϕ : Atom) : Fact :=
