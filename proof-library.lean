@@ -61,6 +61,25 @@ section
     instance : Coe (List α) (Set α) where
       coe := toSet
 
+    theorem listGetInToSet (L : List α) (indexFin : Fin L.length) : L.get indexFin ∈ L.toSet := by
+      let ⟨index, indexSmallEnough⟩ := indexFin
+      cases L with
+        | nil => simp [List.toSet, Set.element, Set.emptyset]; simp [List.length] at indexSmallEnough; exact absurd indexSmallEnough (Nat.not_lt_zero index)
+        | cons a as => cases index with
+          | zero => simp [List.get, List.toSet, Set.element, Set.union]
+          | succ n => simp [List.get, List.toSet, Set.element, Set.union]; apply Or.inr; apply listGetInToSet
+
+    theorem mappedElemInMappedList (L : List α) (e : α) (fn : α -> β) : e ∈ L.toSet -> fn e ∈ (L.map fn).toSet := by
+      intro h
+      cases L with
+        | nil => contradiction
+        | cons a as =>
+          simp [List.map, toSet, Set.element, Set.union]
+          simp [toSet, Set.element, Set.union] at h
+          cases h with
+            | inl eIsA => apply Or.inl; rw [eIsA]
+            | inr eInAs => apply Or.inr; apply mappedElemInMappedList; exact eInAs
+
     def sum : List Nat -> Nat
       | nil => 0
       | cons h tail => h + tail.sum
@@ -318,19 +337,29 @@ section
 
     theorem nodeInfoIsInLayer (node : NodeInPossiblyInfiniteTree α) : node.node_info ∈ node.layer.toSet := by
       simp [node_info]
-      -- TODO: continue here
+      apply List.listGetInToSet
 
     def children (node : NodeInPossiblyInfiniteTree α) : List (NodeInPossiblyInfiniteTree α) :=
       let current_layer := node.layer
       let next_layer_opt := node.tree.data.infinite_list (node.depth + 1)
       let current_layer_before_this := current_layer.before_index node.position_in_layer
-      let number_of_children := node.node_info.number_of_children
+      let node_info := node.node_info
+      let number_of_children := node_info.number_of_children
       let layer_mapped := current_layer.map (fun ni => ni.number_of_children)
+
+      have no_children_in_mapped_layer : number_of_children ∈ layer_mapped.toSet := by
+        apply List.mappedElemInMappedList
+        apply nodeInfoIsInLayer
+
+      have no_children_le_sum_layer_mapped : number_of_children ≤ layer_mapped.sum := by
+        apply List.everyElementLeSum
+        exact no_children_in_mapped_layer
 
       match equality : number_of_children with
         | Nat.zero => List.nil
         | Nat.succ n =>
           have consistency := node.tree.consistency node.depth
+          -- TODO: continue here
           have something := by
             simp [nodeLayerIsLayerAtDepth] at consistency
 
