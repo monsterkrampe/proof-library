@@ -13,6 +13,10 @@ section
 
     def subset (X Y : Set α) : Prop := ∀ e : α, e ∈ X → e ∈ Y
     infixr:50 " ⊆ " => subset
+
+    theorem subsetOfSelf (X : Set α) : X ⊆ X := by
+      intros _ h
+      exact h
   end Set
 
   namespace List
@@ -437,17 +441,15 @@ def universallyModelsKb (lfs : List FactSet) (kb : KnowledgeBase) : Prop :=
   )
 
 section
+  -- SkolemChaseTree
   structure ChaseTree where
     kb : KnowledgeBase
     tree : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger))
-    isSkolem :
-      -- 1. we have nodes, edges, fact labels and trigger labels (no need to check this)
-      -- 2. root is labeled with (db, none)
-      (match Tree.nodeLabel tree with
-        | ⟨fs, otrg⟩ => fs = kb.db ∧ otrg = Option.none)
-      ∧
-      -- 3. children of nodes are labeled properly
-      (Tree.forEach tree (fun t => match t with
+    -- 1. we have nodes, edges, fact labels and trigger labels (no need to check this)
+    -- 2. root is labeled with (db, none)
+    rootIsDb : tree.nodeLabel.fst = kb.db ∧ tree.nodeLabel.snd = Option.none
+    -- 3. children of nodes are labeled properly
+    childLabelsConsistent : (Tree.forEach tree (fun t => match t with
         | Tree.leaf _ => True
         | Tree.inner ⟨fs, _⟩ children =>
           ∃ trg : Trigger,
@@ -464,16 +466,14 @@ section
             ((not trg.rule.isDatalog) -> ∀ dltrg : Trigger,
               dltrg.rule.isDatalog -> ¬ (dltrg.sactive fs))
       ))
-      ∧
-      -- 4a. leaf nodes are closed under all rules
-      (Tree.forEach tree (fun t => match t with
+    -- 4a. leaf nodes are closed under all rules
+    leafNodesClosed : (Tree.forEach tree (fun t => match t with
         | Tree.inner _ _ => True
         | Tree.leaf ⟨fs, _⟩ =>
           ∀ trg : Trigger, ¬ (trg.sactive fs)
       ))
-      ∧
-      -- 4b. triggers are not active after finitely many steps (fairness)
-      (∀ trg : Trigger, ∃ k : Nat,
+    -- 4b. triggers are not active after finitely many steps (fairness)
+    fair : (∀ trg : Trigger, ∃ k : Nat,
         ∀ fs : FactSet, fs ∈ (List.map (fun t => match t with | Tree.leaf ⟨fs, _⟩ => fs | Tree.inner ⟨fs, _⟩ _ => fs) (tree.nodesInDepthK k)).toSet -> ¬ (trg.sactive fs)
       )
 
@@ -492,30 +492,37 @@ section
     end
 
     def branches (ct : ChaseTree) : List (NEList (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) :=
-      [{ list := [ct.tree], non_empty := by
+      ChaseTree.privateBranches ct.tree { list := [ct.tree], non_empty := by
         constructor
         constructor
         case w => exact ct.tree
         case h.w => exact []
         case h.h => rfl
-      }]
+      }
 
     def terminates (ct : ChaseTree) : Prop :=
       ∀ b, b ∈ ct.branches.toSet -> b.toList.isFinite
 
     def result (ct : ChaseTree) : List FactSet :=
       ct.branches.map (fun b => match b.last.nodeLabel with | ⟨fs, _⟩ => fs)
+
+    -- TODO: theorem childFsSuperSet (c p : Tree (FactSet × (Option Trigger)) :
   end ChaseTree
 end
 
 theorem ChaseResultIsUniversalModel (ct : ChaseTree) (kb : KnowledgeBase) : ct.kb = kb -> universallyModelsKb ct.result kb := by
-  intro h
+  intro kbIsKb
   constructor
 
   case left =>
     intros fs fsInCt
     constructor
     case left =>
+      have ⟨rootIsDb, _⟩ := ct.rootIsDb
+      have dbSubSetRoot : kb.db.toFactSet ⊆ (Tree.nodeLabel ct.tree).fst := by
+        rw [rootIsDb, kbIsKb]
+        apply Set.subsetOfSelf
+
       sorry
     case right =>
       sorry
