@@ -25,6 +25,9 @@ structure Predicate where
 structure Variable where
   id : Nat
 
+instance : BEq Variable where
+  beq a b := a.id = b.id
+
 structure Constant where
   id : Nat
 
@@ -112,22 +115,27 @@ def Atom.variables (a : Atom) : List Variable := TermList.variables a.terms
 
 def Conjunction := List Atom
 
-/- FIXME
 def Conjunction.vars (conj : Conjunction) : List Variable :=
-  (List.map Atom.variables) conj
--/
+  List.foldl (fun acc vs => acc ++ vs) (List.nil) (List.map Atom.variables conj)
 
 -- normally, we would only allow variables in atoms in rules... does this break later?
 structure Rule where
   body : Conjunction
   head : Conjunction
 
-/- FIXME
 def Rule.frontier (r : Rule) : List Variable :=
+  -- NOTE: using ∈ does not really work here because it produces a Prop which can not always be simply cast into Bool
+  List.filter (fun v => not (List.elem v (Conjunction.vars r.head))) (Conjunction.vars r.body)
 
 def Rule.skolemize (r : Rule) : Rule :=
-  { body := r.body, head :=  }
--/
+  { body := r.body, head :=
+    List.map (fun a => { predicate := a.predicate, terms :=
+      (List.map (fun t => match t with
+        | Term.Variable v => v -- TODO: skolemize here
+        | t => t
+      ) a.terms)
+    }) r.head
+  }
 
 def RuleSet := Set Rule
 
