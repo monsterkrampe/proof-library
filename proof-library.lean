@@ -57,13 +57,15 @@ section
       | nil => 0
       | cons h tail => h + tail.sum
 
-    theorem elementSuccThenAlsoSumSucc (L : List Nat) : (∃ e, L.elem e ∧ ∃ n, e = Nat.succ n) -> ∃ m, L.sum = Nat.succ m := by
-      intro h
-      cases h with | intro e h' =>
-        have ⟨in_list, h''⟩ := h'
-        cases h'' with | intro n is_succ =>
-        -- TODO: continue here
+    theorem headLeSum (L : List Nat) : L = List.cons h tail -> h ≤ L.sum := by
+      intro e
+      rw [e]
+      simp [sum]
+      exact Nat.le_add_right h (sum tail)
 
+    theorem everyElementLeSum (L : List Nat) : ∀ e, e ∈ L.toSet -> e ≤ L.sum := by
+      intros e h
+        -- TODO: continue here
 
     def before_index : List α -> Nat -> List α
       | nil => fun _ => nil
@@ -290,11 +292,15 @@ section
         rw [nodeLayerIsLayerAtDepth]
       )⟩
 
+    theorem nodeInfoIsInLayer (node : NodeInPossiblyInfiniteTree α) : node.node_info ∈ node.layer.toSet := by
+      -- TODO: continue here
+
     def children (node : NodeInPossiblyInfiniteTree α) : List (NodeInPossiblyInfiniteTree α) :=
       let current_layer := node.layer
       let next_layer_opt := node.tree.data.infinite_list (node.depth + 1)
       let current_layer_before_this := current_layer.before_index node.position_in_layer
       let number_of_children := node.node_info.number_of_children
+      let layer_mapped := current_layer.map (fun ni => ni.number_of_children)
 
       match equality : number_of_children with
         | Nat.zero => List.nil
