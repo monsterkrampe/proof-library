@@ -8,35 +8,41 @@ structure FunctionFreeFact where
 structure Fact where
   predicate : Predicate
   terms : List GroundTerm
+  deriving DecidableEq
+
+structure FunctionFreeAtom where
+  predicate : Predicate
+  terms : List VariableOrConstant
 
 structure Atom where
   predicate : Predicate
   terms : List Term
 
 -- TODO: remove duplicates here maybe
-def Atom.variables (a : Atom) : List Variable := List.foldl (fun acc t => acc ++ Term.variables t) List.nil a.terms
+def FunctionFreeAtom.variables (a : FunctionFreeAtom) : List Variable := List.foldl (fun acc t => acc ++ Term.variables t) List.nil a.terms
 
-def Conjunction := List Atom
+def FunctionFreeConjunction := List FunctionFreeAtom
+-- def Conjunction := List Atom
 
-def Conjunction.vars (conj : Conjunction) : List Variable :=
-  List.foldl (fun acc vs => acc ++ vs) (List.nil) (List.map Atom.variables conj)
+def FunctionFreeConjunction.vars (conj : FunctionFreeConjunction) : List Variable :=
+  List.foldl (fun acc vs => acc ++ vs) (List.nil) (List.map FunctionFreeAtom.variables conj)
 
 -- normally, we would only allow variables in atoms in rules... does this break later?
 structure Rule where
-  body : Conjunction
-  head : Conjunction
+  body : FunctionFreeConjunction
+  head : FunctionFreeConjunction
 
 def Rule.frontier (r : Rule) : List Variable :=
   -- NOTE: using ∈ does not really work here because it produces a Prop which can not always be simply cast into Bool
-  List.filter (fun v => r.head.vars.elem v) (Conjunction.vars r.body)
+  List.filter (fun v => r.head.vars.elem v) (FunctionFreeConjunction.vars r.body)
 
-def Rule.skolemize (r : Rule) : Rule :=
-  { body := r.body, head :=
-    List.map (fun (i, a) => {
-      predicate := a.predicate,
-      terms := List.map (Term.skolemize i (Rule.frontier r)) a.terms
-    }) (List.enum r.head)
-  }
+-- def Rule.skolemize (r : Rule) : Rule :=
+--   { body := r.body, head :=
+--     List.map (fun (i, a) => {
+--       predicate := a.predicate,
+--       terms := List.map (Term.skolemize i (Rule.frontier r)) a.terms
+--     }) (List.enum r.head)
+--   }
 
 def Rule.isDatalog (r : Rule) : Bool :=
   List.all r.head.vars (fun v => r.body.vars.elem v)

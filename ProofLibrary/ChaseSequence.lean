@@ -215,8 +215,29 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
         case inl triggers_exist => 
           cases triggers_exist with | intro trg h_trg =>
             let ⟨trg_act, trg_res⟩ := h_trg
-            have m_models_trg : m.modelsRule trg.val.rule := by exact mIsModel.right trg.val.rule trg.property 
-
+            let trg_on_m : RTrigger kb.rules := {
+              val := {
+                rule := trg.val.rule
+                subs := fun t => h (trg.val.subs t)
+              }
+              property := trg.property
+            }
+            have trg_loaded_for_m : trg_on_m.val.loaded m := by 
+              have : trg_on_m.val.loaded (applyFactSet h (cs.fact_sets k)) := by 
+                apply Trigger.term_mapping_preserves_loadedness
+                exact ih_h.left
+                exact trg_act.left
+              apply Set.subsetTransitive
+              exact ⟨this, ih_h.right⟩
+            have m_models_trg : m.modelsRule trg_on_m.val.rule := by exact mIsModel.right trg.val.rule trg.property 
+            have trg_obsolete_on_m : trg_on_m.val.robsolete m := by 
+              have nactive := m_models_trg trg_on_m.val ⟨rfl, trg_loaded_for_m⟩ 
+              cases Classical.em (trg_on_m.val.robsolete m) with 
+              | inl h => exact h
+              | inr nh => 
+                have : trg_on_m.val.ractive m := ⟨trg_loaded_for_m, nh⟩
+                contradiction
+              
             let new_h : GroundTermMapping := fun t =>
               let dec := Classical.propDecidable (∃ f, f ∈ (cs.fact_sets k ∪ trg.val.result) ∧ t ∈ f.terms.toSet)
               match dec with 
@@ -231,9 +252,35 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                         cases hfl with 
                           | inl => contradiction
                           | inr => assumption
-                      sorry
+                      let idx_f := trg.val.idx_of_fact_in_result f hflr
+                      let subs := Classical.choose trg_obsolete_on_m
+                      let hsubs := Classical.choose_spec trg_obsolete_on_m
+                      let atom_in_head := trg.val.rule.head.get idx_f
+                      let idx_t_in_f := f.terms.idx_of t (List.listToSetElementAlsoListElement _ _ hfr)
+                      have idx_t_in_f_isLt := idx_t_in_f.isLt
+                      have f_is_at_its_idx : f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact idx_f.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; sorry -- apply List.idx_of_get trg.val.mapped_head f; sorry
+                      have atom_arity_same_as_fact : f.terms.length = atom_in_head.terms.length := by simp; sorry
+                      let variable_corresponding_to_t := atom_in_head.terms.get ⟨idx_t_in_f.val, by rw [← atom_arity_same_as_fact]; exact idx_t_in_f_isLt⟩
+                      subs variable_corresponding_to_t
                 | Decidable.isFalse _ => t
-            sorry
+            exists new_h
+            constructor 
+            . intro term; cases term with 
+              | const c => 
+                simp 
+                let dec := Classical.propDecidable (∃ f, f ∈ (cs.fact_sets k ∪ trg.val.result) ∧ (GroundTerm.const c) ∈ f.terms.toSet)
+                cases dec_eq : dec with 
+                | isTrue p =>
+                  simp [dec_eq]
+                  let f := Classical.choose p 
+                  let ⟨hfl, hfr⟩ := Classical.choose_spec p
+                  let hfllDec := Classical.propDecidable (f ∈ cs.fact_sets k)
+                  cases hfllDec_eq : hfllDec with
+                  | isTrue pp => simp [hfllDec_eq]; exact ih_h.left (GroundTerm.const c)
+                  | isFalse np => simp [hfllDec_eq]; sorry
+                | isFalse _ => simp [dec_eq]
+              | func _ => trivial
+            . sorry
   let global_h : GroundTermMapping := fun t => 
     let dec := Classical.propDecidable (∃ f, f ∈ cs.result ∧ t ∈ f.terms.toSet)
     match dec with

@@ -9,6 +9,10 @@ namespace Set
   def element (e : α) (X : Set α) : Prop := X e
   infixr:75 " ∈ " => element
 
+  theorem element_mapping_preserves_membership (e : α) (X : Set α) (f : α -> α) : e ∈ X -> f e ∈ (fun e' => ∃ e'', X e'' ∧ e' = f e'') := by 
+    intro helem
+    exists e
+
   def union (X Y : Set α) : Set α := fun e => e ∈ X ∨ e ∈ Y
   infixr:65 " ∪ " => union
 

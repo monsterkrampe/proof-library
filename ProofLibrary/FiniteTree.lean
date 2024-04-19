@@ -10,6 +10,94 @@ mutual
     | cons : FiniteTree α β -> FiniteTreeList α β -> FiniteTreeList α β
 end
 
+mutual
+  def finiteTreeEq [DecidableEq α] [DecidableEq β] (a b : FiniteTree α β) : Decidable (a = b) :=
+    match a with 
+      | .leaf la => match b with 
+        | .leaf lb => if eq_ls : la = lb 
+          then isTrue (by simp [eq_ls]) 
+          else isFalse (by 
+            let unwrap := fun (x : FiniteTree α β) (hx : ∀ a b, x ≠ FiniteTree.inner a b) => match x with 
+              | FiniteTree.leaf lx => lx
+              | FiniteTree.inner a b => absurd rfl (hx a b)
+            intro contra
+            have : la = lb := by
+              have ha : la = unwrap (FiniteTree.leaf la) (by intro _ _ contra; exact FiniteTree.noConfusion contra) := by rfl  
+              have hb : lb = unwrap (FiniteTree.leaf lb) (by intro _ _ contra; exact FiniteTree.noConfusion contra) := by rfl  
+              rw [ha, hb]
+              simp [contra]
+            contradiction
+          )
+        | .inner _ _ => isFalse (by intro contra; exact FiniteTree.noConfusion contra)
+      | .inner la ca => match b with
+        | .leaf lb => isFalse (by intro contra; exact FiniteTree.noConfusion contra)
+        | .inner lb cb => if eq_ls : la = lb 
+          then match finiteTreeListEq ca cb with
+            | .isTrue p => isTrue (by simp [eq_ls, p])
+            | .isFalse np => isFalse (by 
+            let unwrap := fun (x : FiniteTree α β) (hx : ∀ a, x ≠ FiniteTree.leaf a) => match x with 
+              | FiniteTree.leaf a => absurd rfl (hx a)
+              | FiniteTree.inner _ b => b
+            intro contra
+            have : ca = cb := by
+              have ha : ca = unwrap (FiniteTree.inner la ca) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl  
+              have hb : cb = unwrap (FiniteTree.inner lb cb) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl  
+              rw [ha, hb]
+              simp [contra]
+            contradiction
+          )
+          else isFalse (by 
+            let unwrap := fun (x : FiniteTree α β) (hx : ∀ a, x ≠ FiniteTree.leaf a) => match x with 
+              | FiniteTree.leaf a => absurd rfl (hx a)
+              | FiniteTree.inner a _ => a
+            intro contra
+            have : la = lb := by
+              have ha : la = unwrap (FiniteTree.inner la ca) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl  
+              have hb : lb = unwrap (FiniteTree.inner lb cb) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl  
+              rw [ha, hb]
+              simp [contra]
+            contradiction
+          )
+
+  def finiteTreeListEq [DecidableEq α] [DecidableEq β] (a b : FiniteTreeList α β) : Decidable (a = b) :=
+    match a with 
+      | .nil => match b with 
+        | .nil => isTrue (by rfl)
+        | .cons _ _ => isFalse (by intro contra; exact FiniteTreeList.noConfusion contra)
+      | .cons ta la => match b with 
+        | .nil => isFalse (by intro contra; exact FiniteTreeList.noConfusion contra)
+        | .cons tb lb => match finiteTreeEq ta tb with 
+          | .isTrue tp => match finiteTreeListEq la lb with 
+            | .isTrue lp => isTrue (by simp [tp, lp])
+            | .isFalse lnp => isFalse (by 
+              let unwrap := fun (x : FiniteTreeList α β) (hx : x ≠ FiniteTreeList.nil) => match x with 
+                | FiniteTreeList.nil => absurd rfl hx
+                | FiniteTreeList.cons _ b => b
+              intro contra
+              have : la = lb := by
+                have ha : la = unwrap (FiniteTreeList.cons ta la) (by intro contra; exact FiniteTreeList.noConfusion contra) := by rfl
+                have hb : lb = unwrap (FiniteTreeList.cons tb lb) (by intro contra; exact FiniteTreeList.noConfusion contra) := by rfl
+                rw [ha, hb]
+                simp [contra]
+              contradiction
+            )
+          | .isFalse tnp => isFalse (by
+            let unwrap := fun (x : FiniteTreeList α β) (hx : x ≠ FiniteTreeList.nil) => match x with 
+              | FiniteTreeList.nil => absurd rfl hx
+              | FiniteTreeList.cons a _ => a
+            intro contra
+            have : ta = tb := by
+              have ha : ta = unwrap (FiniteTreeList.cons ta la) (by intro contra; exact FiniteTreeList.noConfusion contra) := by rfl
+              have hb : tb = unwrap (FiniteTreeList.cons tb lb) (by intro contra; exact FiniteTreeList.noConfusion contra) := by rfl
+              rw [ha, hb]
+              simp [contra]
+            contradiction
+          )
+end
+
+instance [DecidableEq α] [DecidableEq β] (a b : FiniteTree α β) : Decidable (a = b) := finiteTreeEq a b
+instance [DecidableEq α] [DecidableEq β] (a b : FiniteTreeList α β) : Decidable (a = b) := finiteTreeListEq a b
+
 namespace FiniteTreeList
   def toList : FiniteTreeList α β -> List (FiniteTree α β)
     | FiniteTreeList.nil => List.nil

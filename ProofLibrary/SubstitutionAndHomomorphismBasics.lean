@@ -5,6 +5,10 @@ def GroundSubstitution := Variable -> GroundTerm
 def GroundTermMapping := GroundTerm -> GroundTerm
 
 namespace GroundSubstitution
+  def apply_var_or_const (σ : GroundSubstitution) : VarOrConst -> GroundTerm
+    | VarOrConst.var v => σ v
+    | VarOrConst.const c => GroundTerm.const c
+
   def apply_term (σ : GroundSubstitution) : Term -> GroundTerm
     | Term.var v => σ v
     | Term.const c => GroundTerm.const c
@@ -17,8 +21,12 @@ namespace GroundSubstitution
 
   def apply_atom (σ : GroundSubstitution) (ϕ : Atom) : Fact :=
     { predicate := ϕ.predicate, terms := List.map (apply_term σ) ϕ.terms }
-  def apply_conj (σ : GroundSubstitution) (conj : Conjunction) : List Fact :=
-    (List.map (apply_atom σ)) conj
+
+  def apply_function_free_atom (σ : GroundSubstitution) (ϕ : FunctionFreeAtom) : Fact :=
+    { predicate := ϕ.predicate, terms := List.map (apply_var_or_const σ) ϕ.terms }
+
+  def apply_function_free_conj (σ : GroundSubstitution) (conj : FunctionFreeConjunction) : List Fact :=
+    (List.map (apply_function_free_atom σ)) conj
 end GroundSubstitution
 
 class SubsTarget (α) (β) where
@@ -28,8 +36,10 @@ instance : SubsTarget Term GroundTerm where
   apply := GroundSubstitution.apply_term
 instance : SubsTarget Atom Fact where
   apply := GroundSubstitution.apply_atom
-instance : SubsTarget Conjunction (List Fact) where
-  apply := GroundSubstitution.apply_conj
+instance : SubsTarget FunctionFreeAtom Fact where
+  apply := GroundSubstitution.apply_function_free_atom
+instance : SubsTarget FunctionFreeConjunction (List Fact) where
+  apply := GroundSubstitution.apply_function_free_conj
 
 def isHomomorphism (h : GroundTermMapping) : Prop :=
   ∀ t : GroundTerm, match t with

@@ -2,15 +2,18 @@ import ProofLibrary.FiniteTree
 
 structure Predicate where
   id : Nat
+  deriving DecidableEq
 
 structure Variable where
   id : Nat
+  deriving DecidableEq
 
 instance : BEq Variable where
   beq a b := a.id = b.id
 
 structure Constant where
   id : Nat
+  deriving DecidableEq
 
 /- I think we only need skolem function symbols
 structure FunctionSymbol where
@@ -20,10 +23,12 @@ structure FunctionSymbol where
 structure SkolemFS where
   ruleId : Nat
   var : Variable
+  deriving DecidableEq
 
 inductive GroundTerm where
   | const (c : Constant) : GroundTerm
   | func (ft : FiniteTree SkolemFS Constant) : GroundTerm
+  deriving DecidableEq
 
 def GroundTerm.depth : GroundTerm -> Nat
   | GroundTerm.const _ => 0
