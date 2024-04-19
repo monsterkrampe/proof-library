@@ -74,6 +74,27 @@ def VarOrConst.skolemize (ruleId : Nat) (frontier : List Variable) (voc : VarOrC
       (Term.func (FiniteTree.inner { ruleId := ruleId, var := v} (FiniteTreeList.fromList (List.map (fun fv => FiniteTree.leaf (VarOrConst.var fv)) frontier))))
     | VarOrConst.const c => Term.const c
 
+theorem VarOrConst.skolemize_injective (ruleId : Nat) (frontier : List Variable) (s t : VarOrConst) : s.skolemize ruleId frontier = t.skolemize ruleId frontier -> s = t := by 
+  cases s with 
+  | var vs => cases t with 
+    | var vt => 
+      simp [skolemize]
+      split
+      . split 
+        . simp; intros; assumption 
+        . intros; contradiction
+      . split 
+        . intros; contradiction
+        . simp; intros; assumption
+    | const _ => 
+      simp [skolemize]
+      split <;> intros <;> assumption
+  | const cs => cases t with 
+    | var vt => 
+      simp [skolemize]
+      split <;> intros <;> assumption
+    | const _ => simp [skolemize]; intros; assumption
+
 -- def Term.skolemize (ruleId : Nat) (frontier : List Variable) (t : Term) : Term :=
 --   match t with
 --     | Term.var v => ite (List.elem v frontier)

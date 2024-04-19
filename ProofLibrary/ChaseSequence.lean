@@ -310,21 +310,28 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
 
                     let idx_f := trg.val.idx_of_fact_in_result f hfl
                     let atom_in_head := trg.val.rule.head.get idx_f
-                    let skolem_atom_in_head := atom_in_head.skolemize trg.val.rule.id trg.val.rule.frontier
+                    -- let skolem_atom_in_head := atom_in_head.skolemize trg.val.rule.id trg.val.rule.frontier
                     let idx_t_in_f := f.terms.idx_of t (List.listToSetElementAlsoListElement _ _ hfr)
                     have idx_t_in_f_isLt := idx_t_in_f.isLt
                     have f_is_at_its_idx : f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact idx_f.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; apply List.idx_of_get
-                    have t_is_at_its_idx : t = f.terms.get idx_t_in_f := by simp [idx_t_in_f]; apply List.idx_of_get
+                    -- have t_is_at_its_idx : t = f.terms.get idx_t_in_f := by simp [idx_t_in_f]; apply List.idx_of_get
 
-                    have skolem_atom_in_head_with_subs_is_f : trg.val.subs.apply_atom skolem_atom_in_head = f := by rw [f_is_at_its_idx]; exact trg.val.apply_subs_to_atom_at_idx_same_as_fact_at_idx idx_f
+                    -- have skolem_atom_in_head_with_subs_is_f : trg.val.subs.apply_atom skolem_atom_in_head = f := by rw [f_is_at_its_idx]; exact trg.val.apply_subs_to_atom_at_idx_same_as_fact_at_idx idx_f
+                    --
+                    -- have skolem_atom_arity_same_as_fact : f.terms.length = List.length skolem_atom_in_head.terms := by 
+                    --   apply Eq.symm
+                    --   apply GroundSubstitution.eq_under_subs_means_same_length trg.val.subs
+                    --   rw [← skolem_atom_in_head_with_subs_is_f]
 
-                    have skolem_atom_arity_same_as_fact : f.terms.length = List.length skolem_atom_in_head.terms := by 
-                      apply Eq.symm
-                      apply GroundSubstitution.eq_under_subs_means_same_length trg.val.subs
-                      rw [← skolem_atom_in_head_with_subs_is_f]
+                    have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by 
+                        rw [f_is_at_its_idx]
+                        unfold Trigger.mapped_head
+                        rw [List.get_map]
+                        -- rw [List.get_enum]
+                        simp
 
-                    let term_corresponding_to_t := skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
-                      rw [← skolem_atom_arity_same_as_fact]
+                    let term_corresponding_to_t := atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
+                      rw [← atom_arity_same_as_fact]
                       exact idx_t_in_f_isLt
                     )⟩
                     -- have : trg.val.subs.apply_term term_corresponding_to_t = t := by 
@@ -332,12 +339,7 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                     --   apply GroundSubstitution.eq_under_subs_means_term_is_eq trg.val.subs
                     --   rw [← skolem_atom_in_head_with_subs_is_f]
 
-                    -- FIXME: this is wrong! we need to map the unskolemized term instead of the skolemized term...
-                    subs.apply_term term_corresponding_to_t
-                    -- match term_corresponding_to_t with 
-                    --   | Term.var v => subs v 
-                    --   | Term.const c => by simp [GroundSubstitution.apply_term] at this; rw [t_eq] at this; contradiction
-                    --   | Term.func func => subs.apply_term func
+                    subs.apply_var_or_const term_corresponding_to_t
 
             exists new_h
             constructor 
@@ -470,17 +472,18 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                             split
                             case _ _ chosen_f_hl chosen_f_hr _ =>
 
-                              let t := VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var vt)
-                              -- let t := GroundTerm.func ft
+                              -- let t := VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var vt)
+                              let t := VarOrConst.var vt
+                              let skolem_t := VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) t
                               let chosen_f := Classical.choose exis_f'
 
                               let idx_f := trg.val.idx_of_fact_in_result chosen_f chosen_f_hl
                               let atom_in_head := trg.val.rule.head.get idx_f
                               let skolem_atom_in_head := atom_in_head.skolemize trg.val.rule.id trg.val.rule.frontier
-                              let idx_t_in_f := chosen_f.terms.idx_of (trg.val.subs.apply_term t) (List.listToSetElementAlsoListElement _ _ chosen_f_hr)
+                              let idx_t_in_f := chosen_f.terms.idx_of (trg.val.subs.apply_term skolem_t) (List.listToSetElementAlsoListElement _ _ chosen_f_hr)
                               have idx_t_in_f_isLt := idx_t_in_f.isLt
                               have f_is_at_its_idx : chosen_f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact idx_f.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; apply List.idx_of_get
-                              -- have t_is_at_its_idx : (trg.val.subs.apply_term t) = chosen_f.terms.get idx_t_in_f := by simp [idx_t_in_f]; apply List.idx_of_get
+                              have t_is_at_its_idx : (trg.val.subs.apply_term skolem_t) = chosen_f.terms.get idx_t_in_f := by simp [idx_t_in_f]; apply List.idx_of_get
 
                               have skolem_atom_in_head_with_subs_is_f : trg.val.subs.apply_atom skolem_atom_in_head = chosen_f := by rw [f_is_at_its_idx]; exact trg.val.apply_subs_to_atom_at_idx_same_as_fact_at_idx idx_f
 
@@ -489,18 +492,18 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                                 apply GroundSubstitution.eq_under_subs_means_same_length trg.val.subs
                                 rw [← skolem_atom_in_head_with_subs_is_f]
 
-                              have subs_application_is_injective_for_freshly_introduced_terms : ∀ s, s ∈ skolem_atom_in_head.terms.toSet ∧ trg.val.subs.apply_term t = trg.val.subs.apply_term s -> t = s := by 
+                              have subs_application_is_injective_for_freshly_introduced_terms : ∀ s, s ∈ skolem_atom_in_head.terms.toSet ∧ trg.val.subs.apply_term skolem_t = trg.val.subs.apply_term s -> skolem_t = s := by 
                                 -- TODO: resolve this by arguing that subs application is basically injective on fresh skolem term
                                 sorry
 
-                              have t_is_at_its_idx : t = skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by rw[← skolem_atom_arity_same_as_fact]; exact idx_t_in_f_isLt)⟩ := by 
+                              have skolem_t_is_at_its_idx : skolem_t = skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by rw[← skolem_atom_arity_same_as_fact]; exact idx_t_in_f_isLt)⟩ := by 
                                 simp [idx_t_in_f]
 
-                                have : skolem_atom_in_head.terms.elem t := by 
+                                have : skolem_atom_in_head.terms.elem skolem_t := by 
                                   rw [← GroundSubstitution.eq_under_subs_means_elements_are_preserved _ _ _ (skolem_atom_in_head_with_subs_is_f) _ (subs_application_is_injective_for_freshly_introduced_terms)]
                                   apply List.listToSetElementAlsoListElement
                                   apply chosen_f_hr
-                                have : (skolem_atom_in_head.terms.idx_of t this).val = idx_t_in_f.val := by 
+                                have : (skolem_atom_in_head.terms.idx_of skolem_t this).val = idx_t_in_f.val := by 
                                   apply Eq.symm
                                   apply GroundSubstitution.eq_under_subs_means_indices_of_elements_are_preserved
                                   apply skolem_atom_in_head_with_subs_is_f
@@ -509,33 +512,35 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                                 simp [← this]
                                 apply List.idx_of_get
 
-                              let term_corresponding_to_t := skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
+                              let skolem_term_corresponding_to_t := skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
                                 rw [← skolem_atom_arity_same_as_fact]
                                 exact idx_t_in_f_isLt
                               )⟩
+
+                              have skolemized_ts_are_equal : skolem_term_corresponding_to_t = skolem_t := by 
+                                rw [skolem_t_is_at_its_idx]
+
+                              have atom_arity_same_as_fact : chosen_f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by 
+                                rw [f_is_at_its_idx]
+                                unfold Trigger.mapped_head
+                                rw [List.get_map]
+                                simp
+
+                              let term_corresponding_to_t := atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
+                                rw [← atom_arity_same_as_fact]
+                                exact idx_t_in_f_isLt
+                              )⟩
+                              
+                              have : VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) term_corresponding_to_t = skolem_term_corresponding_to_t := by simp [FunctionFreeAtom.skolemize, List.get_map]
+
                               have : term_corresponding_to_t = t := by 
-                                rw [t_is_at_its_idx]
-                                -- apply GroundSubstitution.eq_under_subs_means_term_is_eq trg.val.subs
-                                -- rw [← skolem_atom_in_head_with_subs_is_f]
+                                -- TODO: should follow from skolemized_ts_are_equal if we argue that skolemization is injective in the scope of a rule
+                                apply VarOrConst.skolemize_injective trg.val.rule.id (Rule.frontier trg.val.rule)
+                                rw [this]
+                                apply skolemized_ts_are_equal
 
                               simp [GroundSubstitution.apply_term] at this
                               rw [this]
-
-                              simp [VarOrConst.skolemize, vtNotInFrontier]
-                              sorry
-
-                              -- split 
-                              -- case h_1 x v heq =>
-                              --   have : v = vt := by simp [VarOrConst.skolemize, vtNotInFrontier] at heq
-                              --   rw [this]
-                              -- case h_2 x c heq => 
-                              --   simp [VarOrConst.skolemize, vtNotInFrontier] at heq
-                              -- case h_3 x ft heq =>
-                              --   simp [VarOrConst.skolemize, vtNotInFrontier] at heq
-                              --   sorry
-
-
-
 
                   | inr hr => 
                     apply ih_h.right 
@@ -587,6 +592,13 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
           exact target_h_is_hom (GroundTerm.const c)
         | isFalse np => simp
     | _ => simp
+
+  have : ∀ i f, f ∈ cs.fact_sets i -> applyFact global_h f = applyFact (Classical.choose (inductive_claim i)) f := by 
+    -- TODO: maybe the inductive claim needs to have an additional result telling us that 
+    -- the homomorphisms all agree an previously introduced terms 
+    -- also: probably global_h needs to be changed
+    sorry
+
   intro f hf
   unfold ChaseSequence.result at hf
   unfold Set.element at hf
@@ -596,33 +608,10 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
     simp [Set.element] at hel
     cases hel with | intro n hn =>
       rw [← her]
-      simp [applyFact]
-
-      sorry 
-
-      -- let target_h := Classical.choose (inductive_claim n)
-      -- let target_h_apply := (Classical.choose_spec (inductive_claim n)).right
-      -- have global_eq_target_on_e : applyFact global_h e = applyFact target_h e := by 
-      --   unfold applyFact
-      --   simp 
-      --   apply List.map_eq_map_if_functions_eq
-      --   intro x hx 
-      --   split
-      --   case a.h_2 _ h2 _ => 
-      --     apply False.elim 
-      --     apply h2 
-      --     exists e
-      --     constructor 
-      --     unfold ChaseSequence.result 
-      --     simp [Set.element]
-      --     exists n
-      --     apply hx
-      --   split
-      --   case a.h_1 _ h1 _ =>
-      --     sorry
-      -- rw [← her, global_eq_target_on_e]
-      -- apply target_h_apply
-      -- apply applyPreservesElement
-      -- apply hn
-  
+      rw [this n e hn]
+      have : applyFactSet (Classical.choose (inductive_claim n)) (cs.fact_sets n) ⊆ m := (Classical.choose_spec (inductive_claim n)).right
+      unfold Set.subset at this
+      apply this
+      simp [Set.element, applyFactSet]
+      exists e
 
