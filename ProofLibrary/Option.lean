@@ -33,4 +33,6 @@ namespace Option
     rw [ha, hb]
     simp [h]
 
+  theorem someInj : (some a = some b) ↔ a = b := by simp
+
 end Option

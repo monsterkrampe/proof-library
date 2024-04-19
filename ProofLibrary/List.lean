@@ -1,4 +1,5 @@
 import ProofLibrary.Set
+import ProofLibrary.Option
 
 section
   -- copied from mathlib
@@ -223,13 +224,33 @@ namespace List
     | nil => simp [enumFrom]
     | cons a as ih => unfold enumFrom; unfold length; simp; apply ih
 
+  theorem length_enum_from' (l : List α) (n : Nat) : (l.enumFrom n).length = l.length := by 
+    induction l generalizing n with
+    | nil => simp [enumFrom]
+    | cons a as ih => unfold enumFrom; unfold length; simp; apply ih
+
   theorem length_enum (l : List α) : l.enum.length = l.length := by 
     induction l with 
     | nil => simp [enum, enumFrom]
     | cons a as ih => unfold enum at *; unfold enumFrom; unfold length; simp; rw [← ih]; apply length_enum_from
 
+  theorem get_enum_from (l : List α) (n : Nat) (i : Fin l.length) : (l.enumFrom n).get ⟨i.val, (by rw [l.length_enum_from' n]; exact i.isLt)⟩ = (n + i.val, l.get i) := by 
+    rw [← Option.someInj, ← get?_eq_get]
+    induction l generalizing n with
+    | nil => have : i.val < 0 := i.isLt; contradiction
+    | cons a as ih => cases eq : i.val with 
+      | zero => simp [get?, enumFrom]; rw [← Option.someInj, ← get?_eq_get]; rw [eq]; simp[get?]
+      | succ j => 
+        simp [get?, enumFrom]
+        let jFin : Fin as.length := ⟨j, (by have isLt := i.isLt; unfold length at isLt; rw [eq] at isLt; apply Nat.lt_of_succ_lt_succ; exact isLt)⟩ 
+        rw [ih (n+1) jFin]
+        simp 
+        constructor
+        . rw [Nat.add_assoc, Nat.add_comm 1 j]
+        . rw [← Option.someInj, ← get?_eq_get, ← get?_eq_get]; rw [eq]; simp [get?]
+
   theorem get_enum (l : List α) (i : Fin l.length) : l.enum.get ⟨i.val, (by rw [length_enum]; exact i.isLt)⟩ = (i.val, l.get i) := by 
-    simp [get, enum, enumFrom]
-    sorry
+    unfold enum
+    simp [get_enum_from]
 end List
 
