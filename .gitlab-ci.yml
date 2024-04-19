@@ -1,4 +1,4 @@
-image: alpine
+image: ubuntu
 
 stages:
   - build
@@ -6,8 +6,9 @@ stages:
 build:
   stage: build
   before_script:
-    - apk add curl
+    - apt update && apt install curl
     - curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain $(cat lean-toolchain)
+    - source ~/.profile
     - lake update
   script:
     - lake build
