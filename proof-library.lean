@@ -27,11 +27,13 @@ section
       ∃ k : Nat,
         l.length <= k
 
+    /- This already exists as List.getLast?
     def last : List α -> Option α
       | List.nil => Option.none
       | List.cons a as => match as with
         | List.nil => Option.some a
         | List.cons _ _ => as.last
+    -/
   end List
 
   theorem subsetUnionSomethingStillSubset (a b c : Set α) : a ⊆ b -> a ⊆ b ∪ c := by
@@ -47,12 +49,29 @@ section
   namespace NEList
     def toList (nel : NEList α) : List α := nel.list
 
+    def last (nel : NEList α) : α := nel.list.getLast (by
+      cases nel.non_empty
+      case intro head tailhyp =>
+        cases tailhyp
+        case intro tail h =>
+          intro hn
+
+          have g : head :: tail ≠ [] := fun g' => List.noConfusion g'
+          rw [← h] at g
+          exact absurd hn g
+    )
+
+    /-
     def last (ne : NEList α) : α :=
       match ne.list with
-        | List.nil => sorry
+        | List.nil =>
+          let h : ne.list = List.nil := sorry
+          let hn : ne.list ≠ List.nil := sorry
+          absurd h hn
         | List.cons a as => match as.last with
           | Option.none => a
           | Option.some a' => a'
+    -/
 
     instance : Coe (NEList α) (List α) where
       coe := toList
