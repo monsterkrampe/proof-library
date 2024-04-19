@@ -131,6 +131,17 @@ namespace FiniteTreeList
         simp [h.left]
         rw [ih]
         exact h.right
+
+  theorem toListFromListIsId (as : FiniteTreeList α β) : FiniteTreeList.fromList as.toList = as := by 
+    cases as with 
+    | nil => simp [toList, fromList]
+    | cons a as => simp [toList, fromList]; apply toListFromListIsId
+
+  theorem fromListToListIsId (as : List (FiniteTree α β)) : (FiniteTreeList.fromList as).toList = as := by 
+    induction as with 
+    | nil => simp [toList, fromList]
+    | cons a as ih => simp [toList, fromList]; apply ih
+
 end FiniteTreeList
 
 namespace FiniteTree
@@ -232,6 +243,36 @@ namespace FiniteTree
 
   def nodesInDepthK (t : FiniteTree α β) (depth : Nat) : List (FiniteTree α β) := t.privateNodesInDepthK depth 0
 
-  theorem tree_eq_while_contained_is_impossible [DecidableEq α] [DecidableEq β] (t : FiniteTree α β) (ts : List (FiniteTree α β)) (a : α) (h_eq : FiniteTree.inner a ts = t) (h_contains : ts.elem t) : False := by 
-    sorry
+  mutual 
+    theorem tree_eq_while_contained_is_impossible [DecidableEq α] [DecidableEq β] (t : FiniteTree α β) (ts : FiniteTreeList α β) (a : α) (h_eq : FiniteTree.inner a ts = t) (h_contains : ts.toList.elem t) : False := by 
+      cases t with 
+      | leaf _ => contradiction
+      | inner label children =>
+        injection h_eq with _ children_eq
+        apply treelist_eq_while_contained_is_impossible children ts
+        rw [← children_eq]
+        intros 
+        assumption
+        apply h_contains
+
+    theorem treelist_eq_while_contained_is_impossible [DecidableEq α] [DecidableEq β] (children ts : FiniteTreeList α β) (label : α) (ts_subset_children : ∀ t, ts.toList.elem t -> children.toList.elem t) (h_contains : ts.toList.elem (FiniteTree.inner label children)) : False := by 
+      cases ts with 
+      | nil => contradiction
+      | cons t ts =>
+        simp [FiniteTreeList.toList, List.elem] at h_contains
+        split at h_contains
+        case h_1 _ beq => 
+          have eq := LawfulBEq.eq_of_beq beq
+          apply tree_eq_while_contained_is_impossible t children
+          apply eq
+          apply ts_subset_children
+          simp [FiniteTreeList.toList, List.elem]
+        case h_2 _ _ => 
+          apply treelist_eq_while_contained_is_impossible children ts
+          intro any_t t_elem_ts
+          apply ts_subset_children
+          simp [FiniteTreeList.toList, List.elem, t_elem_ts]
+          split; rfl; rfl
+          apply h_contains
+  end
 end FiniteTree

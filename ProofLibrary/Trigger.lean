@@ -49,11 +49,12 @@ namespace Trigger
       let tree_for_s := trg.apply_to_var_or_const (VarOrConst.var s)
       let ts := trg.rule.frontier.map (fun fv => trg.subs fv)
       let a : SkolemFS := { ruleId := trg.rule.id, var := t }
-      apply FiniteTree.tree_eq_while_contained_is_impossible tree_for_s ts a
+      apply FiniteTree.tree_eq_while_contained_is_impossible tree_for_s (FiniteTreeList.fromList ts) a
       simp [apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
       apply apply_eq_for_t_and_s
       simp [apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
       apply List.listToSetElementAlsoListElement
+      rw [FiniteTreeList.fromListToListIsId]
       apply List.mappedElemInMappedList
       apply List.listElementAlsoToSetElement
       apply hl
