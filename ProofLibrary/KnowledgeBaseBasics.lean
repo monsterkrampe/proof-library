@@ -21,6 +21,8 @@ structure Atom where
 -- TODO: remove duplicates here maybe
 def FunctionFreeAtom.variables (a : FunctionFreeAtom) : List Variable := VarOrConst.filterVars a.terms
 
+def FunctionFreeAtom.skolemize (ruleId : Nat) (frontier : List Variable) (a : FunctionFreeAtom) : Atom := { predicate := a.predicate, terms := a.terms.map (VarOrConst.skolemize ruleId frontier) }
+
 def FunctionFreeConjunction := List FunctionFreeAtom
 -- def Conjunction := List Atom
 
@@ -29,6 +31,7 @@ def FunctionFreeConjunction.vars (conj : FunctionFreeConjunction) : List Variabl
 
 -- normally, we would only allow variables in atoms in rules... does this break later?
 structure Rule where
+  id : Nat
   body : FunctionFreeConjunction
   head : FunctionFreeConjunction
 

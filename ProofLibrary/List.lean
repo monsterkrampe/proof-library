@@ -252,5 +252,37 @@ namespace List
   theorem get_enum (l : List α) (i : Fin l.length) : l.enum.get ⟨i.val, (by rw [length_enum]; exact i.isLt)⟩ = (i.val, l.get i) := by 
     unfold enum
     simp [get_enum_from]
+
+  theorem map_eq_map_then_functions_eq (h : (List.map f l) = (List.map g l)) : ∀ x, x ∈ l.toSet -> f x = g x := by 
+    intro x x_in_l
+    induction l with 
+    | nil => trivial  
+    | cons a as ih => 
+      simp [map] at h 
+      simp [toSet, Set.element, Set.union] at x_in_l
+      cases x_in_l with 
+      | inl hl => rw [hl]; exact h.left
+      | inr hr => exact ih h.right hr
+
+  theorem map_eq_map_if_functions_eq (l : List α) : (∀ x, x ∈ l.toSet -> f x = g x) -> l.map f = l.map g := by 
+    intro h
+    induction l with 
+    | nil => trivial 
+    | cons a as ih => 
+      simp [map]
+      constructor 
+      apply h
+      simp [toSet, Set.element, Set.union]
+      apply ih 
+      intro x x_in_as
+      apply h 
+      simp [toSet, Set.element, Set.union]
+      apply Or.inr 
+      apply x_in_as
+  
+  theorem map_eq_map_iff (l : List α) : (∀ x, x ∈ l.toSet -> f x = g x) ↔ l.map f = l.map g := by 
+    constructor 
+    apply map_eq_map_if_functions_eq 
+    apply map_eq_map_then_functions_eq
 end List
 

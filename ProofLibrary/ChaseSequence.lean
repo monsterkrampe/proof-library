@@ -194,7 +194,6 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
     constructor 
     unfold isHomomorphism ; intro gt ; cases gt <;> simp
     rw [cs.database_first]
-    simp [applyFactSet]
     intro el 
     simp [Set.element]
     intro elInSet 
@@ -239,59 +238,95 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                 contradiction
               
             let new_h : GroundTermMapping := fun t =>
-              let dec := Classical.propDecidable (∃ f, f ∈ (cs.fact_sets k ∪ trg.val.result) ∧ t ∈ f.terms.toSet)
-              match dec with 
-                | Decidable.isTrue p => 
-                  let f := Classical.choose p 
-                  let ⟨hfl, hfr⟩ := Classical.choose_spec p
-                  let hfllDec := Classical.propDecidable (f ∈ cs.fact_sets k)
-                  match hfllDec with 
-                    | Decidable.isTrue _ => h t
-                    | Decidable.isFalse nhfll => 
-                      have hflr : f ∈ trg.val.result := by
-                        cases hfl with 
-                          | inl => contradiction
-                          | inr => assumption
-                      let idx_f := trg.val.idx_of_fact_in_result f hflr
-                      let subs := Classical.choose trg_obsolete_on_m
-                      let hsubs := Classical.choose_spec trg_obsolete_on_m
-                      let atom_in_head := trg.val.rule.head.get idx_f
-                      let idx_t_in_f := f.terms.idx_of t (List.listToSetElementAlsoListElement _ _ hfr)
-                      have idx_t_in_f_isLt := idx_t_in_f.isLt
-                      have f_is_at_its_idx : f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact idx_f.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; apply List.idx_of_get
-                      have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by 
-                        rw [f_is_at_its_idx]
-                        unfold Trigger.mapped_head
-                        rw [List.get_map]
-                        rw [List.get_enum]
-                        simp
+              match t_eq : t with 
+              | GroundTerm.const _ => t
+              | GroundTerm.func ft =>
+                let dec := Classical.propDecidable (∃ f, f ∈ (cs.fact_sets k ∪ trg.val.result) ∧ t ∈ f.terms.toSet)
+                match dec with 
+                  | Decidable.isTrue p => 
+                    let f := Classical.choose p 
+                    let ⟨hfl, hfr⟩ := Classical.choose_spec p
+                    let hfllDec := Classical.propDecidable (f ∈ cs.fact_sets k)
+                    match hfllDec with 
+                      | Decidable.isTrue _ => h t
+                      | Decidable.isFalse nhfll => 
+                        have hflr : f ∈ trg.val.result := by
+                          cases hfl with 
+                            | inl => contradiction
+                            | inr => assumption
+                        let idx_f := trg.val.idx_of_fact_in_result f hflr
+                        let subs := Classical.choose trg_obsolete_on_m
+                        let hsubs := Classical.choose_spec trg_obsolete_on_m
+                        let atom_in_head := trg.val.rule.head.get idx_f
+                        let skolem_atom_in_head := atom_in_head.skolemize trg.val.rule.id trg.val.rule.frontier
+                        let idx_t_in_f := f.terms.idx_of t (List.listToSetElementAlsoListElement _ _ hfr)
+                        have idx_t_in_f_isLt := idx_t_in_f.isLt
+                        have f_is_at_its_idx : f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact idx_f.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; apply List.idx_of_get
+                        have t_is_at_its_idx : t = f.terms.get idx_t_in_f := by simp [idx_t_in_f]; apply List.idx_of_get
 
-                      let var_or_const_corresponding_to_t := atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
-                        rw [← atom_arity_same_as_fact]
-                        exact idx_t_in_f_isLt
-                      )⟩
-                      match var_or_const_corresponding_to_t with 
-                      | VarOrConst.var v => subs v 
-                      | VarOrConst.const c => GroundTerm.const c
-                | Decidable.isFalse _ => t
+                        have skolem_atom_in_head_with_subs_is_f : trg.val.subs.apply_atom skolem_atom_in_head = f := by rw [f_is_at_its_idx]; exact trg.val.apply_subs_to_atom_at_idx_same_as_fact_at_idx idx_f
+
+                        have skolem_atom_arity_same_as_fact : f.terms.length = List.length skolem_atom_in_head.terms := by 
+                          apply Eq.symm
+                          apply GroundSubstitution.eq_under_subs_means_same_length trg.val.subs
+                          rw [← skolem_atom_in_head_with_subs_is_f]
+
+                        let term_corresponding_to_t := skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
+                          rw [← skolem_atom_arity_same_as_fact]
+                          exact idx_t_in_f_isLt
+                        )⟩
+                        have : trg.val.subs.apply_term term_corresponding_to_t = t := by 
+                          rw [t_is_at_its_idx]
+                          apply GroundSubstitution.eq_under_subs_means_term_is_eq trg.val.subs
+                          rw [← skolem_atom_in_head_with_subs_is_f]
+
+                        subs.apply_term term_corresponding_to_t
+                        -- match term_corresponding_to_t with 
+                        --   | Term.var v => subs v 
+                        --   | Term.const c => by simp [GroundSubstitution.apply_term] at this; rw [t_eq] at this; contradiction
+                        --   | Term.func func => subs.apply_term func
+                  | Decidable.isFalse _ => t
             exists new_h
             constructor 
             . intro term; cases term with 
-              | const c => 
-                simp 
-                let dec := Classical.propDecidable (∃ f, f ∈ (cs.fact_sets k ∪ trg.val.result) ∧ (GroundTerm.const c) ∈ f.terms.toSet)
-                cases dec_eq : dec with 
-                | isTrue p =>
-                  simp [dec_eq]
-                  let f := Classical.choose p 
-                  let ⟨hfl, hfr⟩ := Classical.choose_spec p
-                  let hfllDec := Classical.propDecidable (f ∈ cs.fact_sets k)
-                  cases hfllDec_eq : hfllDec with
-                  | isTrue pp => simp [hfllDec_eq]; exact ih_h.left (GroundTerm.const c)
-                  | isFalse np => simp [hfllDec_eq]; sorry
-                | isFalse _ => simp [dec_eq]
+              | const c => simp 
               | func _ => trivial
-            . sorry
+            . rw [← trg_res]
+              intro fact fact_in_chase
+              unfold Set.element at fact_in_chase
+              cases fact_in_chase with | intro fact' h_fact' =>
+                cases h_fact' with | intro h_fact'_in_chase apply_h_f_and_f'_eq =>
+                  cases h_fact'_in_chase with 
+                  | inl hl => sorry 
+                  | inr hr => 
+                    apply ih_h.right 
+                    exists fact'
+                    constructor
+                    exact hr 
+                    unfold applyFact at apply_h_f_and_f'_eq
+                    unfold applyFact
+                    rw [← apply_h_f_and_f'_eq]
+                    simp
+                    rw [← List.map_eq_map_iff]
+                    intro x hx
+                    cases x with 
+                    | const xc => simp; apply ih_h.left (GroundTerm.const xc)
+                    | func xfunc => 
+                      simp 
+                      have : ∃ f, f ∈ (cs.fact_sets k ∪ trg.val.result) ∧ (GroundTerm.func xfunc) ∈ f.terms.toSet := by 
+                        exists fact' 
+                        constructor
+                        apply Or.inl
+                        apply hr 
+                        apply hx
+                      split
+                      case h_1 dec p heq => 
+                        split 
+                        split 
+                        case h_1 => rfl 
+                        case h_2 => sorry
+                      case h_2 => contradiction
+
   let global_h : GroundTermMapping := fun t => 
     let dec := Classical.propDecidable (∃ f, f ∈ cs.result ∧ t ∈ f.terms.toSet)
     match dec with

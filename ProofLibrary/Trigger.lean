@@ -1,4 +1,3 @@
-import ProofLibrary.List
 import ProofLibrary.KnowledgeBaseBasics
 import ProofLibrary.SubstitutionAndHomomorphismBasics
 
@@ -8,10 +7,14 @@ structure Trigger where
 
 namespace Trigger
   def mapped_body (trg : Trigger) : List Fact := SubsTarget.apply trg.subs trg.rule.body
-  def mapped_head (trg : Trigger) : List Fact := List.map (fun (i, a) => {
+  def mapped_head (trg : Trigger) : List Fact := List.map (fun a => {
       predicate := a.predicate 
-      terms := List.map ((SubsTarget.apply trg.subs) ∘ (VarOrConst.skolemize i trg.rule.frontier)) a.terms
-    }) (List.enum trg.rule.head)
+      terms := List.map ((SubsTarget.apply trg.subs) ∘ (VarOrConst.skolemize trg.rule.id trg.rule.frontier)) a.terms
+    }) trg.rule.head
+
+  theorem head_length_eq_mapped_head_length (trg : Trigger) : trg.rule.head.length = trg.mapped_head.length := by 
+    unfold mapped_head
+    rw [List.length_map]
 
   def result (trg : Trigger) : FactSet :=
     trg.mapped_head.toSet
@@ -20,6 +23,16 @@ namespace Trigger
     let fin_mapped := trg.mapped_head.idx_of f (trg.mapped_head.listToSetElementAlsoListElement f f_in_res)
     have fin_mapped_isLt := fin_mapped.isLt
     ⟨fin_mapped.val, by simp [mapped_head, List.length_map, List.length_enum] at fin_mapped_isLt; exact fin_mapped_isLt⟩
+
+  theorem apply_subs_to_atom_at_idx_same_as_fact_at_idx (trg : Trigger) (idx : Fin trg.rule.head.length) : trg.subs.apply_atom ((trg.rule.head.get idx).skolemize trg.rule.id trg.rule.frontier) = trg.mapped_head.get ⟨idx.val, by rw [← head_length_eq_mapped_head_length]; exact idx.isLt⟩ := by 
+    simp [
+      mapped_head, 
+      FunctionFreeAtom.skolemize, 
+      GroundSubstitution.apply_atom, 
+      List.get_map, 
+      List.combine_nested_map,
+      SubsTarget.apply
+    ]
   
   def loaded (trg : Trigger) (F : FactSet) : Prop :=
     trg.mapped_body ⊆ F
@@ -62,15 +75,14 @@ namespace Trigger
           rw [← he.right]
           simp [applyFact, GroundSubstitution.apply_function_free_atom]
           rw [List.combine_nested_map]
-          simp [GroundSubstitution.apply_var_or_const]
           induction head.terms with 
           | nil => simp [List.map]
           | cons t_head t_tail t_ih => 
             simp [List.map]
             constructor
             . cases t_head with 
-              | var v => simp 
-              | const c => simp; apply hh (GroundTerm.const c)
+              | var v => simp [GroundSubstitution.apply_var_or_const]
+              | const c => simp [GroundSubstitution.apply_var_or_const]; apply hh (GroundTerm.const c)
             . apply t_ih
       | inr hr => 
         apply ih

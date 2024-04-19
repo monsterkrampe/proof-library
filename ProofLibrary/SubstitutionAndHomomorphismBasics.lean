@@ -1,3 +1,4 @@
+import ProofLibrary.List
 import ProofLibrary.KnowledgeBaseBasics
 
 def GroundSubstitution := Variable -> GroundTerm
@@ -27,6 +28,15 @@ namespace GroundSubstitution
 
   def apply_function_free_conj (σ : GroundSubstitution) (conj : FunctionFreeConjunction) : List Fact :=
     (List.map (apply_function_free_atom σ)) conj
+
+  theorem eq_under_subs_means_same_length (σ : GroundSubstitution) (a : Atom) (f : Fact) (h : σ.apply_atom a = f) : (a.terms.length = f.terms.length) := by 
+    rw [← h]
+    simp [apply_atom]
+
+  theorem eq_under_subs_means_term_is_eq (σ : GroundSubstitution) (a : Atom) (f : Fact) (idx : Fin a.terms.length) (h : σ.apply_atom a = f) : (σ.apply_term (a.terms.get idx) = f.terms.get { val := idx.val, isLt := (by rw [← eq_under_subs_means_same_length σ a f h]; exact idx.isLt) }) := by
+    cases h
+    simp [apply_atom, List.get_map]
+
 end GroundSubstitution
 
 class SubsTarget (α) (β) where
