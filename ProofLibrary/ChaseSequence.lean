@@ -131,14 +131,6 @@ theorem trgRActiveForChaseResultMeansRActiveAtSomeIndex (kb : KnowledgeBase) (cs
         have actualContra := Set.subsetTransitive _ _ _ (And.intro rActiveSRight (chaseSequenceSetIsSubsetOfResult kb cs n))
         contradiction
 
-namespace KnowledgeBase
-  def terminates (kb : KnowledgeBase) : Prop :=
-    ∃ cs : ChaseSequence kb, cs.terminates
-
-  def universally_terminates (kb : KnowledgeBase) : Prop :=
-    ∀ cs : ChaseSequence kb, cs.terminates
-end KnowledgeBase
-
 theorem rObsoletenessSubsetMonotone (trg : Trigger) (F G : FactSet) : F ⊆ G ∧ trg.robsolete F -> trg.robsolete G := by 
   intro ⟨sub, robsF⟩ 
   simp [Trigger.robsolete] at * 
@@ -150,6 +142,35 @@ theorem rObsoletenessSubsetMonotone (trg : Trigger) (F G : FactSet) : F ⊆ G �
     constructor 
     exact hs.right 
     exact sub 
+
+theorem factInChaseSeqMustComeFromDBOrTriggerResult (kb : KnowledgeBase) (cs : ChaseSequence kb) (f : Fact) (i : Nat) : f ∈ cs.fact_sets i -> f ∈ kb.db.toFactSet ∨ ∃ trg : RTrigger kb.rules, f ∈ trg.val.result := by 
+  intro h 
+  induction i with 
+  | zero => rw [cs.database_first] at h; apply Or.inl; exact h 
+  | succ j ih => 
+    have trg_exis := cs.triggers_exist j 
+    cases trg_exis with 
+    | inr hr => rw [← hr.right] at h; apply ih; apply h
+    | inl hl => 
+      cases hl with | intro trg h_trg => 
+        rw [← h_trg.right] at h
+        cases h with 
+        | inr hlr => apply ih; apply hlr
+        | inl hll => apply Or.inr; exists trg 
+
+theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : Trigger) (var : Variable) (i : Nat) : (trg.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ (trg.subs.apply_term (VarOrConst.skolemize trg.rule.id trg.rule.frontier v)) ∈ f.terms.toSet) -> trg.result ⊆ cs.fact_sets i := by 
+  intro ⟨var_not_in_frontier, exis_f⟩
+  cases exis_f with | intro f hf => 
+    have ⟨f_in_chase, var_in_f_terms⟩ := hf 
+    sorry
+
+namespace KnowledgeBase
+  def terminates (kb : KnowledgeBase) : Prop :=
+    ∃ cs : ChaseSequence kb, cs.terminates
+
+  def universally_terminates (kb : KnowledgeBase) : Prop :=
+    ∀ cs : ChaseSequence kb, cs.terminates
+end KnowledgeBase
 
 theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : cs.result.universallyModelsKb kb := by
   constructor
@@ -349,17 +370,28 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                             intro vtNotInFrontier
                             simp at vtNotInFrontier
 
-                            -- there is a fact in the trigger result with the skolemized subs applied version of vt 
+                            have : trg.val.result ⊆ cs.fact_sets k := by 
+                              apply funcTermForExisVarInChaseMeansTriggerResultOccurs
+                              constructor 
+                              apply vtNotInFrontier
+                              simp [GroundSubstitution.apply_term]
+                              apply exis_f
 
-                            -- there is a fact in chase step k with the skolemized subs applied version of vt
+                            have : trg.val.robsolete (cs.fact_sets k) := by 
+                              let obs_subs := fun v : Variable => trg.val.subs.apply_term (VarOrConst.skolemize (trg.val.rule.id) (trg.val.rule.frontier) (VarOrConst.var v))
+                              exists obs_subs
+                              constructor
+                              . intro v vInFrontier 
+                                simp [obs_subs, GroundSubstitution.apply_term, VarOrConst.skolemize, vInFrontier]
+                              . simp [Trigger.result, Trigger.mapped_head] at this 
+                                simp [obs_subs, SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
+                                unfold GroundSubstitution.apply_function_free_atom
 
-                            -- WHAT TO DO HERE???
+                                sorry
 
-                            -- every fact in the trigger result is already in chase step k
+                            have : ¬ trg.val.robsolete (cs.fact_sets k) := trg_act.right
 
-                            -- show contradiction since trigger should be ractive but is already obsolete by the above
-
-                            sorry
+                            contradiction
                           rw [hsubs.left]
                           simp [VarOrConst.skolemize, vtInFrontier]
                           have : trg.val.rule = trg_on_m.val.rule := by rfl
@@ -368,7 +400,7 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                         case h_2 _ n_exis_f _ => 
                           split 
                           case h_1 _ n_exis_f' _ => 
-                            -- TODO: here we should run into a contradiction since we knot that the term occurs in the trigger result
+                            -- TODO: here we should run into a contradiction since we know that the term occurs in the trigger result
                             apply False.elim 
                             apply n_exis_f'
                             exists fact'
