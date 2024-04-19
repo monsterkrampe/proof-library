@@ -63,6 +63,9 @@ namespace List
       | Nat.zero => nil
       | Nat.succ i => cons h (tail.before_index i)
 
+  theorem before_and_element_le_sum (L : List Nat) (pos : Fin (L.length)) : (L.before_index pos.val).sum + (L.get pos) ≤ L.sum := by
+    sorry
+
   /- NOTE: inductive lists are always finite!
   def isFinite (l : List α) : Prop :=
     ∃ k : Nat,
@@ -78,14 +81,10 @@ namespace List
   -/
 
   -- TODO: is there some more idiomatic way to get a lt proof with indices in enum?
-  structure IndexWithLt (length : Nat) where
-    index : Nat
-    lt : index < length
-
-  def enum_with_lt_from : (l : List α) -> (start totalLength : Nat) -> (start + l.length = totalLength) -> List ((IndexWithLt totalLength) × α)
+  def enum_with_lt_from : (l : List α) -> (start totalLength : Nat) -> (start + l.length = totalLength) -> List ((Fin totalLength) × α)
     | nil => fun _ _ _ => nil
     | cons head tail => fun s tl h =>
-      cons ({ index := s, lt := (by
+      cons ({ val := s, isLt := (by
         rw [← h]
         simp
         apply Nat.lt_succ_of_le
@@ -96,6 +95,6 @@ namespace List
         simp
       ))
 
-  def enum_with_lt (l : List α) : List ((IndexWithLt l.length) × α) :=
+  def enum_with_lt (l : List α) : List ((Fin l.length) × α) :=
     l.enum_with_lt_from 0 l.length (by simp)
 end List

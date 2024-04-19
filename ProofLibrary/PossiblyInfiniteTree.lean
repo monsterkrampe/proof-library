@@ -51,11 +51,13 @@ namespace NodeInPossiblyInfiniteTree
   def children (node : NodeInPossiblyInfiniteTree α) : List (NodeInPossiblyInfiniteTree α) :=
     let current_layer := node.layer
     let next_layer_opt := node.tree.data.infinite_list (node.depth + 1)
-    let current_layer_before_this := current_layer.before_index node.position_in_layer
+    --let current_layer_before_this := current_layer.before_index node.position_in_layer
     let node_info := node.node_info
     let number_of_children := node_info.number_of_children
     let layer_mapped := current_layer.map (fun ni => ni.number_of_children)
-    let number_of_children_before := (current_layer_before_this.map (fun ni => ni.number_of_children)).sum
+    --let number_of_children_before := (current_layer_before_this.map (fun ni => ni.number_of_children)).sum
+    let layer_mapped_before := layer_mapped.before_index node.position_in_layer
+    let number_of_children_before := layer_mapped_before.sum
 
     have no_children_in_mapped_layer : number_of_children ∈ layer_mapped.toSet := by
       apply List.mappedElemInMappedList
@@ -66,6 +68,7 @@ namespace NodeInPossiblyInfiniteTree
       exact no_children_in_mapped_layer
 
     have no_c_before_add_no_c_le_layer_length : number_of_children_before + number_of_children ≤ layer_mapped.sum := by
+      simp [NodeInPossiblyInfiniteTree.node_info]
       sorry
 
     match equality_noc : node_info.number_of_children with
@@ -93,10 +96,10 @@ namespace NodeInPossiblyInfiniteTree
             let next_layer := next_layer_opt.unwrap nextLayerExists
             let child_information := (next_layer.drop number_of_children_before).take number_of_children
 
-            child_information.enum_with_lt.map (fun (indexWithLt, info) => {
+            child_information.enum_with_lt.map (fun (indexFin, info) => {
               tree := node.tree,
               depth := node.depth + 1,
-              position_in_layer := number_of_children_before + indexWithLt.index,
+              position_in_layer := number_of_children_before + indexFin.val,
               layer_exists := by
                 exists next_layer
                 simp
@@ -114,10 +117,15 @@ namespace NodeInPossiblyInfiniteTree
                   have nextEqNextPrime : next_layer = next_layer' := Option.someEqImpliesEq exis
                   rw [← nextEqNextPrime] at count
                   rw [count, ← equality_sum]
-                  have indexLt := indexWithLt.lt
+                  have indexLt := indexFin.isLt
                   have child_info_length_le_no_children : child_information.length ≤ number_of_children := by apply List.length_take_le
-                  -- TODO: continue here
-                  sorry
+                  have indexLtNoChildren : indexFin.val < number_of_children := by apply Nat.lt_of_lt_of_le indexLt child_info_length_le_no_children
+                  rw [Nat.add_comm]
+                  apply Nat.add_lt_of_lt_sub
+                  apply Nat.lt_of_lt_of_le indexLtNoChildren
+                  apply Nat.le_sub_of_add_le
+                  rw [Nat.add_comm]
+                  exact no_c_before_add_no_c_le_layer_length
             })
 
   /- TODO: maybe also define siblings similarly, i.e. as node.layer but with NodeInPossiblyInfiniteTree instead of just NodeInformation -/
