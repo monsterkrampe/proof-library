@@ -121,11 +121,11 @@ theorem VarOrConst.skolemize_injective (ruleId : Nat) (frontier : List Variable)
       simp [skolemize]
       split
       . split 
-        . simp; intros; assumption 
+        . simp 
         . intros; contradiction
       . split 
         . intros; contradiction
-        . simp; intros; assumption
+        . simp
     | const _ => 
       simp [skolemize]
       split <;> intros <;> assumption
@@ -133,7 +133,7 @@ theorem VarOrConst.skolemize_injective (ruleId : Nat) (frontier : List Variable)
     | var vt => 
       simp [skolemize]
       split <;> intros <;> assumption
-    | const _ => simp [skolemize]; intros; assumption
+    | const _ => simp [skolemize]
 
 -- def VarOrConst.skolemize_into_functional_term (ruleId : Nat) (frontier : List Variable) (v : Variable) (v_not_frontier : ¬ frontier.elem v) : FiniteTree SkolemFS Variable := 
 --   match eq : skolemize ruleId frontier (VarOrConst.var v) with 

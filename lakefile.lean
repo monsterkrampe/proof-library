@@ -6,7 +6,7 @@ package «proof-library» {
 }
 
 require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git"@"v4.6.1"
+  "https://github.com/leanprover-community/mathlib4.git"@"v4.7.0"
 
 @[default_target]
 lean_lib «ProofLibrary» {

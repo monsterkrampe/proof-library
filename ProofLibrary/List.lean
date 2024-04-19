@@ -3,24 +3,6 @@ import ProofLibrary.Option
 
 section
   -- copied from mathlib
-  theorem Nat.min_le_right (a b : Nat) : min a b ≤ b := by rw [Nat.min_def]; split; trivial; simp
-  theorem Nat.min_le_left (a b : Nat) : min a b ≤ a := by 
-    rw [Nat.min_def]
-    split 
-    simp 
-    cases Nat.lt_or_ge a b with 
-    | inl hl => have : a ≤ b := Nat.le_of_lt hl; contradiction
-    | inr hr => trivial
-  theorem Nat.min_eq_left {a b : Nat} (h : a ≤ b) : min a b = a := by simp [Nat.min_def, h]
-  theorem Nat.min_eq_right {a b : Nat} (h : b ≤ a) : min a b = b := by 
-    simp [Nat.min_def]
-    cases Nat.eq_or_lt_of_le h with  
-    | inl hl => simp [hl] 
-    | inr hr => simp [Nat.not_le_of_gt hr]
-  theorem Nat.zero_min (a : Nat) : min 0 a = 0 := Nat.min_eq_left (zero_le a)
-  theorem Nat.min_zero (a : Nat) : min a 0 = 0 := Nat.min_eq_right (zero_le a)
-  theorem Nat.succ_le_succ_iff {a b : Nat} : succ a ≤ succ b ↔ a ≤ b :=
-    ⟨le_of_succ_le_succ, succ_le_succ⟩
   theorem Nat.min_succ_succ (x y : Nat) : min (succ x) (succ y) = succ (min x y) := by
     simp [Nat.min_def, Nat.succ_le_succ_iff]; split <;> rfl
 
@@ -31,13 +13,6 @@ section
     | Nat.succ n, _ :: l => by simp [Nat.min_succ_succ, Nat.add_one, length_take, take_succ_cons]
   theorem List.length_take_le (n) (l : List α) : length (take n l) ≤ n := by simp [List.length_take, Nat.min_le_left]
 
-  theorem List.get?_eq_get : ∀ {l : List α} {n} (h : n < l.length), l.get? n = some (get l ⟨n, h⟩)
-  | _ :: _, 0, _ => rfl
-  | _ :: l, _+1, _ => get?_eq_get (l := l) _
-  theorem List.get?_map (f : α → β) : ∀ l n, (map f l).get? n = (l.get? n).map f
-    | [], _ => rfl
-    | _ :: _, 0 => rfl
-    | _ :: l, n+1 => get?_map f l n
   theorem List.get_map (f : α → β) {l n} : get (map f l) n = f (get l ⟨n, length_map l f ▸ n.2⟩) := 
     Option.some.inj <| by rw [← get?_eq_get, get?_map, get?_eq_get]; rfl
 end 
@@ -47,8 +22,17 @@ namespace List
     | nil => ∅
     | cons h tail => (fun e => e = h) ∪ (List.toSet tail)
 
-  instance : Coe (List α) (Set α) where
-    coe := toSet
+  theorem inIffInToSet (l : List α) (e : α) : e ∈ l ↔ e ∈ l.toSet := by 
+    induction l with 
+    | nil => constructor <;> (intros; contradiction)
+    | cons a as ih => 
+      constructor
+      . intro h_in; simp at h_in; cases h_in with 
+        | inl h_in_head => left; unfold Set.element; rw [h_in_head]
+        | inr h_in_tail => right; rw [← ih]; exact h_in_tail
+      . intro h_in; simp; cases h_in with 
+        | inl h_in_head => left; unfold Set.element at h_in_head; rw [h_in_head]
+        | inr h_in_tail => right; rw [ih]; exact h_in_tail
 
   theorem listToSetElementAlsoListElement [BEq α] [LawfulBEq α] (L : List α) (e : α) : e ∈ L.toSet -> L.elem e := by 
     induction L with 
@@ -75,11 +59,6 @@ namespace List
       | cons a as => cases index with
         | zero => simp [List.get, List.toSet, Set.element, Set.union]
         | succ n => simp [List.get, List.toSet, Set.element, Set.union]; apply Or.inr; apply listGetInToSet
-
-  theorem map_id' (L : List α) : L.map id = L := by
-    induction L 
-    case nil => simp [List.map]
-    case cons _ _ ih => simp [List.map, ih]
 
   theorem mappedElemInMappedList (L : List α) (e : α) (fn : α -> β) : e ∈ L.toSet -> fn e ∈ (L.map fn).toSet := by
     intro h
@@ -210,8 +189,8 @@ namespace List
     | cons b bs ih =>
       unfold idx_of_with_count
       by_cases e == b
-      case inl hl => simp [hl]
-      case inr hr => simp [hr]; apply ih
+      case pos hl => simp [hl]
+      case neg hr => simp [hr]; apply ih
 
   def idx_of [DecidableEq α] (l : List α) (e : α) (e_in_l : l.elem e) : Fin l.length :=
     let tmp_fin := l.idx_of_with_count e e_in_l 0
@@ -354,42 +333,18 @@ namespace List
     apply map_eq_map_then_functions_eq
 
   theorem neg_all_of_any_neg (l : List α) (p : α -> Bool) : l.any (fun a => ¬p a) -> ¬l.all p := by 
-    induction l with 
-    | nil => simp [any]
-    | cons a as ih => 
-      simp [any] 
-      intro h 
-      cases h with 
-      | inl hl => simp [all, hl]
-      | inr hr => 
-        simp [all]
-        have : ∀ (x y : Bool), x = false ∨ y = false -> (x && y) = false := by 
-          intro x y h 
-          cases h with 
-          | inl hl => simp [hl]
-          | inr hr => simp [hr]
-        apply this
-        apply Or.inr
-        apply eq_false_of_ne_true
-        apply ih
-        simp [hr]
+    simp
+    intro x _ _
+    exists x 
 
   theorem any_of_exists (l : List α) (p : α -> Bool) : (∃ a, a ∈ l.toSet ∧ p a) -> l.any p = true := by 
-    intro h 
-    cases h with | intro e he =>
-      induction l with 
-      | nil => have contra := he.left; contradiction
-      | cons a as ih => 
-        let ⟨hel, her⟩ := he
-        cases hel with 
-        | inl hl => simp [any]; simp [Set.element] at hl; apply Or.inl; rw [← hl]; apply her
-        | inr hr => 
-          simp [any] 
-          apply Or.inr 
-          apply ih 
-          constructor 
-          apply hr 
-          apply he.right
+    simp
+    intro x _ _
+    exists x
+    constructor
+    . rw [inIffInToSet]
+      assumption
+    . assumption
 
   theorem inToSetMeansExistsIndex [DecidableEq α] (L : List α) (e : α) : e ∈ L.toSet -> ∃ i, e = L.get i := by 
     intro h
@@ -415,17 +370,7 @@ namespace List
 
   theorem elemConcatIffElemOfOne [BEq α] (L L' : List α) : ∀ e, List.elem e (L ++ L') ↔ L.elem e ∨ L'.elem e := by 
     induction L with 
-    | nil => 
-      unfold HAppend.hAppend 
-      unfold instHAppend
-      unfold Append.append 
-      unfold List.append
-      unfold instAppendList
-      simp
-      intro e
-      constructor
-      . intros; apply Or.inr; assumption
-      . intro h; cases h; contradiction; assumption
+    | nil => simp
     | cons head tail ih => 
       intro e
       cases (Decidable.em (e == head)) with 
@@ -465,7 +410,7 @@ namespace List
 
   theorem concatEqMeansPartsEqIfSameLength (as bs cs ds : List α) (h : as.length = cs.length) : as ++ bs = cs ++ ds -> as = cs ∧ bs = ds := by 
     induction as generalizing cs with 
-    | nil => cases cs with | nil => simp; intros; assumption | cons _ _ => contradiction
+    | nil => cases cs with | nil => simp | cons _ _ => contradiction
     | cons a as ih => 
       cases cs with 
       | nil => contradiction
@@ -480,9 +425,7 @@ namespace List
         . exact (ih cs h tail).right
 
   theorem mapConcatEqMapParts (as bs : List α) (f : α -> β) : List.map f (as ++ bs) = as.map f ++ bs.map f := by 
-    induction as with 
-    | nil => simp [map]
-    | cons a as ih => simp [map]; apply ih
+    simp
 
   theorem get_eq_of_eq {as bs : List α} (h : as = bs) (idx : Fin as.length) : as.get idx = bs.get ⟨idx.val, (by rw [← h]; exact idx.isLt)⟩ := by
     cases h; rfl

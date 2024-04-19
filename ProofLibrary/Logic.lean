@@ -17,11 +17,11 @@ theorem notAndDeMorgan : ¬(a ∧ b) -> (a -> ¬b) := by
 theorem implToNotOr : (a -> b) -> (¬a ∨ b) := by 
   intro h 
   by_cases a 
-  case inl ha => apply Or.inr; apply h; apply ha 
-  case inr ha => apply Or.inl; apply ha  
+  case pos ha => apply Or.inr; apply h; apply ha 
+  case neg ha => apply Or.inl; apply ha  
 
 theorem notnotelim : ¬¬p -> p := by 
   by_cases p 
-  case inl hp => intro _; exact hp 
-  case inr hnp => intro nnp; contradiction
+  case pos hp => intro _; exact hp 
+  case neg hnp => intro nnp; contradiction
 

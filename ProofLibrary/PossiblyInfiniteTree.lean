@@ -74,7 +74,7 @@ namespace NodeInPossiblyInfiniteTree
       rw [nodeLayerIsLayerAtDepth]
     )⟩
     have no_children_is_at_pos_in_mapped_layer : number_of_children = layer_mapped.get fin_pos := by
-      simp [NodeInPossiblyInfiniteTree.node_info, List.get_map]
+      simp [current_layer, node_info, number_of_children, layer_mapped, NodeInPossiblyInfiniteTree.node_info, List.get_map]
 
     have no_c_before_add_no_c_le_layer_length : number_of_children_before + number_of_children ≤ layer_mapped.sum := by
       rw [no_children_is_at_pos_in_mapped_layer]
@@ -111,11 +111,11 @@ namespace NodeInPossiblyInfiniteTree
               position_in_layer := number_of_children_before + indexFin.val,
               layer_exists := by
                 exists next_layer
-                simp
+                simp [next_layer]
                 rw [Option.someRevertsUnwrap]
               layer_large_enough := by
                 intro layer h
-                have someNextEqSomeLayer : some next_layer = some layer := by simp [Option.someRevertsUnwrap, h]
+                have someNextEqSomeLayer : some next_layer = some layer := by simp [Option.someRevertsUnwrap, ← h, next_layer]
                 have nextEqLayer : next_layer = layer := Option.someEqImpliesEq someNextEqSomeLayer
                 rw [← nextEqLayer]
                 simp [nodeLayerIsLayerAtDepth] at consistency

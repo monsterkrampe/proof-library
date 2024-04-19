@@ -179,7 +179,7 @@ namespace FiniteTree
   mutual
     theorem mapLeavesEqIfMapEqOnLeaves (f : β -> FiniteTree α γ) (g : β -> FiniteTree α γ) (t : FiniteTree α β) : t.leaves.map f = t.leaves.map g -> t.mapLeaves f = t.mapLeaves g := by 
       cases t with 
-      | leaf _ => unfold mapLeaves; unfold leaves; simp [List.map]; intros; assumption
+      | leaf _ => unfold mapLeaves; unfold leaves; simp [List.map]
       | inner _ _ => 
         unfold mapLeaves; unfold leaves; simp
         apply mapLeavesListEqIfMapEqOnLeavesList

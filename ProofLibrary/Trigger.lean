@@ -50,9 +50,9 @@ namespace Trigger
       let ts := trg.rule.frontier.map (fun fv => trg.subs fv)
       let a : SkolemFS := { ruleId := trg.rule.id, var := t }
       apply FiniteTree.tree_eq_while_contained_is_impossible tree_for_s (FiniteTreeList.fromList ts) a
-      simp [apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
+      simp [tree_for_s, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
       apply apply_eq_for_t_and_s
-      simp [apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
+      simp [tree_for_s, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
       apply List.listToSetElementAlsoListElement
       rw [FiniteTreeList.fromListToListIsId]
       apply List.mappedElemInMappedList
@@ -69,10 +69,10 @@ namespace Trigger
     simp [List.get_map]
   
   def loaded (trg : Trigger) (F : FactSet) : Prop :=
-    trg.mapped_body ⊆ F
+    trg.mapped_body.toSet ⊆ F
 
   def sobsolete (trg : Trigger) (F : FactSet) : Prop := 
-    trg.mapped_head ⊆ F
+    trg.mapped_head.toSet ⊆ F
 
   def sactive (trg : Trigger) (F : FactSet) : Prop :=
     trg.loaded F ∧ ¬ (trg.sobsolete F)
@@ -80,10 +80,7 @@ namespace Trigger
   def robsolete (trg : Trigger) (F : FactSet) : Prop := 
     ∃ s : GroundSubstitution,
       (∀ v, List.elem v (Rule.frontier trg.rule) → s v = trg.subs v) ∧
-      (
-        let l : List Fact := SubsTarget.apply s trg.rule.head
-        l ⊆ F
-      )
+      ((s.apply_function_free_conj trg.rule.head).toSet ⊆ F)
 
   def ractive (trg : Trigger) (F : FactSet) : Prop :=
     trg.loaded F ∧ ¬ (trg.robsolete F)
@@ -108,7 +105,6 @@ namespace Trigger
           exact he.left 
           rw [← he.right]
           simp [applyFact, GroundSubstitution.apply_function_free_atom]
-          rw [List.combine_nested_map]
           induction head.terms with 
           | nil => simp [List.map]
           | cons t_head t_tail t_ih => 
