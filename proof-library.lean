@@ -39,6 +39,36 @@ section
     apply Or.inl
     apply aSubB
     exact eInA
+
+  structure NEList (α) where
+    list : List α
+    non_empty : ∃ h t, list = List.cons h t
+
+  namespace NEList
+    def toList (nel : NEList α) : List α := nel.list
+
+    def last (ne : NEList α) : α := sorry
+      -- how to do this ???
+
+    instance : Coe (NEList α) (List α) where
+      coe := toList
+
+    theorem concatAlsoNonEmpty (ne : NEList α) (l : List α) : ∃ h t, (NEList.toList ne) ++ l = h :: t := by
+      let branch_ne := ne.non_empty
+      cases branch_ne
+      case intro hne thne =>
+        cases thne
+        case intro tne hypne =>
+          constructor
+          constructor
+          case w => exact hne
+          case h.w => exact tne ++ l
+          case h.h =>
+            have essentially_goal : ne.list ++ l = hne :: (tne ++ l) := by
+              rw [hypne]
+              rfl
+            exact essentially_goal
+  end NEList
 end
 
 section
@@ -426,26 +456,32 @@ section
 
   namespace ChaseTree
     mutual
-      def privateBranches (t : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger))) (branch : List (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) : List (List (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) :=
+      def privateBranches (t : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger))) (branch : NEList (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) : List (NEList (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) :=
         match t with
-          | Tree.leaf _ => [branch ++ [t]]
-          | Tree.inner _ ts => ChaseTree.privateBranchesList ts (branch ++ [t])
+          | Tree.leaf _ => [{ list := branch ++ [t], non_empty := NEList.concatAlsoNonEmpty branch [t]}]
+          | Tree.inner _ ts => ChaseTree.privateBranchesList ts { list := branch ++ [t], non_empty := NEList.concatAlsoNonEmpty branch [t] }
           --List.foldl (fun acc t' => acc ++ ChaseTree.privateBranches t' (branch ++ [t])) List.nil ts
 
-      def privateBranchesList (ts : TreeList (FactSet × (Option Trigger)) (FactSet × (Option Trigger))) (branch : List (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) : List (List (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) :=
+      def privateBranchesList (ts : TreeList (FactSet × (Option Trigger)) (FactSet × (Option Trigger))) (branch : NEList (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) : List (NEList (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) :=
         match ts with
-          | TreeList.nil => [branch]
+          | TreeList.nil => []
           | TreeList.cons t ts' => (ChaseTree.privateBranches t branch) ++ (ChaseTree.privateBranchesList ts' branch)
     end
 
-    def branches (ct : ChaseTree) : List (List (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) :=
-      ChaseTree.privateBranches ct.tree []
+    def branches (ct : ChaseTree) : List (NEList (Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)))) :=
+      [{ list := [ct.tree], non_empty := by
+        constructor
+        constructor
+        case w => exact ct.tree
+        case h.w => exact []
+        case h.h => rfl
+      }]
 
     def terminates (ct : ChaseTree) : Prop :=
-      ∀ b, b ∈ ct.branches.toSet -> b.isFinite
+      ∀ b, b ∈ ct.branches.toSet -> b.toList.isFinite
 
     def result (ct : ChaseTree) : List FactSet :=
-      ct.branches.map (fun b => match b.last with | Option.none => ∅ | Option.some t => match t.nodeLabel with | ⟨fs, _⟩ => fs)
+      ct.branches.map (fun b => match b.last.nodeLabel with | ⟨fs, _⟩ => fs)
   end ChaseTree
 end
 
