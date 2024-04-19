@@ -1,30 +1,46 @@
 def Set (α) := α -> Prop
 
+def emptyset : Set α := fun _ => False
+notation:max "∅" => emptyset
+
 def Set.element (e : α) (X : Set α) : Prop := X e
 infixr:75 " ∈ " => Set.element
 
-def Set.union (X Y : Set α) : Set α := fun a => a ∈ X ∨ a ∈ Y
+def Set.union (X Y : Set α) : Set α := fun e => e ∈ X ∨ e ∈ Y
 infixr:65 " ∪ " => Set.union
 
 def Set.subset (X Y : Set α) : Prop := ∀ e : α, e ∈ X → e ∈ Y
 infixr:50 " ⊆ " => Set.subset
 
+def List.toSet : List α -> Set α
+  | nil => ∅
+  | cons h tail => (fun e => e = h) ∪ (List.toSet tail)
+
+instance : Coe (List α) (Set α) where
+  coe := List.toSet
+
 structure Predicate where
-  id : α
+  id : Nat
 
 structure Variable where
-  id : α
+  id : Nat
 
 structure Constant where
-  id : α
+  id : Nat
 
+/- I think we only need skolem function symbols
 structure FunctionSymbol where
-  id : α
+  id : Nat
+-/
+
+structure SkolemFS where
+  rule : Rule
+  var : Variable
 
 mutual
   inductive GroundTerm where
     | Constant (c : Constant) : GroundTerm
-    | Functional (f : FunctionSymbol) (ts : GroundTermList) : GroundTerm
+    | Functional (f : SkolemFS) (ts : GroundTermList) : GroundTerm
 
   inductive GroundTermList where
     | Single (t : GroundTerm) : GroundTermList
@@ -45,7 +61,7 @@ mutual
   inductive Term where
     | Variable (v : Variable) : Term
     | Constant (c : Constant) : Term
-    | Functional (f : FunctionSymbol) (ts : TermList): Term
+    | Functional (f : SkolemFS) (ts : TermList) : Term
 
   inductive TermList where
     | Single (t : Term) : TermList
@@ -63,7 +79,22 @@ mutual
 end
 
 instance : Coe GroundTerm Term where
-  coe gt := GroundTerm.toTerm gt
+  coe := GroundTerm.toTerm
+
+mutual
+  def Term.variable : Term -> Option Variable
+    | Term.Variable v => Option.some v
+    | Term.Constant _ => Option.none
+    | Term.Functional _ _ => Option.none
+
+  def TermList.variables : TermList -> List Variable
+    | TermList.Single t => match (Term.variable t) with
+      | some v => List.cons v List.nil
+      | none => List.nil
+    | TermList.List t ts => match (Term.variable t) with
+      | some v => List.cons v (TermList.variables ts)
+      | none => TermList.variables ts
+end
 
 structure FunctionFreeFact where
   predicate : Fact
@@ -77,11 +108,26 @@ structure Atom where
   predicate : Predicate
   terms : TermList
 
+def Atom.variables (a : Atom) : List Variable := TermList.variables a.terms
+
 def Conjunction := List Atom
 
+/- FIXME
+def Conjunction.vars (conj : Conjunction) : List Variable :=
+  (List.map Atom.variables) conj
+-/
+
+-- normally, we would only allow variables in atoms in rules... does this break later?
 structure Rule where
   body : Conjunction
   head : Conjunction
+
+/- FIXME
+def Rule.frontier (r : Rule) : List Variable :=
+
+def Rule.skolemize (r : Rule) : Rule :=
+  { body := r.body, head :=  }
+-/
 
 def RuleSet := Set Rule
 
@@ -110,3 +156,29 @@ def GroundSubstitution.apply_atom (σ : GroundSubstitution) (ϕ : Atom) : Fact :
   { predicate := ϕ.predicate, terms := GroundSubstitution.apply_list σ ϕ.terms }
 def GroundSubstitution.apply_conj (σ : GroundSubstitution) (conj : Conjunction) : List Fact :=
   (List.map (GroundSubstitution.apply_atom σ)) conj
+
+class SubsTarget (α) (β) where
+  apply : GroundSubstitution -> α -> β
+
+instance : SubsTarget Term GroundTerm where
+  apply := GroundSubstitution.apply_term
+instance : SubsTarget TermList GroundTermList where
+  apply := GroundSubstitution.apply_list
+instance : SubsTarget Atom Fact where
+  apply := GroundSubstitution.apply_atom
+instance : SubsTarget Conjunction (List Fact) where
+  apply := GroundSubstitution.apply_conj
+
+structure Trigger where
+  rule : Rule
+  subs : GroundSubstitution
+
+def Trigger.loaded (trg : Trigger) (F : FactSet) : Prop :=
+  let l : List Fact := SubsTarget.apply trg.subs trg.rule.body
+  l ⊆ F
+
+/- FIXME
+def Trigger.sactive (trg : Trigger) (F : FactSet) : Prop := sorry
+
+def Trigger.ractive (trg : Trigger) (F : FactSet) : Prop := sorry
+-/
