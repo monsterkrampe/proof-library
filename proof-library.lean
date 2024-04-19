@@ -27,9 +27,11 @@ section
     instance : Coe (List α) (Set α) where
       coe := toSet
 
+    /- NOTE: inductive lists are always finite!
     def isFinite (l : List α) : Prop :=
       ∃ k : Nat,
         l.length <= k
+    -/
 
     /- This already exists as List.getLast?
     def last : List α -> Option α
@@ -98,6 +100,7 @@ section
   end NEList
 end
 
+-- NOTE: Inductive Trees are always finite!
 section
   mutual
       inductive Tree (α : Type u) (β : Type v) where
@@ -326,7 +329,7 @@ section
       )
       (Option.some ({ predicate := f.predicate, terms := (List.map (fun t => match t with
         | GroundTerm.const c => c
-        | _ => { id := 0 } -- TODO: this cannot happen since we check before the everything is a constant
+        | _ => { id := 0 } -- TODO: this cannot happen since we check before that everything is a constant
       ) f.terms) }))
       (Option.none)
 
@@ -500,8 +503,10 @@ section
         case h.h => rfl
       }
 
+    /- NOTE: since our chase trees are inductive trees, every chase tree is finite
     def terminates (ct : ChaseTree) : Prop :=
       ∀ b, b ∈ ct.branches.toSet -> b.toList.isFinite
+    -/
 
     def result (ct : ChaseTree) : List FactSet :=
       ct.branches.map (fun b => match b.last.nodeLabel with | ⟨fs, _⟩ => fs)
