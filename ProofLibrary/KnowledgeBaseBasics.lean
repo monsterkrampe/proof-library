@@ -24,6 +24,10 @@ def FunctionFreeAtom.variables (a : FunctionFreeAtom) : List Variable := VarOrCo
 
 def FunctionFreeAtom.skolemize (ruleId : Nat) (frontier : List Variable) (a : FunctionFreeAtom) : Atom := { predicate := a.predicate, terms := a.terms.map (VarOrConst.skolemize ruleId frontier) }
 
+theorem FunctionFreeAtom.skolemize_same_length (ruleId : Nat) (frontier : List Variable) (a : FunctionFreeAtom) : a.terms.length = (a.skolemize ruleId frontier).terms.length := by 
+  unfold skolemize
+  rw [List.length_map]
+
 def FunctionFreeConjunction := List FunctionFreeAtom
 -- def Conjunction := List Atom
 

@@ -174,18 +174,23 @@ theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (
       | inl hl => 
         apply False.elim 
         simp [Database.toFactSet, Set.element, Fact.toFunctionFreeFact] at hl 
-        simp [GroundSubstitution.apply_term, VarOrConst.skolemize, var_not_in_frontier] at var_in_f_terms
 
         have : ¬(List.all f.terms fun t =>
           match t with
           | GroundTerm.const c => true
-          | x => false) := by sorry
+          | x => false) := by 
+            apply List.neg_all_of_any_neg
+            apply List.any_of_exists
+            exists GroundSubstitution.apply_term trg.subs (VarOrConst.skolemize trg.rule.id trg.rule.frontier (VarOrConst.var var))
+            constructor
+            . apply var_in_f_terms
+            . simp [GroundSubstitution.apply_term, VarOrConst.skolemize, var_not_in_frontier]
         split at hl 
         exact hl 
         case h_2 _ _ heq => apply (Option.someNotNone heq); split; contradiction; rfl
 
     cases f_res_from_trg' with | intro trg' htrg' =>
-      have : trg.result ⊆ trg'.val.result := sorry
+      have : trg.result ⊆ trg'.val.result := by sorry
       apply Set.subsetTransitive
       constructor
       apply this
@@ -436,35 +441,74 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                         case h_2 _ n_exis_f _ => 
                           split 
                           case h_1 _ n_exis_f' _ => 
-                            -- TODO: here we should run into a contradiction since we know that the term occurs in the trigger result
                             apply False.elim 
                             apply n_exis_f'
                             exists fact'
                             constructor 
                             exact hl 
                             rw [f_is_at_its_idx]
-                            
-                            -- just trying something here...
+
                             rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
 
-
-                            simp [VarOrConst.skolemize, Trigger.mapped_head, List.get_map]
-                            cases Decidable.em (trg.val.rule.frontier.elem vt) with 
-                            | inl vtInFrontier => 
-                              simp [vtInFrontier] 
-                              sorry
-                            | inr vtNotInFrontier => 
-                              simp [vtNotInFrontier] 
-                              sorry
-
-                            -- I think we should apply ht here to simplify somehow
-                            -- have : List.elem vt trg.val.rule.frontier := by sorry
-                            -- simp [this]
-                            --
-                            -- sorry
+                            apply List.getIsInToSet
+                            cases (List.inToSetMeansExistsIndex _ _ ht) with | intro term_idx h_term_idx =>
+                              exists ⟨term_idx.val, (by 
+                                rw [← GroundSubstitution.apply_same_length]
+                                rw [← FunctionFreeAtom.skolemize_same_length]
+                                apply term_idx.isLt
+                              )⟩
+                              simp [GroundSubstitution.apply_atom, VarOrConst.skolemize, List.get_map, GroundSubstitution.apply_term, FunctionFreeAtom.skolemize]
+                              rw [← h_term_idx]
                           case h_2 _ exis_f' _ => 
                             -- TODO: this should be the lengthy case, where we really end up mapping according to subs
-                            sorry
+                            split
+                            case _ _ chosen_f_hl chosen_f_hr _ =>
+
+                              let t := VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var vt)
+                              -- let t := GroundTerm.func ft
+                              let chosen_f := Classical.choose exis_f'
+
+                              let idx_f := trg.val.idx_of_fact_in_result chosen_f chosen_f_hl
+                              let atom_in_head := trg.val.rule.head.get idx_f
+                              let skolem_atom_in_head := atom_in_head.skolemize trg.val.rule.id trg.val.rule.frontier
+                              let idx_t_in_f := chosen_f.terms.idx_of (trg.val.subs.apply_term t) (List.listToSetElementAlsoListElement _ _ chosen_f_hr)
+                              have idx_t_in_f_isLt := idx_t_in_f.isLt
+                              have f_is_at_its_idx : chosen_f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact idx_f.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; apply List.idx_of_get
+                              -- have t_is_at_its_idx : (trg.val.subs.apply_term t) = chosen_f.terms.get idx_t_in_f := by simp [idx_t_in_f]; apply List.idx_of_get
+
+                              have skolem_atom_in_head_with_subs_is_f : trg.val.subs.apply_atom skolem_atom_in_head = chosen_f := by rw [f_is_at_its_idx]; exact trg.val.apply_subs_to_atom_at_idx_same_as_fact_at_idx idx_f
+
+                              have skolem_atom_arity_same_as_fact : chosen_f.terms.length = List.length skolem_atom_in_head.terms := by 
+                                apply Eq.symm
+                                apply GroundSubstitution.eq_under_subs_means_same_length trg.val.subs
+                                rw [← skolem_atom_in_head_with_subs_is_f]
+
+                              have t_is_at_its_idx : t = skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by rw[← skolem_atom_arity_same_as_fact]; exact idx_t_in_f_isLt)⟩ := by simp [idx_t_in_f]; sorry --apply List.idx_of_get
+
+                              let term_corresponding_to_t := skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
+                                rw [← skolem_atom_arity_same_as_fact]
+                                exact idx_t_in_f_isLt
+                              )⟩
+                              have : term_corresponding_to_t = t := by 
+                                rw [t_is_at_its_idx]
+                                -- apply GroundSubstitution.eq_under_subs_means_term_is_eq trg.val.subs
+                                -- rw [← skolem_atom_in_head_with_subs_is_f]
+
+                              simp [GroundSubstitution.apply_term] at this
+                              simp [this]
+                              sorry
+
+                              -- split 
+                              -- case h_1 x v heq =>
+                              --   have : v = vt := by -- TODO: is this what we are going for???
+                              --     sorry 
+                              --   rw [this]
+                              -- . sorry
+                              -- . sorry
+
+
+
+
                   | inr hr => 
                     apply ih_h.right 
                     exists fact'

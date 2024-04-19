@@ -289,5 +289,48 @@ namespace List
     constructor 
     apply map_eq_map_if_functions_eq 
     apply map_eq_map_then_functions_eq
+
+  theorem neg_all_of_any_neg (l : List α) (p : α -> Bool) : l.any (fun a => ¬p a) -> ¬l.all p := by 
+    induction l with 
+    | nil => simp [any]
+    | cons a as ih => 
+      simp [any] 
+      intro h 
+      cases h with 
+      | inl hl => simp [all, hl]
+      | inr hr => 
+        simp [all]
+        have : ∀ (x y : Bool), x = false ∨ y = false -> (x && y) = false := by 
+          intro x y h 
+          cases h with 
+          | inl hl => simp [hl]
+          | inr hr => simp [hr]
+        apply this
+        apply Or.inr
+        apply eq_false_of_ne_true
+        apply ih
+        simp [hr]
+
+  theorem any_of_exists (l : List α) (p : α -> Bool) : (∃ a, a ∈ l.toSet ∧ p a) -> l.any p = true := by 
+    intro h 
+    cases h with | intro e he =>
+      induction l with 
+      | nil => have contra := he.left; contradiction
+      | cons a as ih => 
+        let ⟨hel, her⟩ := he
+        cases hel with 
+        | inl hl => simp [any]; simp [Set.element] at hl; apply Or.inl; rw [← hl]; apply her
+        | inr hr => 
+          simp [any] 
+          apply Or.inr 
+          apply ih 
+          constructor 
+          apply hr 
+          apply he.right
+
+  theorem inToSetMeansExistsIndex [DecidableEq α] (L : List α) (e : α) : e ∈ L.toSet -> ∃ i, e = L.get i := by 
+    intro h
+    exists L.idx_of e (listToSetElementAlsoListElement L e h)
+    rw [← idx_of_get]
 end List
 

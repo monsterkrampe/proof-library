@@ -29,6 +29,9 @@ namespace GroundSubstitution
   def apply_function_free_conj (σ : GroundSubstitution) (conj : FunctionFreeConjunction) : List Fact :=
     (List.map (apply_function_free_atom σ)) conj
 
+  theorem apply_same_length (σ : GroundSubstitution) (a : Atom) : a.terms.length = (σ.apply_atom a).terms.length := by 
+    simp [apply_atom]
+
   theorem eq_under_subs_means_same_length (σ : GroundSubstitution) (a : Atom) (f : Fact) (h : σ.apply_atom a = f) : (a.terms.length = f.terms.length) := by 
     rw [← h]
     simp [apply_atom]
