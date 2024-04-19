@@ -1,3 +1,4 @@
+import ProofLibrary.List
 import ProofLibrary.FiniteTree
 
 structure Predicate where
@@ -7,9 +8,6 @@ structure Predicate where
 structure Variable where
   id : Nat
   deriving DecidableEq
-
-instance : BEq Variable where
-  beq a b := a.id = b.id
 
 structure Constant where
   id : Nat
@@ -48,6 +46,23 @@ def VarOrConst.filterVars : List VarOrConst -> List Variable
   | List.cons voc vocs => match voc with
     | VarOrConst.var v => List.cons v (VarOrConst.filterVars vocs)
     | VarOrConst.const _ => (VarOrConst.filterVars vocs)
+
+theorem VarOrConst.filterVars_occur_in_original_list (l : List VarOrConst) (v : Variable) : v ∈ (filterVars l).toSet -> VarOrConst.var v ∈ l.toSet := by
+  induction l with 
+  | nil => intros; contradiction
+  | cons head tail ih => 
+    intro h 
+    unfold filterVars at h
+    split at h
+    . simp [Set.element, List.toSet] at h
+      simp [Set.element, List.toSet] 
+      cases h with 
+      | inl hl => apply Or.inl; simp [Set.element] at hl; rw [hl]; simp [Set.element]
+      | inr hr => apply Or.inr; apply ih; apply hr
+    . simp [Set.element] 
+      apply Or.inr 
+      apply ih
+      apply h
 
 inductive Term where
   | var (v : Variable) : Term

@@ -92,6 +92,20 @@ namespace List
           | inl eIsA => apply Or.inl; rw [eIsA]
           | inr eInAs => apply Or.inr; apply mappedElemInMappedList; exact eInAs
 
+  theorem exElemInMappedListMeansOriginalElemExistsThatMapsToIt [BEq α] [BEq β] [LawfulBEq α] [LawfulBEq β] (L : List α) (f : α -> β) (e : β): List.elem e (L.map f) -> (∃ e', List.elem e' L ∧ e = f e') := by 
+    induction L with 
+    | nil => intros; contradiction
+    | cons head tail ih =>
+      intro he 
+      simp [elem, map] at he
+      split at he
+      . exists head; constructor; simp [elem]; apply LawfulBEq.eq_of_beq; assumption
+      . cases ih he with | intro e' he' => 
+        exists e'
+        constructor 
+        . unfold elem; split; rfl; exact he'.left
+        . exact he'.right
+
   theorem combine_nested_map (L : List α) (f : α -> β) (g : β -> γ) : List.map g (List.map f L) = List.map (g ∘ f) L := by
     induction L 
     case nil => simp [map]
@@ -389,6 +403,65 @@ namespace List
  
   theorem existsIndexIffInToSet [DecidableEq α] (L : List α) (e : α) : (∃ i, e = L.get i) ↔ e ∈ L.toSet := by 
     constructor; apply existsIndexMeansInToSet; apply inToSetMeansExistsIndex
+
+  theorem elemFilterAlsoElemList [BEq α] (L : List α) (f : α -> Bool) : ∀ e, (L.filter f).elem e -> L.elem e := by 
+    induction L with 
+    | nil => intros; contradiction
+    | cons head tail ih => 
+      unfold filter
+      split
+      . intro e; unfold elem; split; trivial; apply ih
+      . intros; unfold elem; split; rfl; apply ih; assumption
+
+  theorem elemConcatIffElemOfOne [BEq α] (L L' : List α) : ∀ e, List.elem e (L ++ L') ↔ L.elem e ∨ L'.elem e := by 
+    induction L with 
+    | nil => 
+      unfold HAppend.hAppend 
+      unfold instHAppend
+      unfold Append.append 
+      unfold List.append
+      unfold instAppendList
+      simp
+      intro e
+      constructor
+      . intros; apply Or.inr; assumption
+      . intro h; cases h; contradiction; assumption
+    | cons head tail ih => 
+      intro e
+      cases (Decidable.em (e == head)) with 
+      | inl hl => simp [elem, hl]
+      | inr hr => simp [elem, hr]; apply ih
+
+  def flatten (L : List (List α)) : List α := L.foldl (fun acc L' => acc ++ L') (List.nil)
+
+  theorem elemFlattenAlsoElemSomeListHelper [BEq α] [LawfulBEq α] (L : List (List α)) : ∀ e L', ¬ L'.elem e ∧ (L.foldl (fun acc L'' => acc ++ L'') L').elem e -> ∃ L'', L.elem L'' ∧ L''.elem e := by 
+    induction L with 
+    | nil => intro _ _ ⟨not_elem, elem_flatten⟩; contradiction
+    | cons head tail ih => 
+      intro e L' he
+      simp [foldl] at he
+
+      cases Decidable.em (head.elem e) with
+      | inl e_in_head => exists head; constructor; simp [elem]; exact e_in_head
+      | inr not_e_in_head => 
+        have ex_l_in_tail := ih e (L' ++ head) (by 
+          constructor
+          . rw [elemConcatIffElemOfOne]; intro hcontra; cases hcontra with | inl hl => rw [he.left] at hl; contradiction | inr hr => contradiction 
+          . exact he.right
+        )
+        cases ex_l_in_tail with | intro l hl =>
+          exists l 
+          constructor 
+          . unfold elem; split; rfl; exact hl.left
+          . exact hl.right
+
+  theorem elemFlattenAlsoElemSomeList [BEq α] [LawfulBEq α] (L : List (List α)) : ∀ e, (L.foldl (fun acc L' => acc ++ L') (List.nil)).elem e -> ∃ L', L.elem L' ∧ L'.elem e := by
+    intro e h_flatten
+    exact elemFlattenAlsoElemSomeListHelper L e List.nil (by 
+      constructor
+      . simp [elem]
+      . exact h_flatten
+    )
 
 end List
 

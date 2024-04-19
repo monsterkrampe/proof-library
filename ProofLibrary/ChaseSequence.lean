@@ -389,8 +389,8 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                           apply hf'
 
                       have : ¬ trg.val.robsolete (cs.fact_sets j) := trg_act.right
-
                       contradiction
+
                     rw [hsubs.left]
                     simp [VarOrConst.skolemize, vtInFrontier]
                     have : trg.val.rule = trg_on_m.val.rule := by rfl
@@ -399,10 +399,20 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                   case h_2 _ n_exis_f _ => 
                     have vtNotInFrontier : ¬ trg.val.rule.frontier.elem vt := by 
                       intro hcontra
-                      -- TODO: we can show that vt must either be in the database or introduced by a trigger up until step K 
-                      -- which shows the existence of a fact that features the application of subs to the skolemized version 
-                      -- of vt and therefore contradicts n_exis_f
-                      sorry
+                      have vtInBody := Rule.frontier_var_occurs_in_fact_in_body _ _ hcontra
+                      cases vtInBody with | intro f hf =>
+                        apply n_exis_f 
+                        exists (trg.val.subs.apply_function_free_atom f)
+                        constructor 
+                        . apply trg_act.left
+                          unfold Trigger.mapped_body
+                          apply List.mappedElemInMappedList
+                          apply hf.left
+                        . simp [VarOrConst.skolemize, hcontra, GroundSubstitution.apply_function_free_atom]
+                          have : trg.val.subs vt = trg.val.subs.apply_var_or_const (VarOrConst.var vt) := by simp [GroundSubstitution.apply_var_or_const]
+                          rw [this]
+                          apply List.mappedElemInMappedList
+                          apply hf.right
                     split 
                     case h_1 _ n_exis_f' _ => 
                       apply False.elim 
