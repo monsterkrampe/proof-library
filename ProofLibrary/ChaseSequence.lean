@@ -93,7 +93,7 @@ theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (kb : KnowledgeBase) (cs :
           simp [Nat.max_def]
           split -- seems to be the same as the following above: cases Decidable.em (a ≤ b) 
           case inl h => simp [h]
-          case inr h => simp [h]; apply Nat.le_of_lt; apply Nat.lt_of_succ_le; rw [← Nat.not_le_eq]; exact h
+          case inr h => apply Nat.le_of_lt; apply Nat.lt_of_succ_le; rw [← Nat.not_le_eq]; exact h
         have help_i : i ≤ Nat.max i j := by apply max_help_left
         have help_j : j ≤ Nat.max i j := by apply max_help_right
         
