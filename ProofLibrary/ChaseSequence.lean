@@ -183,7 +183,7 @@ theorem rObsoletenessSubsetMonotone (trg : Trigger) (F G : FactSet) : F ⊆ G �
 --             . exact h_f_not_in_j
 --             . exists trg; constructor; exact hll; rw [← h_trg.right]; rfl
 
-theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (∃ headAtom : FunctionFreeAtom, trg.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var)) ∧ (trg.val.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ (trg.val.subs.apply_skolem_term (VarOrConst.skolemize trg.val.rule.id trg.val.rule.frontier (VarOrConst.var var))) ∈ f.terms.toSet) -> ∃ j, j ≤ i ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j := by 
+theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (∃ headAtom : FunctionFreeAtom, trg.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var)) ∧ (trg.val.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ ((trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet)) -> ∃ j, j ≤ i ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j := by 
   -- TODO: simplify: var_in_head not required
   intro ⟨var_in_head, var_not_in_frontier, exis_f⟩
   induction i with 
@@ -248,7 +248,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
             contradiction
           contradiction
         | inl trg_ex => cases trg_ex with | intro trg' h_trg' =>
-          have : ∃ f, f ∈ Trigger.result trg'.val ∧ GroundSubstitution.apply_skolem_term trg.val.subs (VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var var)) ∈ List.toSet f.terms := by 
+          have : ∃ f, f ∈ Trigger.result trg'.val ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ List.toSet f.terms := by 
             cases exis_f with | intro f hf => 
               exists f 
               constructor
@@ -266,17 +266,19 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
               . exact hf.right
           
           -- TODO: use "this" (above) to show
-          have : ∃ var2, trg'.val.rule.frontier.elem var2 = false ∧ GroundSubstitution.apply_skolem_term trg.val.subs (VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var var)) = GroundSubstitution.apply_skolem_term trg'.val.subs (VarOrConst.skolemize trg'.val.rule.id (Rule.frontier trg'.val.rule) (VarOrConst.var var2)) := by 
+          have : ∃ var2, trg'.val.rule.frontier.elem var2 = false ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const (VarOrConst.var var2)) := by 
             cases this with | intro f hf =>
               have ⟨f_in_res, apply_var_in_f_terms⟩ := hf
               let i := trg'.val.idx_of_fact_in_result f f_in_res
               let atom_for_f := trg'.val.rule.head.get i
+
               cases List.inToSetMeansExistsIndex _ _ apply_var_in_f_terms with | intro j hj =>
                 have f_is_at_its_idx : f = trg'.val.mapped_head.get ⟨i.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact i.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; apply List.idx_of_get
 
                 have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_for_f) := by 
                   rw [f_is_at_its_idx]
                   unfold Trigger.mapped_head
+                  unfold Trigger.apply_to_function_free_atom
                   rw [List.get_map]
                   simp
 
@@ -285,17 +287,22 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                   exact j.isLt
                 )⟩
 
-                have : GroundSubstitution.apply_skolem_term trg'.val.subs (VarOrConst.skolemize trg'.val.rule.id (Rule.frontier trg'.val.rule) term_for_f) = f.terms.get j := by 
+                have : (trg'.val.apply_to_var_or_const term_for_f) = f.terms.get j := by 
+                  simp
+
+                  have : f.terms = (trg'.val.mapped_head.get ⟨i.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact i.isLt⟩).terms:= by conv => lhs; rw [f_is_at_its_idx]
+                  -- rw [List.get_eq_of_lists_eq _ _ _ this]
+                  -- rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
                   sorry
 
-                have : GroundSubstitution.apply_skolem_term trg.val.subs (VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var var)) = GroundSubstitution.apply_skolem_term trg'.val.subs (VarOrConst.skolemize trg'.val.rule.id (Rule.frontier trg'.val.rule) term_for_f) := by 
+                have : (trg.val.apply_to_var_or_const (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const term_for_f) := by 
                   rw [← this] at hj 
                   exact hj
 
                 cases eq_term_for_f : term_for_f with 
                 | const c => 
                   rw [eq_term_for_f] at this
-                  simp [GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier] at this
+                  simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier] at this
                   contradiction
                 | var var_for_f =>
                   exists var_for_f
@@ -304,7 +311,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                     intro h 
                     simp at h
                     rw [eq_term_for_f] at this
-                    simp [GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier] at this
+                    simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier] at this
                     simp [h] at this
                     sorry
 
@@ -324,20 +331,25 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
             rw [← this.left]
             apply List.map_eq_map_if_functions_eq
             intro a _
+            unfold Trigger.apply_to_function_free_atom
             simp
             apply List.map_eq_map_if_functions_eq
             intro voc hvoc
             cases voc with 
-            | const c => simp [SubsTarget.apply, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] 
+            | const c => simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] 
             | var v =>
               cases Decidable.em (trg.val.rule.frontier.elem v) with 
               | inl v_in_frontier => 
-                simp [VarOrConst.skolemize, v_in_frontier, SubsTarget.apply, GroundSubstitution.apply_skolem_term]
+                simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term]
+                rw [← this.left]
+                simp [VarOrConst.skolemize, v_in_frontier]
                 apply this.right
                 apply List.listElementAlsoToSetElement
                 apply v_in_frontier
               | inr v_not_in_frontier => 
-                simp [VarOrConst.skolemize, v_not_in_frontier, SubsTarget.apply, GroundSubstitution.apply_skolem_term]
+                simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term]
+                rw [← this.left]
+                simp [VarOrConst.skolemize, v_not_in_frontier]
                 apply congrArg
                 rw [← FiniteTreeList.eqIffFromListEq]
                 apply List.map_eq_map_if_functions_eq
@@ -532,6 +544,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
             have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by 
                 rw [f_is_at_its_idx]
                 unfold Trigger.mapped_head
+                unfold Trigger.apply_to_function_free_atom
                 rw [List.get_map]
                 simp
 
@@ -566,12 +579,12 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
               apply hsubs.right
               apply List.existsIndexMeansInToSet
               exists ⟨idx_f.val, (by simp [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]; apply idx_f.isLt)⟩ 
-              simp [SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.get_map, GroundSubstitution.apply_function_free_atom, Trigger.mapped_head]
+              simp [SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.get_map, GroundSubstitution.apply_function_free_atom, Trigger.mapped_head, Trigger.apply_to_function_free_atom]
               rw [List.combine_nested_map]
               rw [← List.map_eq_map_iff]
               intro t ht 
               cases t with 
-              | const ct => simp [VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const]
+              | const ct => simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const]
               | var vt => 
                 simp [GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const]
                 split 
@@ -579,10 +592,10 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                   have : trg.val.rule.frontier.elem vt := by 
                     apply Decidable.byContradiction
                     intro opp
-                    simp [VarOrConst.skolemize, opp] at h_c_eq
+                    simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, opp] at h_c_eq
                   rw [hsubs.left vt this]
-                  simp [VarOrConst.skolemize, this]
-                  simp [VarOrConst.skolemize, this] at h_c_eq
+                  simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, this]
+                  simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, this] at h_c_eq
                   rw [h_c_eq]
                   have this := prev_hom.property.left (FiniteTree.leaf c)
                   simp at this
@@ -613,25 +626,30 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                         apply exis_f
 
                       have : trg.val.robsolete (cs.fact_sets j) := by 
-                        let obs_subs := fun v : Variable => trg.val.subs.apply_skolem_term (VarOrConst.skolemize (trg.val.rule.id) (trg.val.rule.frontier) (VarOrConst.var v))
+                        let obs_subs := fun v : Variable => trg.val.apply_to_var_or_const (VarOrConst.var v)
+                          -- trg.val.subs.apply_skolem_term (VarOrConst.skolemize (trg.val.rule.id) (trg.val.rule.frontier) (VarOrConst.var v))
+
                         exists obs_subs
                         constructor
                         . intro v vInFrontier 
-                          simp [obs_subs, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, vInFrontier]
+                          simp [obs_subs, Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, vInFrontier]
                         . simp [obs_subs, SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
                           unfold GroundSubstitution.apply_function_free_atom
                           intro f' hf'
                           apply this
                           unfold Trigger.result
                           unfold Trigger.mapped_head
+                          unfold Trigger.apply_to_function_free_atom
 
-                          have : ∀ a : FunctionFreeAtom, (List.map (GroundSubstitution.apply_var_or_const fun v => GroundSubstitution.apply_skolem_term trg.val.subs (VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var v))) a.terms) = (List.map (SubsTarget.apply trg.val.subs ∘ VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule)) a.terms) := by 
+                          have : ∀ a : FunctionFreeAtom, (List.map (GroundSubstitution.apply_var_or_const obs_subs 
+                          -- fun v => GroundSubstitution.apply_skolem_term trg.val.subs (VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var v))
+                            ) a.terms) = (List.map (trg.val.apply_to_var_or_const) a.terms) := by 
                             intro a 
                             induction a.terms with 
                             | nil => simp [List.map]
                             | cons head tail ih => 
                               simp [List.map, ih] 
-                              simp [SubsTarget.apply, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const] 
+                              simp [SubsTarget.apply, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const, Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const] 
                               cases head with 
                               | var v => simp 
                               | const c => simp [VarOrConst.skolemize]
@@ -643,7 +661,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                       contradiction
 
                     rw [hsubs.left]
-                    simp [VarOrConst.skolemize, vtInFrontier]
+                    simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, vtInFrontier]
                     have : trg.val.rule = trg_on_m.val.rule := by rfl
                     rw [← this]
                     apply vtInFrontier
@@ -659,7 +677,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                           unfold Trigger.mapped_body
                           apply List.mappedElemInMappedList
                           apply hf.left
-                        . simp [VarOrConst.skolemize, hcontra, GroundSubstitution.apply_function_free_atom]
+                        . simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hcontra, GroundSubstitution.apply_function_free_atom]
                           have : trg.val.subs vt = trg.val.subs.apply_var_or_const (VarOrConst.var vt) := by simp [GroundSubstitution.apply_var_or_const]
                           rw [this]
                           apply List.mappedElemInMappedList
@@ -678,84 +696,66 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                       apply List.existsIndexMeansInToSet
                       cases (List.inToSetMeansExistsIndex _ _ ht) with | intro term_idx h_term_idx =>
                         exists ⟨term_idx.val, (by 
-                          rw [← GroundSubstitution.apply_same_length]
-                          rw [← FunctionFreeAtom.skolemize_same_length]
+                          rw [← Trigger.apply_to_function_free_atom_terms_same_length]
                           apply term_idx.isLt
                         )⟩
-                        simp [GroundSubstitution.apply_atom, VarOrConst.skolemize, List.get_map, GroundSubstitution.apply_skolem_term, FunctionFreeAtom.skolemize]
+                        simp [GroundSubstitution.apply_atom, VarOrConst.skolemize, List.get_map, GroundSubstitution.apply_skolem_term, FunctionFreeAtom.skolemize, Trigger.apply_to_function_free_atom, Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const]
                         rw [← h_term_idx]
                     case h_2 _ exis_f' _ => 
                       split
                       case _ _ chosen_f_hl chosen_f_hr _ =>
 
-                        -- let t := VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) (VarOrConst.var vt)
                         let t := VarOrConst.var vt
-                        let skolem_t := VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) t
+                        let skolem_t := trg.val.skolemize_var_or_const t
                         let chosen_f := Classical.choose exis_f'
 
                         let idx_f := trg.val.idx_of_fact_in_result chosen_f chosen_f_hl
                         let atom_in_head := trg.val.rule.head.get idx_f
-                        let skolem_atom_in_head := atom_in_head.skolemize trg.val.rule.id trg.val.rule.frontier
-                        let idx_t_in_f := chosen_f.terms.idx_of (trg.val.subs.apply_skolem_term skolem_t) (List.listToSetElementAlsoListElement _ _ chosen_f_hr)
+                        let idx_t_in_f := chosen_f.terms.idx_of (trg.val.apply_to_var_or_const t) (List.listToSetElementAlsoListElement _ _ chosen_f_hr)
                         have idx_t_in_f_isLt := idx_t_in_f.isLt
                         have f_is_at_its_idx : chosen_f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head, List.length_map, List.length_enum]; exact idx_f.isLt⟩ := by simp [Trigger.idx_of_fact_in_result]; apply List.idx_of_get
-                        have t_is_at_its_idx : (trg.val.subs.apply_skolem_term skolem_t) = chosen_f.terms.get idx_t_in_f := by simp [idx_t_in_f]; apply List.idx_of_get
-
-                        have skolem_atom_in_head_with_subs_is_f : trg.val.subs.apply_atom skolem_atom_in_head = chosen_f := by rw [f_is_at_its_idx]; exact trg.val.apply_subs_to_atom_at_idx_same_as_fact_at_idx idx_f
-
-                        have skolem_atom_arity_same_as_fact : chosen_f.terms.length = List.length skolem_atom_in_head.terms := by 
-                          apply Eq.symm
-                          apply GroundSubstitution.eq_under_subs_means_same_length trg.val.subs
-                          rw [← skolem_atom_in_head_with_subs_is_f]
-
-                        have subs_application_is_injective_for_freshly_introduced_terms : ∀ s, s ∈ skolem_atom_in_head.terms.toSet ∧ trg.val.subs.apply_skolem_term skolem_t = trg.val.subs.apply_skolem_term s -> skolem_t = s := by 
-                          -- TODO: resolve this by arguing that subs application is basically injective on fresh skolem term
-                          sorry
-
-                        have skolem_t_is_at_its_idx : skolem_t = skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by rw[← skolem_atom_arity_same_as_fact]; exact idx_t_in_f_isLt)⟩ := by 
-                          simp [idx_t_in_f]
-
-                          have : skolem_atom_in_head.terms.elem skolem_t := by 
-                            rw [← GroundSubstitution.eq_under_subs_means_elements_are_preserved _ _ _ (skolem_atom_in_head_with_subs_is_f) _ (subs_application_is_injective_for_freshly_introduced_terms)]
-                            apply List.listToSetElementAlsoListElement
-                            apply chosen_f_hr
-                          have : (skolem_atom_in_head.terms.idx_of skolem_t this).val = idx_t_in_f.val := by 
-                            apply Eq.symm
-                            apply GroundSubstitution.eq_under_subs_means_indices_of_elements_are_preserved
-                            apply skolem_atom_in_head_with_subs_is_f
-                            apply subs_application_is_injective_for_freshly_introduced_terms
-
-                          simp [← this]
-                          apply List.idx_of_get
-
-                        let skolem_term_corresponding_to_t := skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
-                          rw [← skolem_atom_arity_same_as_fact]
-                          exact idx_t_in_f_isLt
-                        )⟩
-
-                        have skolemized_ts_are_equal : skolem_term_corresponding_to_t = skolem_t := by 
-                          rw [skolem_t_is_at_its_idx]
+                        have t_is_at_its_idx : (trg.val.apply_to_var_or_const t) = chosen_f.terms.get idx_t_in_f := by simp [idx_t_in_f]; apply List.idx_of_get
 
                         have atom_arity_same_as_fact : chosen_f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by 
                           rw [f_is_at_its_idx]
                           unfold Trigger.mapped_head
                           rw [List.get_map]
-                          simp
+                          rw [← Trigger.apply_to_function_free_atom_terms_same_length]
 
                         let term_corresponding_to_t := atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
                           rw [← atom_arity_same_as_fact]
                           exact idx_t_in_f_isLt
                         )⟩
-                        
-                        have : VarOrConst.skolemize trg.val.rule.id (Rule.frontier trg.val.rule) term_corresponding_to_t = skolem_term_corresponding_to_t := by simp [FunctionFreeAtom.skolemize, List.get_map]
+
+                        let skolem_term_corresponding_to_t := trg.val.skolemize_var_or_const term_corresponding_to_t
+
+                        have subs_application_is_injective_for_freshly_introduced_terms : ∀ s, s ∈ atom_in_head.terms.toSet ∧ trg.val.apply_to_skolemized_term skolem_t = trg.val.apply_to_var_or_const s -> skolem_t = trg.val.skolemize_var_or_const s := by 
+                          -- TODO: resolve this by arguing that subs application is basically injective on fresh skolem term
+                          sorry
+
+                        have skolemized_ts_are_equal : skolem_term_corresponding_to_t = skolem_t := by 
+                          apply Eq.symm 
+                          apply subs_application_is_injective_for_freshly_introduced_terms
+                          constructor
+                          . apply List.listGetInToSet 
+                          . unfold Trigger.apply_to_var_or_const at t_is_at_its_idx
+                            simp at t_is_at_its_idx
+                            rw [t_is_at_its_idx]
+
+                            have : chosen_f.terms = (trg.val.apply_to_function_free_atom atom_in_head).terms := by 
+                              rw [f_is_at_its_idx]
+                              rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
+
+                            rw [List.get_eq_of_eq this]
+
+                            simp [Trigger.apply_to_function_free_atom, List.get_map]
 
                         have : term_corresponding_to_t = t := by 
-                          -- TODO: should follow from skolemized_ts_are_equal if we argue that skolemization is injective in the scope of a rule
                           apply VarOrConst.skolemize_injective trg.val.rule.id (Rule.frontier trg.val.rule)
-                          rw [this]
+                          -- rw [this]
                           apply skolemized_ts_are_equal
 
-                        simp [GroundSubstitution.apply_skolem_term] at this
+                        simp at this
                         rw [this]
 
             | inr hr => 

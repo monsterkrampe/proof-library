@@ -483,5 +483,8 @@ namespace List
     induction as with 
     | nil => simp [map]
     | cons a as ih => simp [map]; apply ih
+
+  theorem get_eq_of_eq {as bs : List α} (h : as = bs) (idx : Fin as.length) : as.get idx = bs.get ⟨idx.val, (by rw [← h]; exact idx.isLt)⟩ := by
+    cases h; rfl
 end List
 

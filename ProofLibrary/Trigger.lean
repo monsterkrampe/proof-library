@@ -6,11 +6,27 @@ structure Trigger where
   subs : GroundSubstitution
 
 namespace Trigger
+  def skolemize_var_or_const (trg : Trigger) (var_or_const : VarOrConst) : SkolemTerm := 
+    var_or_const.skolemize trg.rule.id trg.rule.frontier
+
+  def apply_to_skolemized_term (trg : Trigger) (skolem_term : SkolemTerm) : GroundTerm :=
+    trg.subs.apply_skolem_term skolem_term
+
+  def apply_to_var_or_const (trg : Trigger) : VarOrConst -> GroundTerm := 
+    (trg.apply_to_skolemized_term ∘ trg.skolemize_var_or_const)
+
+  def apply_to_function_free_atom (trg : Trigger) (atom : FunctionFreeAtom) : Fact :=
+    {
+      predicate := atom.predicate
+      terms := atom.terms.map trg.apply_to_var_or_const
+    }
+
+  theorem apply_to_function_free_atom_terms_same_length (trg : Trigger) (atom : FunctionFreeAtom) : atom.terms.length = (trg.apply_to_function_free_atom atom).terms.length := by 
+    unfold apply_to_function_free_atom
+    simp
+
   def mapped_body (trg : Trigger) : List Fact := SubsTarget.apply trg.subs trg.rule.body
-  def mapped_head (trg : Trigger) : List Fact := List.map (fun a => {
-      predicate := a.predicate 
-      terms := List.map ((SubsTarget.apply trg.subs) ∘ (VarOrConst.skolemize trg.rule.id trg.rule.frontier)) a.terms
-    }) trg.rule.head
+  def mapped_head (trg : Trigger) : List Fact := trg.rule.head.map trg.apply_to_function_free_atom
 
   theorem head_length_eq_mapped_head_length (trg : Trigger) : trg.rule.head.length = trg.mapped_head.length := by 
     unfold mapped_head
@@ -24,15 +40,9 @@ namespace Trigger
     have fin_mapped_isLt := fin_mapped.isLt
     ⟨fin_mapped.val, by simp [mapped_head, List.length_map, List.length_enum] at fin_mapped_isLt; exact fin_mapped_isLt⟩
 
-  theorem apply_subs_to_atom_at_idx_same_as_fact_at_idx (trg : Trigger) (idx : Fin trg.rule.head.length) : trg.subs.apply_atom ((trg.rule.head.get idx).skolemize trg.rule.id trg.rule.frontier) = trg.mapped_head.get ⟨idx.val, by rw [← head_length_eq_mapped_head_length]; exact idx.isLt⟩ := by 
-    simp [
-      mapped_head, 
-      FunctionFreeAtom.skolemize, 
-      GroundSubstitution.apply_atom, 
-      List.get_map, 
-      List.combine_nested_map,
-      SubsTarget.apply,
-    ]
+  theorem apply_subs_to_atom_at_idx_same_as_fact_at_idx (trg : Trigger) (idx : Fin trg.rule.head.length) : trg.apply_to_function_free_atom (trg.rule.head.get idx) = trg.mapped_head.get ⟨idx.val, by rw [← head_length_eq_mapped_head_length]; exact idx.isLt⟩ := by 
+    unfold mapped_head
+    simp [List.get_map]
   
   def loaded (trg : Trigger) (F : FactSet) : Prop :=
     trg.mapped_body ⊆ F
@@ -136,11 +146,11 @@ namespace RTrigger
     -- (var2_in_head : ∃ headAtom : FunctionFreeAtom, trg2.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var2)) 
     (var2_not_in_frontier : trg2.val.rule.frontier.elem var2 = false) 
     : 
-    (trg1.val.subs.apply_skolem_term (VarOrConst.skolemize trg1.val.rule.id trg1.val.rule.frontier (VarOrConst.var var1)) = trg2.val.subs.apply_skolem_term (VarOrConst.skolemize trg2.val.rule.id trg2.val.rule.frontier (VarOrConst.var var2))) 
+    (trg1.val.apply_to_var_or_const (VarOrConst.var var1)) = (trg2.val.apply_to_var_or_const (VarOrConst.var var2))
     -> 
     trg1.val.rule = trg2.val.rule ∧ ∀ v, v ∈ trg1.val.rule.frontier.toSet -> trg1.val.subs v = trg2.val.subs v := by 
     intro applications_eq 
-    simp [GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var1_not_in_frontier, var2_not_in_frontier] at applications_eq
+    simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var1_not_in_frontier, var2_not_in_frontier] at applications_eq
     injection applications_eq with rule_ids_and_vars_eq arguments_eq
     simp at rule_ids_and_vars_eq
     have rules_eq : trg1.val.rule = trg2.val.rule := by 
