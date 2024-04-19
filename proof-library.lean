@@ -47,8 +47,12 @@ section
   namespace NEList
     def toList (nel : NEList α) : List α := nel.list
 
-    def last (ne : NEList α) : α := sorry
-      -- how to do this ???
+    def last (ne : NEList α) : α :=
+      match ne.list with
+        | List.nil => sorry
+        | List.cons a as => match as.last with
+          | Option.none => a
+          | Option.some a' => a'
 
     instance : Coe (NEList α) (List α) where
       coe := toList
