@@ -88,6 +88,15 @@ namespace Trigger
         apply ih
         intro _ hf'; apply base; apply Or.inr; apply hf'
         exact hr 
+
+
+
+
+  -- TODO: remove this
+  -- theorem funcTermForExisVarInMultipleTriggersMeansTheyAreTheSame (trg : Trigger) (var : Variable) (var_in_head : ∃ headAtom : FunctionFreeAtom, trg.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var)) (var_not_in_frontier : trg.rule.frontier.elem var = false) : ∀ trg': Trigger, (∃ f: Fact, f ∈ trg'.result ∧ (trg.subs.apply_skolem_term (VarOrConst.skolemize trg.rule.id trg.rule.frontier (VarOrConst.var var))) ∈ f.terms.toSet) -> trg.rule = trg'.rule ∧ ∀ v, v ∈ trg.rule.frontier.toSet -> trg.subs v = trg'.subs v := by 
+  --   intro trg' exis_f
+  --   sorry
+
 end Trigger
 
 namespace FactSet
@@ -100,7 +109,7 @@ namespace FactSet
       -> ¬ trg.ractive fs -- the rule is ractive iff it is not satisfied under FOL semantics
 
   def modelsRules (fs : FactSet) (rules : RuleSet) : Prop :=
-    ∀ r, r ∈ rules -> fs.modelsRule r
+    ∀ r, r ∈ rules.rules -> fs.modelsRule r
 
   def modelsKb (fs : FactSet) (kb : KnowledgeBase) : Prop :=
     fs.modelsDb kb.db ∧ fs.modelsRules kb.rules
@@ -114,3 +123,39 @@ namespace FactSet
         (applyFactSet h fs) ⊆ m
     )
 end FactSet
+
+def RTrigger (r : RuleSet) := { trg : Trigger // trg.rule ∈ r.rules}
+
+namespace RTrigger 
+  theorem funcTermForExisVarInMultipleTriggersMeansTheyAreTheSame 
+    {rs : RuleSet} 
+    (trg1 trg2 : RTrigger rs) 
+    (var1 var2 : Variable) 
+    -- (var1_in_head : ∃ headAtom : FunctionFreeAtom, trg1.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var1)) 
+    (var1_not_in_frontier : trg1.val.rule.frontier.elem var1 = false) 
+    -- (var2_in_head : ∃ headAtom : FunctionFreeAtom, trg2.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var var2)) 
+    (var2_not_in_frontier : trg2.val.rule.frontier.elem var2 = false) 
+    : 
+    (trg1.val.subs.apply_skolem_term (VarOrConst.skolemize trg1.val.rule.id trg1.val.rule.frontier (VarOrConst.var var1)) = trg2.val.subs.apply_skolem_term (VarOrConst.skolemize trg2.val.rule.id trg2.val.rule.frontier (VarOrConst.var var2))) 
+    -> 
+    trg1.val.rule = trg2.val.rule ∧ ∀ v, v ∈ trg1.val.rule.frontier.toSet -> trg1.val.subs v = trg2.val.subs v := by 
+    intro applications_eq 
+    simp [GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var1_not_in_frontier, var2_not_in_frontier] at applications_eq
+    injection applications_eq with rule_ids_and_vars_eq arguments_eq
+    simp at rule_ids_and_vars_eq
+    have rules_eq : trg1.val.rule = trg2.val.rule := by 
+      apply rs.id_unique
+      constructor
+      exact trg1.property
+      constructor
+      exact trg2.property
+      exact rule_ids_and_vars_eq.left
+    constructor
+    . exact rules_eq
+    . let right := arguments_eq 
+      rw [← FiniteTreeList.eqIffFromListEq _ _] at right
+      have : trg1.val.rule.frontier = trg2.val.rule.frontier := by rw [rules_eq]
+      rw [← this] at right
+      rw [← List.map_eq_map_iff] at right
+      apply right
+end RTrigger

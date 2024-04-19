@@ -23,10 +23,16 @@ structure SkolemFS where
   var : Variable
   deriving DecidableEq
 
-inductive GroundTerm where
-  | const (c : Constant) : GroundTerm
-  | func (ft : FiniteTree SkolemFS Constant) : GroundTerm
-  deriving DecidableEq
+-- inductive GroundTerm where
+--   | const (c : Constant) : GroundTerm
+--   | func (ft : FiniteTree SkolemFS Constant) : GroundTerm
+--   deriving DecidableEq
+
+def GroundTerm := FiniteTree SkolemFS Constant 
+deriving DecidableEq
+
+@[match_pattern]
+def GroundTerm.const (c : Constant) := @FiniteTree.leaf SkolemFS Constant c
 
 inductive SkolemTerm where
   | var (v : Variable) : SkolemTerm
@@ -39,9 +45,9 @@ def SkolemTerm.variables : SkolemTerm -> List Variable
   | .const _ => List.nil
   | .func _ vs => vs
 
-def GroundTerm.depth : GroundTerm -> Nat
-  | GroundTerm.const _ => 0
-  | GroundTerm.func ft => FiniteTree.depth ft
+-- def GroundTerm.depth : GroundTerm -> Nat
+--   | GroundTerm.const _ => 0
+--   | GroundTerm.func ft => FiniteTree.depth ft
 
 inductive VarOrConst where
   | var (v : Variable) : VarOrConst

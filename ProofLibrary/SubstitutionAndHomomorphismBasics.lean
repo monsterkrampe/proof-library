@@ -13,10 +13,7 @@ namespace GroundSubstitution
   def apply_skolem_term (σ : GroundSubstitution) : SkolemTerm -> GroundTerm
     | .var v => σ v
     | .const c => GroundTerm.const c
-    | .func fs frontier => GroundTerm.func (FiniteTree.inner fs (FiniteTreeList.fromList (frontier.map (fun fv => match σ fv with 
-      | .const c => FiniteTree.leaf c
-      | .func ft => ft
-    ))))
+    | .func fs frontier => FiniteTree.inner fs (FiniteTreeList.fromList (frontier.map (fun fv => σ fv))) 
 
   -- def apply_term (σ : GroundSubstitution) : Term -> GroundTerm
   --   | .var v => σ v

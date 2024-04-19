@@ -101,7 +101,9 @@ theorem Rule.frontier_var_occurs_in_fact_in_body (r : Rule) : ∀ v, List.elem v
 def Rule.isDatalog (r : Rule) : Bool :=
   List.all r.head.vars (fun v => r.body.vars.elem v)
 
-def RuleSet := Set Rule
+structure RuleSet where 
+  rules : Set Rule
+  id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2 
 
 def FactSet := Set Fact
 
