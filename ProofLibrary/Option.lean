@@ -23,4 +23,14 @@ namespace Option
       | some y =>
         have someYNeqSomeY := h y
         exact absurd rfl someYNeqSomeY
+
+  theorem someEqImpliesEq : (some a = some b) -> a = b := by
+    intro h
+    let aNotNone : (some a) ≠ none := Option.someNotNone rfl
+    let bNotNone : (some b) ≠ none := Option.someNotNone rfl
+    have ha : a = (some a).unwrap aNotNone := by rfl
+    have hb : b = (some b).unwrap bNotNone := by rfl
+    rw [ha, hb]
+    simp [h]
+
 end Option

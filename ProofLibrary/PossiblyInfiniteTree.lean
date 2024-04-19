@@ -99,8 +99,19 @@ namespace NodeInPossiblyInfiniteTree
                 rw [Option.someRevertsUnwrap]
               layer_large_enough := by
                 intro layer h
-                -- TODO: continue here
-                sorry
+                have someNextEqSomeLayer : some next_layer = some layer := by simp [Option.someRevertsUnwrap, h]
+                have nextEqLayer : next_layer = layer := Option.someEqImpliesEq someNextEqSomeLayer
+                rw [← nextEqLayer]
+                simp [nodeLayerIsLayerAtDepth] at consistency
+                simp [equality_sum] at consistency
+                cases consistency with | intro next_layer' h' =>
+                  let ⟨exis, count⟩ := h'
+                  rw [h, ← someNextEqSomeLayer] at exis
+                  have nextEqNextPrime : next_layer = next_layer' := Option.someEqImpliesEq exis
+                  rw [← nextEqNextPrime] at count
+                  rw [count, ← equality_sum]
+                  -- TODO: continue here
+                  sorry
             })
 
   /- TODO: maybe also define siblings similarly, i.e. as node.layer but with NodeInPossiblyInfiniteTree instead of just NodeInformation -/
