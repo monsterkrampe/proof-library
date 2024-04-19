@@ -80,6 +80,23 @@ section
         | TreeList.nil => TreeList.nil
         | TreeList.cons t ts => TreeList.cons (mapLeaves f t) (mapLeavesList f ts)
     end
+
+    def nodeLabel : Tree α α -> α
+      | Tree.leaf a => a
+      | Tree.inner a _ => a
+
+    -- check that f holds for each node in the tree
+    mutual
+      def forEach (t : Tree α β) (f : (Tree α β) -> Prop) : Prop :=
+        match t with
+          | Tree.leaf _ => f t
+          | Tree.inner _ ts => (f t) ∧ (forEachList ts f)
+
+      def forEachList (ts : TreeList α β) (f : (Tree α β) -> Prop) : Prop :=
+        match ts with
+          | TreeList.nil => True
+          | TreeList.cons t ts => (forEach t f) ∧ (forEachList ts f)
+    end
   end Tree
 end
 
@@ -178,10 +195,9 @@ section
     body : Conjunction
     head : Conjunction
 
-
   def Rule.frontier (r : Rule) : List Variable :=
     -- NOTE: using ∈ does not really work here because it produces a Prop which can not always be simply cast into Bool
-    List.filter (fun v => not (List.elem v (Conjunction.vars r.head))) (Conjunction.vars r.body)
+    List.filter (fun v => r.head.vars.elem v) (Conjunction.vars r.body)
 
   def Rule.skolemize (r : Rule) : Rule :=
     { body := r.body, head :=
@@ -190,6 +206,9 @@ section
         terms := List.map (Term.skolemize i (Rule.frontier r)) a.terms
       }) (List.enum r.head)
     }
+
+  def Rule.isDatalog (r : Rule) : Bool :=
+    List.all r.head.vars (fun v => r.body.vars.elem v)
 
   def RuleSet := Set Rule
 
@@ -200,6 +219,28 @@ section
   structure KnowledgeBase where
     db : Database
     rules : RuleSet
+
+  def Fact.toFunctionFreeFact (f : Fact) : Option FunctionFreeFact :=
+    ite
+      (List.all
+        f.terms
+        (fun t => match t with
+          | GroundTerm.const _ => true
+          | _ => false
+        )
+      )
+      (Option.some ({ predicate := f.predicate, terms := (List.map (fun t => match t with
+        | GroundTerm.const c => c
+        | _ => { id := 0 } -- TODO: this cannot happen since we check before the everything is a constant
+      ) f.terms) }))
+      (Option.none)
+
+  def Database.toFactSet (db : Database) : FactSet := fun x => match (Fact.toFunctionFreeFact x) with
+    | Option.none => False
+    | Option.some fff => fff ∈ db
+
+  instance : Coe Database FactSet where
+    coe := Database.toFactSet
 end
 
 section
@@ -258,5 +299,50 @@ section
             l ⊆ F
           )
       )
+
+    def result (trg : Trigger) : FactSet :=
+      let l : List Fact := SubsTarget.apply trg.subs (Rule.skolemize trg.rule).head
+      List.toSet l
   end Trigger
 end
+
+structure ChaseTree where
+  kb : KnowledgeBase
+  tree : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger))
+  isSkolem :
+    -- 1. we have nodes, edges, fact labels and trigger labels (no need to check this)
+    -- 2. root is labeled with (db, none)
+    (match Tree.nodeLabel tree with
+      | ⟨fs, otrg⟩ => fs = kb.db ∧ otrg = Option.none)
+    ∧
+    -- 3. children of nodes are labeled properly
+    (Tree.forEach tree (fun t => match t with
+      | Tree.leaf _ => True
+      | Tree.inner ⟨fs, _⟩ children =>
+        ∃ trg : Trigger,
+          trg.sactive fs
+          ∧
+          children.toList.length = 1
+          ∧
+          (∀ c : Tree (FactSet × (Option Trigger)) (FactSet × (Option Trigger)),
+            c ∈ children.toList.toSet -> match c.nodeLabel with
+            | ⟨cfs, cotrg⟩ => cfs = trg.result ∧ match cotrg with
+              | Option.none => False
+              | Option.some ctrg => ctrg = trg)
+          ∧
+          ((not trg.rule.isDatalog) -> ∀ dltrg : Trigger,
+            dltrg.rule.isDatalog -> ¬ (dltrg.sactive fs))
+    ))
+    ∧
+    -- 4a. leaf nodes are closed under all rules
+    (Tree.forEach tree (fun t => match t with
+      | Tree.inner _ _ => True
+      | Tree.leaf ⟨fs, _⟩ =>
+        ∀ trg : Trigger, ¬ (trg.sactive fs)
+    ))
+    ∧
+    -- 4b. triggers are not active after finitely many steps (fairness)
+    (∀ trg : Trigger, ∃ k : Nat,
+      -- TODO: implement this
+      True
+    )
