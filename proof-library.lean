@@ -71,9 +71,25 @@ section
       simp [sum]
       exact Nat.le_add_right h (sum tail)
 
+    theorem tailSumLeSum (L : List Nat) : L = List.cons h tail -> tail.sum ≤ L.sum := by
+      intro e
+      rw [e]
+      simp [sum]
+      rw [Nat.add_comm]
+      exact Nat.le_add_right (sum tail) h
+
     theorem everyElementLeSum (L : List Nat) : ∀ e, e ∈ L.toSet -> e ≤ L.sum := by
       intros e h
-        -- TODO: continue here
+      cases L with
+        | nil => simp [List.toSet, Set.element, Set.emptyset] at h
+        | cons h tail =>
+          simp [List.toSet, Set.element, Set.union] at h
+          cases h with
+            | inl hl => rw [hl]; apply headLeSum; rfl
+            | inr hr =>
+              have eLeThisTailSum := everyElementLeSum tail e hr
+              have thisTailSumLeSum : tail.sum ≤ (h :: tail).sum := by apply tailSumLeSum; rfl
+              exact Nat.le_trans eLeThisTailSum thisTailSumLeSum
 
     def before_index : List α -> Nat -> List α
       | nil => fun _ => nil
@@ -301,6 +317,7 @@ section
       )⟩
 
     theorem nodeInfoIsInLayer (node : NodeInPossiblyInfiniteTree α) : node.node_info ∈ node.layer.toSet := by
+      simp [node_info]
       -- TODO: continue here
 
     def children (node : NodeInPossiblyInfiniteTree α) : List (NodeInPossiblyInfiniteTree α) :=
