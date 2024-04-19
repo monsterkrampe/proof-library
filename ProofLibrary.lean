@@ -339,6 +339,7 @@ section
       simp [node_info]
       apply List.listGetInToSet
 
+    /-
     def children (node : NodeInPossiblyInfiniteTree α) : List (NodeInPossiblyInfiniteTree α) :=
       let current_layer := node.layer
       let next_layer_opt := node.tree.data.infinite_list (node.depth + 1)
@@ -364,6 +365,7 @@ section
             simp [nodeLayerIsLayerAtDepth] at consistency
 
           sorry
+    -/
 
     /- TODO: maybe also define siblings similarly, i.e. as node.layer but with NodeInPossiblyInfiniteTree instead of just NodeInformation -/
   end NodeInPossiblyInfiniteTree
@@ -613,7 +615,7 @@ def universallyModelsKb (lfs : List FactSet) (kb : KnowledgeBase) : Prop :=
       isHomomorphism h ∧
       (applyFactSet h fs) ⊆ m
   )
-
+/-
 section
   -- SkolemChaseTree
   structure ChaseTree where
@@ -706,3 +708,4 @@ theorem ChaseResultIsUniversalModel (ct : ChaseTree) (kb : KnowledgeBase) : ct.k
   case right =>
     intro m mModelsKb
     sorry
+-/
