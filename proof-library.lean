@@ -97,6 +97,26 @@ section
           | TreeList.nil => True
           | TreeList.cons t ts => (forEach t f) ∧ (forEachList ts f)
     end
+
+    mutual
+      def privateNodesInDepthK (t : Tree α β) (depth : Nat) (currentDepth : Nat) : List (Tree α β) :=
+        ite (currentDepth > depth) [] (
+          ite (currentDepth = depth) [t] (match t with
+            | Tree.leaf _ => [t]
+            | Tree.inner _ ts => privateNodesInDepthKList ts depth (currentDepth + 1)
+          )
+        )
+
+      def privateNodesInDepthKList (ts : TreeList α β) (depth : Nat) (currentDepth : Nat) : List (Tree α β) :=
+        ite (currentDepth > depth) [] (
+          ite (currentDepth = depth) ts.toList (match ts with
+            | TreeList.nil => []
+            | TreeList.cons t ts => (privateNodesInDepthK t depth currentDepth) ++ (privateNodesInDepthKList ts depth currentDepth)
+          )
+        )
+    end
+
+    def nodesInDepthK (t : Tree α β) (depth : Nat) : List (Tree α β) := t.privateNodesInDepthK depth 0
   end Tree
 end
 
@@ -343,6 +363,5 @@ structure ChaseTree where
     ∧
     -- 4b. triggers are not active after finitely many steps (fairness)
     (∀ trg : Trigger, ∃ k : Nat,
-      -- TODO: implement this
-      True
+      ∀ fs : FactSet, fs ∈ (List.map (fun t => match t with | Tree.leaf ⟨fs, _⟩ => fs | Tree.inner ⟨fs, _⟩ _ => fs) (tree.nodesInDepthK k)).toSet -> ¬ (trg.sactive fs)
     )
