@@ -332,6 +332,7 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                     --   apply GroundSubstitution.eq_under_subs_means_term_is_eq trg.val.subs
                     --   rw [← skolem_atom_in_head_with_subs_is_f]
 
+                    -- FIXME: this is wrong! we need to map the unskolemized term instead of the skolemized term...
                     subs.apply_term term_corresponding_to_t
                     -- match term_corresponding_to_t with 
                     --   | Term.var v => subs v 
@@ -359,7 +360,7 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                     unfold applyFact
 
                     apply hsubs.right
-                    apply List.getIsInToSet
+                    apply List.existsIndexMeansInToSet
                     exists ⟨idx_f.val, (by simp [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]; apply idx_f.isLt)⟩ 
                     simp [SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.get_map, GroundSubstitution.apply_function_free_atom, Trigger.mapped_head]
                     rw [List.combine_nested_map]
@@ -439,6 +440,12 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                           rw [← this]
                           apply vtInFrontier
                         case h_2 _ n_exis_f _ => 
+                          have vtNotInFrontier : ¬ trg.val.rule.frontier.elem vt := by 
+                            intro hcontra
+                            -- we can show that vt must either be in the database or introduced by a trigger up until step K 
+                            -- which shows the existence of a fact that features the application of subs to the skolemized version 
+                            -- of vt and therefore contradicts n_exis_f
+                            sorry
                           split 
                           case h_1 _ n_exis_f' _ => 
                             apply False.elim 
@@ -450,7 +457,7 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
 
                             rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
 
-                            apply List.getIsInToSet
+                            apply List.existsIndexMeansInToSet
                             cases (List.inToSetMeansExistsIndex _ _ ht) with | intro term_idx h_term_idx =>
                               exists ⟨term_idx.val, (by 
                                 rw [← GroundSubstitution.apply_same_length]
@@ -460,7 +467,6 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                               simp [GroundSubstitution.apply_atom, VarOrConst.skolemize, List.get_map, GroundSubstitution.apply_term, FunctionFreeAtom.skolemize]
                               rw [← h_term_idx]
                           case h_2 _ exis_f' _ => 
-                            -- TODO: this should be the lengthy case, where we really end up mapping according to subs
                             split
                             case _ _ chosen_f_hl chosen_f_hr _ =>
 
@@ -483,7 +489,25 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                                 apply GroundSubstitution.eq_under_subs_means_same_length trg.val.subs
                                 rw [← skolem_atom_in_head_with_subs_is_f]
 
-                              have t_is_at_its_idx : t = skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by rw[← skolem_atom_arity_same_as_fact]; exact idx_t_in_f_isLt)⟩ := by simp [idx_t_in_f]; sorry --apply List.idx_of_get
+                              have subs_application_is_injective_for_freshly_introduced_terms : ∀ s, s ∈ skolem_atom_in_head.terms.toSet ∧ trg.val.subs.apply_term t = trg.val.subs.apply_term s -> t = s := by 
+                                -- TODO: resolve this by arguing that subs application is basically injective on fresh skolem term
+                                sorry
+
+                              have t_is_at_its_idx : t = skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by rw[← skolem_atom_arity_same_as_fact]; exact idx_t_in_f_isLt)⟩ := by 
+                                simp [idx_t_in_f]
+
+                                have : skolem_atom_in_head.terms.elem t := by 
+                                  rw [← GroundSubstitution.eq_under_subs_means_elements_are_preserved _ _ _ (skolem_atom_in_head_with_subs_is_f) _ (subs_application_is_injective_for_freshly_introduced_terms)]
+                                  apply List.listToSetElementAlsoListElement
+                                  apply chosen_f_hr
+                                have : (skolem_atom_in_head.terms.idx_of t this).val = idx_t_in_f.val := by 
+                                  apply Eq.symm
+                                  apply GroundSubstitution.eq_under_subs_means_indices_of_elements_are_preserved
+                                  apply skolem_atom_in_head_with_subs_is_f
+                                  apply subs_application_is_injective_for_freshly_introduced_terms
+
+                                simp [← this]
+                                apply List.idx_of_get
 
                               let term_corresponding_to_t := skolem_atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
                                 rw [← skolem_atom_arity_same_as_fact]
@@ -495,16 +519,20 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                                 -- rw [← skolem_atom_in_head_with_subs_is_f]
 
                               simp [GroundSubstitution.apply_term] at this
-                              simp [this]
+                              rw [this]
+
+                              simp [VarOrConst.skolemize, vtNotInFrontier]
                               sorry
 
                               -- split 
                               -- case h_1 x v heq =>
-                              --   have : v = vt := by -- TODO: is this what we are going for???
-                              --     sorry 
+                              --   have : v = vt := by simp [VarOrConst.skolemize, vtNotInFrontier] at heq
                               --   rw [this]
-                              -- . sorry
-                              -- . sorry
+                              -- case h_2 x c heq => 
+                              --   simp [VarOrConst.skolemize, vtNotInFrontier] at heq
+                              -- case h_3 x ft heq =>
+                              --   simp [VarOrConst.skolemize, vtNotInFrontier] at heq
+                              --   sorry
 
 
 

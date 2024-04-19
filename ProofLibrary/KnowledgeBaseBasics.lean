@@ -1,3 +1,4 @@
+import ProofLibrary.List
 import ProofLibrary.Set
 import ProofLibrary.TermBasics
 
@@ -27,6 +28,17 @@ def FunctionFreeAtom.skolemize (ruleId : Nat) (frontier : List Variable) (a : Fu
 theorem FunctionFreeAtom.skolemize_same_length (ruleId : Nat) (frontier : List Variable) (a : FunctionFreeAtom) : a.terms.length = (a.skolemize ruleId frontier).terms.length := by 
   unfold skolemize
   rw [List.length_map]
+
+theorem FunctionFreeAtom.skolem_term_in_skolem_atom_if_term_in_atom (ruleId : Nat) (frontier : List Variable) (a : FunctionFreeAtom) (t : VarOrConst) : t ∈ a.terms.toSet -> (t.skolemize ruleId frontier) ∈ (a.skolemize ruleId frontier).terms.toSet := by 
+  unfold skolemize
+  induction a.terms with 
+  | nil => intros; contradiction
+  | cons head tail ih => 
+    simp [Set.element, List.toSet]
+    intro h 
+    cases h with 
+    | inl hl => apply Or.inl; simp [Set.element] at hl; rw [hl]; simp [Set.element]
+    | inr hr => apply Or.inr; apply ih; apply hr
 
 def FunctionFreeConjunction := List FunctionFreeAtom
 -- def Conjunction := List Atom

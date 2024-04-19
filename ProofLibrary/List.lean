@@ -52,10 +52,21 @@ namespace List
 
   theorem listToSetElementAlsoListElement [BEq α] [LawfulBEq α] (L : List α) (e : α) : e ∈ L.toSet -> L.elem e := by 
     induction L with 
-      | nil => intro h; contradiction
+      | nil => intros; contradiction
       | cons head tail ih => intro h; simp [Set.element, toSet] at h; cases h with 
         | inl left => simp [Set.element] at left; simp [left, elem]
         | inr right => simp [elem]; cases e == head with | true => rfl | false => exact (ih right) 
+
+  theorem listElementAlsoToSetElement [BEq α] [LawfulBEq α] (L : List α) (e : α) : L.elem e -> e ∈ L.toSet := by 
+    induction L with  
+      | nil => intros; contradiction 
+      | cons head tail ih => 
+        unfold elem; unfold Set.element; unfold toSet; split 
+        case h_1 _ h => intros; apply Or.inl; unfold Set.element; apply LawfulBEq.eq_of_beq; exact h
+        case h_2 => intro h; apply Or.inr; apply ih; apply h
+
+  theorem listElementIffToSetElement [BEq α] [LawfulBEq α] (L : List α) (e : α) : L.elem e ↔ e ∈ L.toSet := by 
+    constructor; apply listElementAlsoToSetElement; apply listToSetElementAlsoListElement
 
   theorem listGetInToSet (L : List α) (indexFin : Fin L.length) : L.get indexFin ∈ L.toSet := by
     let ⟨index, indexSmallEnough⟩ := indexFin
@@ -64,11 +75,6 @@ namespace List
       | cons a as => cases index with
         | zero => simp [List.get, List.toSet, Set.element, Set.union]
         | succ n => simp [List.get, List.toSet, Set.element, Set.union]; apply Or.inr; apply listGetInToSet
-
-  theorem getIsInToSet (L : List α) (e : α) : (∃ i, e = L.get i) -> e ∈ L.toSet := by 
-    intro ⟨i, hi⟩
-    rw [hi]
-    apply listGetInToSet
 
   theorem map_id' (L : List α) : L.map id = L := by
     induction L 
@@ -224,6 +230,49 @@ namespace List
         exact ih_plugged_in
         rw [get_prepend_succ as a (as.idx_of e e_in_as) ((a::as).idx_of e e_in_l) (idx_of_prepend_succ as e a e_in_as h)]
 
+  theorem idx_of_with_count_eq_of_list_eq [DecidableEq α] (l l' : List α) (h : l = l') (e : α) (he : l.elem e) : ∀ c, (l.idx_of_with_count e he c).val = (l'.idx_of_with_count e (by rw [← h]; exact he) c).val := by 
+    cases l with 
+    | nil => cases l'; simp; contradiction
+    | cons head tail => cases l' with 
+      | nil => contradiction 
+      | cons head' tail' => 
+        have heads_eq : head = head' := by injection h
+        have tails_eq : tail = tail' := by injection h
+        simp [idx_of_with_count] 
+        split
+        case inl he => simp [he, heads_eq]
+        case inr he => simp [heads_eq] at he; simp [he]; intro c; apply idx_of_with_count_eq_of_list_eq; apply tails_eq
+
+  theorem idx_of_eq_of_list_eq [DecidableEq α] (l l' : List α) (h : l = l') (e : α) (he : l.elem e) : (l.idx_of e he).val = (l'.idx_of e (by rw [← h]; exact he)).val := by 
+    apply idx_of_with_count_eq_of_list_eq
+    apply h
+
+  theorem idx_of_with_count_eq_under_map [DecidableEq α] [DecidableEq β] (l : List α) (e : α) (he : l.elem e) (f : α -> β) (hf : ∀ e', e' ∈ l.toSet ∧ f e = f e' -> e = e') : ∀ c, (l.idx_of_with_count e he c).val = ((l.map f).idx_of_with_count (f e) (by apply listToSetElementAlsoListElement; apply mappedElemInMappedList; apply listElementAlsoToSetElement; exact he) c).val := by
+    induction l with 
+    | nil => contradiction 
+    | cons head tail ih => 
+      intro c 
+      simp [idx_of_with_count]
+      split 
+      case inl he => simp [he]
+      case inr he => 
+        have : ¬ f e = f head := by 
+          intro hcontra; 
+          have : e = head := by apply hf; constructor; unfold toSet; apply Or.inl; rfl; apply hcontra
+          contradiction
+        simp [this]
+        apply ih
+        intro e' ⟨e'InTail, feEqfe'⟩
+        apply hf
+        constructor 
+        apply Or.inr
+        apply e'InTail
+        apply feEqfe'
+
+  theorem idx_of_eq_under_map [DecidableEq α] [DecidableEq β] (l : List α) (e : α) (he : l.elem e) (f : α -> β) (hf : ∀ e', e' ∈ l.toSet ∧ f e = f e' -> e = e') : (l.idx_of e he).val = ((l.map f).idx_of (f e) (by apply listToSetElementAlsoListElement; apply mappedElemInMappedList; apply listElementAlsoToSetElement; exact he)).val := by
+    apply idx_of_with_count_eq_under_map 
+    apply hf
+
   theorem length_enum_from (l : List α) (n m : Nat): (l.enumFrom n).length = (l.enumFrom m).length := by 
     induction l generalizing n m with 
     | nil => simp [enumFrom]
@@ -332,5 +381,14 @@ namespace List
     intro h
     exists L.idx_of e (listToSetElementAlsoListElement L e h)
     rw [← idx_of_get]
+
+  theorem existsIndexMeansInToSet (L : List α) (e : α) : (∃ i, e = L.get i) -> e ∈ L.toSet := by 
+    intro ⟨i, hi⟩
+    rw [hi]
+    apply listGetInToSet
+ 
+  theorem existsIndexIffInToSet [DecidableEq α] (L : List α) (e : α) : (∃ i, e = L.get i) ↔ e ∈ L.toSet := by 
+    constructor; apply existsIndexMeansInToSet; apply inToSetMeansExistsIndex
+
 end List
 

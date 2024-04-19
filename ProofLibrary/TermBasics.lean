@@ -53,6 +53,7 @@ inductive Term where
   | var (v : Variable) : Term
   | const (c : Constant) : Term
   | func (ft : FiniteTree SkolemFS VarOrConst) : Term
+  deriving DecidableEq
 
 def GroundTerm.toTerm : GroundTerm -> Term
   | GroundTerm.const c => Term.const c

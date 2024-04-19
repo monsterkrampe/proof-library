@@ -40,6 +40,36 @@ namespace GroundSubstitution
     cases h
     simp [apply_atom, List.get_map]
 
+  -- TODO: is the extra assumption with injectivity reasonable?
+  theorem eq_under_subs_means_elements_are_preserved [DecidableEq Term] (σ : GroundSubstitution) (a : Atom) (f : Fact) (h : σ.apply_atom a = f) : ∀ t, (∀ s, s ∈ a.terms.toSet ∧ σ.apply_term t = σ.apply_term s -> t = s) -> (f.terms.elem (σ.apply_term t) ↔ a.terms.elem t) := by 
+    intro t ht
+    rw [List.listElementIffToSetElement] 
+    rw [List.listElementIffToSetElement] 
+    rw [← List.existsIndexIffInToSet]
+    rw [← List.existsIndexIffInToSet]
+    constructor
+    . intro ⟨i, hi⟩
+      let j : Fin a.terms.length := ⟨i.val, (by rw [eq_under_subs_means_same_length σ a f h]; exact i.isLt)⟩
+      exists j
+      rw [← eq_under_subs_means_term_is_eq σ a f j h] at hi
+      apply ht
+      constructor
+      . apply List.listGetInToSet 
+      . apply hi
+    . intro ⟨i, hi⟩
+      let j : Fin f.terms.length := ⟨i.val, (by rw [← eq_under_subs_means_same_length σ a f h]; exact i.isLt)⟩
+      exists j
+      rw [← eq_under_subs_means_term_is_eq σ a f i h]
+      rw [hi]
+
+  -- TODO: is the extra assumption with injectivity reasonable?
+  theorem eq_under_subs_means_indices_of_elements_are_preserved [DecidableEq Term] (σ : GroundSubstitution) (a : Atom) (f : Fact) (h : σ.apply_atom a = f) (t : Term) (ht : a.terms.elem t) (hs : ∀ s, s ∈ a.terms.toSet ∧ σ.apply_term t = σ.apply_term s -> t = s) : (f.terms.idx_of (σ.apply_term t) (by rw [eq_under_subs_means_elements_are_preserved σ a f h t hs]; exact ht)).val = ((a.terms.idx_of t) ht).val := by 
+    have : f.terms = a.terms.map σ.apply_term := by rw [← h]; unfold apply_atom; simp
+    rw [List.idx_of_eq_of_list_eq _ _ this _ _]
+    apply Eq.symm
+    apply List.idx_of_eq_under_map
+    apply hs
+
 end GroundSubstitution
 
 class SubsTarget (α) (β) where
