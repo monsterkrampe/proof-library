@@ -1,3 +1,4 @@
+import ProofLibrary.ChaseSequence
 import ProofLibrary.FiniteTree
 import ProofLibrary.KnowledgeBaseBasics
 import ProofLibrary.List

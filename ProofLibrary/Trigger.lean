@@ -46,4 +46,13 @@ namespace FactSet
 
   def modelsKb (fs : FactSet) (kb : KnowledgeBase) : Prop :=
     fs.modelsDb kb.db ∧ fs.modelsRules kb.rules
+
+  def universallyModelsKb (fs : FactSet) (kb : KnowledgeBase) : Prop :=
+    fs.modelsKb kb ∧ 
+    (∀ m : FactSet,
+      m.modelsKb kb ->
+      ∃ (h : GroundTermMapping),
+        isHomomorphism h ∧
+        (applyFactSet h fs) ⊆ m
+    )
 end FactSet
