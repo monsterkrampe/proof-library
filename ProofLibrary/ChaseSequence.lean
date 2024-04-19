@@ -305,7 +305,8 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                     rw [f_is_at_its_idx]
                     unfold applyFact
 
-                    -- cases trg_obsolete_on_m with | intro subs hsubs => 
+                    -- TODO: is it fine to apply hsubs.right here? (I think it should be since we know that fact really occurs in the trigger result)
+
                     apply hsubs.right
                     apply List.getIsInToSet
                     exists ⟨idx_f.val, (by simp [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]; apply idx_f.isLt)⟩ 
@@ -331,10 +332,43 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                       case h_2 ft h_ft_eq => 
                         split 
                         case h_1 _ exis_f _ => 
-                          sorry
+                          -- TODO: we need to argue that subs is behaving according to h since the term occurs in the frontier
+                          -- exis_f tells us that vt occurs in the previous chase step
+                          -- from trigger_obsolete_m we get that frontier terms are just mapped according to the subs in the trigger 
+                          -- if we can show that vt is in the frontier (which we should get from exis_f, we are fine)
+                          have vtInHead : ∃ headAtom : FunctionFreeAtom, trg.val.rule.head.elem headAtom ∧ headAtom.terms.elem (VarOrConst.var vt) := by 
+                            exists trg.val.rule.head.get idx_f
+                            simp [List.elem, List.get]
+                            constructor 
+                            . apply List.listToSetElementAlsoListElement
+                              apply List.listGetInToSet
+                            . apply List.listToSetElementAlsoListElement
+                              apply ht
+                          have vtInFrontier : trg.val.rule.frontier.elem vt := by 
+                            apply Decidable.byContradiction
+                            intro vtNotInFrontier
+                            simp at vtNotInFrontier
+
+                            -- there is a fact in the trigger result with the skolemized subs applied version of vt 
+
+                            -- there is a fact in chase step k with the skolemized subs applied version of vt
+
+                            -- WHAT TO DO HERE???
+
+                            -- every fact in the trigger result is already in chase step k
+
+                            -- show contradiction since trigger should be ractive but is already obsolete by the above
+
+                            sorry
+                          rw [hsubs.left]
+                          simp [VarOrConst.skolemize, vtInFrontier]
+                          have : trg.val.rule = trg_on_m.val.rule := by rfl
+                          rw [← this]
+                          apply vtInFrontier
                         case h_2 _ n_exis_f _ => 
                           split 
                           case h_1 _ n_exis_f' _ => 
+                            -- TODO: here we should run into a contradiction since we knot that the term occurs in the trigger result
                             apply False.elim 
                             apply n_exis_f'
                             exists fact'
@@ -342,8 +376,26 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
                             exact hl 
                             rw [f_is_at_its_idx]
                             
-                            sorry
+                            -- just trying something here...
+                            rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
+
+
+                            simp [VarOrConst.skolemize, Trigger.mapped_head, List.get_map]
+                            cases Decidable.em (trg.val.rule.frontier.elem vt) with 
+                            | inl vtInFrontier => 
+                              simp [vtInFrontier] 
+                              sorry
+                            | inr vtNotInFrontier => 
+                              simp [vtNotInFrontier] 
+                              sorry
+
+                            -- I think we should apply ht here to simplify somehow
+                            -- have : List.elem vt trg.val.rule.frontier := by sorry
+                            -- simp [this]
+                            --
+                            -- sorry
                           case h_2 _ exis_f' _ => 
+                            -- TODO: this should be the lengthy case, where we really end up mapping according to subs
                             sorry
                   | inr hr => 
                     apply ih_h.right 

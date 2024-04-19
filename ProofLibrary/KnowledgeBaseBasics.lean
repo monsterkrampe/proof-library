@@ -13,6 +13,7 @@ structure Fact where
 structure FunctionFreeAtom where
   predicate : Predicate
   terms : List VarOrConst
+  deriving DecidableEq
 
 structure Atom where
   predicate : Predicate

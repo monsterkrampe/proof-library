@@ -37,6 +37,7 @@ def GroundTerm.depth : GroundTerm -> Nat
 inductive VarOrConst where
   | var (v : Variable) : VarOrConst
   | const (c : Constant) : VarOrConst
+  deriving DecidableEq
 
 def VarOrConst.isVar : VarOrConst -> Bool
   | VarOrConst.var _ => true
