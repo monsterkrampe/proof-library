@@ -127,7 +127,7 @@ namespace FactSet
   def modelsRule (fs : FactSet) (rule : Rule) : Prop :=
     ∀ trg : Trigger,
       (trg.rule = rule ∧ trg.loaded fs)
-      -> ¬ trg.ractive fs -- the rule is ractive iff it is not satisfied under FOL semantics
+      -> trg.robsolete fs -- the rule is ractive iff it is not satisfied under FOL semantics
 
   def modelsRules (fs : FactSet) (rules : RuleSet) : Prop :=
     ∀ r, r ∈ rules.rules -> fs.modelsRule r
