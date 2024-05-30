@@ -1,52 +1,221 @@
 import ProofLibrary.KnowledgeBaseBasics
 import ProofLibrary.Trigger
 import ProofLibrary.Logic
+import ProofLibrary.PossiblyInfiniteTree
 
-def InfiniteList (α : Type u) := Nat → α  
+def exists_trigger_opt_fs (obs : ObsoletenessCondition) (rules : RuleSet) (before : FactSet) (after : Option FactSet) : Prop := 
+  ∃ trg : (RTrigger obs rules), trg.val.active before ∧ ∃ i, some (before ∪ trg.val.result.get i) = after
 
-structure ChaseSequence (obs : ObsoletenessCondition) (kb : KnowledgeBase) where
-  fact_sets : InfiniteList FactSet
-  database_first : fact_sets 0 = kb.db
-  triggers_exist : ∀ n : Nat, (
-      ∃ trg : (RTrigger obs kb.rules), trg.val.active (fact_sets n) ∧ trg.val.result ∪ fact_sets n = fact_sets (n + 1)
-    ) ∨ (
-      ¬(∃ trg : (RTrigger obs kb.rules), trg.val.active (fact_sets n)) ∧ fact_sets n = fact_sets (n + 1)
-    )
-  fairness : ∀ (trg : (RTrigger obs kb.rules)) (i : Nat), (trg.val.active (fact_sets i)) → ∃ j : Nat, j ≥ i ∧ (¬ trg.val.active (fact_sets j))
+def exists_trigger_list (obs : ObsoletenessCondition) (rules : RuleSet) (before : FactSet) (after : List FactSet) : Prop := 
+  ∃ trg : (RTrigger obs rules), trg.val.active before ∧ trg.val.result.map (fun fs => before ∪ fs) = after
 
-namespace ChaseSequence
-  def result (cs : ChaseSequence obs kb) : FactSet := fun f => ∃ n : Nat, f ∈ cs.fact_sets n
+def not_exists_trigger_opt_fs (obs : ObsoletenessCondition) (rules : RuleSet) (before : FactSet) (after : Option FactSet) : Prop := 
+  ¬(∃ trg : (RTrigger obs rules), trg.val.active before) ∧ after = none
 
-  def terminates (cs : ChaseSequence obs kb) : Prop :=
-    ∃ n : Nat, cs.fact_sets n = cs.fact_sets (n + 1)
-end ChaseSequence
+def not_exists_trigger_list (obs : ObsoletenessCondition) (rules : RuleSet) (before : FactSet) (after : List FactSet) : Prop := 
+  ¬(∃ trg : (RTrigger obs rules), trg.val.active before) ∧ after = []
 
-theorem chaseSequenceSetIsSubsetOfNext (cs : ChaseSequence obs kb) : ∀ n : Nat, cs.fact_sets n ⊆ cs.fact_sets (n+1) := by
-  intro n f h
-  cases cs.triggers_exist n 
-  case inl g =>
-    cases g with | intro trg trgH => 
-      rw [← trgH.right]
-      simp [Set.element, Set.union]
-      apply Or.inr
-      exact h
-  case inr g =>
-    rw [← g.right]
-    simp [Set.element, Set.union]
-    exact h
- 
-theorem chaseSequenceSetIsSubsetOfAllFollowing (cs : ChaseSequence obs kb) : ∀ (n m : Nat), cs.fact_sets n ⊆ cs.fact_sets (n + m) := by
+structure ChaseBranch (obs : ObsoletenessCondition) (kb : KnowledgeBase) where 
+  branch : PossiblyInfiniteList FactSet 
+  database_first : branch.infinite_list 0 = some kb.db.toFactSet
+  triggers_exist : ∀ n : Nat, (branch.infinite_list n).none_or (fun before => 
+    let after := branch.infinite_list (n+1)
+    (exists_trigger_opt_fs obs kb.rules before after) ∨ 
+    (not_exists_trigger_opt_fs obs kb.rules before after))
+  fairness : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ((branch.infinite_list i).some_and (fun fs => ¬ trg.val.active fs)) 
+    ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).none_or (fun fs => ¬ trg.val.active fs))
+
+namespace ChaseBranch
+  def result (branch : ChaseBranch obs kb) : FactSet := 
+    fun f => ∃ n : Nat, (branch.branch.infinite_list n).some_and (fun fs => f ∈ fs)
+
+  def terminates (branch : ChaseBranch obs kb) : Prop :=
+    ∃ n : Nat, branch.branch.infinite_list n = none
+end ChaseBranch
+
+structure ChaseTree (obs : ObsoletenessCondition) (kb : KnowledgeBase) where
+  tree : FiniteDegreeTree FactSet
+  database_first : tree.get [] = some kb.db.toFactSet
+  triggers_exist : ∀ node : List Nat, (tree.get node).none_or (fun before =>
+    let after := tree.children node
+    (exists_trigger_list obs kb.rules before after) ∨ 
+    (not_exists_trigger_list obs kb.rules before after))
+
+  fairness_leaves : ∀ leaf, leaf ∈ tree.leaves -> ∀ trg : (RTrigger obs kb.rules), ¬ trg.val.active leaf 
+  fairness_infinite_branches : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ∀ node : List Nat, node.length ≥ i -> 
+    (tree.get node).none_or (fun fs => ¬ trg.val.active fs)
+
+namespace ChaseTree
+  -- NOTE: this does not work; the address might not be valid in the sense that a number might be bigger than the number of disjuncts in a rule head, which leads to malformed branches that are no valid ChaseBranches
+  -- def branch_for (ct : ChaseTree obs kb) (address : InfiniteList Nat) : ChaseBranch obs kb := {
+  --   branch := ct.tree.branch_for address
+  --   database_first := by 
+  --     rw [← ct.database_first]
+  --     unfold FiniteDegreeTree.branch_for 
+  --     unfold PossiblyInfiniteTree.branch_for 
+  --     unfold InfiniteTreeSkeleton.branch_for 
+  --     simp
+  --     unfold FiniteDegreeTree.get
+  --     unfold PossiblyInfiniteTree.get 
+  --     unfold InfiniteList.take
+  --     rfl
+  --   triggers_exist := by sorry
+  --   fairness := by sorry
+  -- }
+
+  def branches (ct : ChaseTree obs kb) : Set (ChaseBranch obs kb) := fun branch => branch.branch ∈ ct.tree.branches
+
+  def result (ct : ChaseTree obs kb) : Set FactSet := fun fs => ∃ branch, branch ∈ ct.branches ∧ branch.result = fs
+
+  def terminates (ct : ChaseTree obs kb) : Prop := ∀ branch, branch ∈ ct.branches -> branch.terminates
+end ChaseTree
+
+
+theorem chaseBranchSetIsSubsetOfNext (cb : ChaseBranch obs kb) : ∀ n : Nat, 
+  match cb.branch.infinite_list n with 
+  | .none => cb.branch.infinite_list (n+1) = none
+  | .some fs => (cb.branch.infinite_list (n+1)).none_or (fun fs2 => fs ⊆ fs2) := 
+by
+  intro n
+  cases eq : cb.branch.infinite_list n with 
+  | none => 
+    simp
+    have dec : Decidable (cb.branch.infinite_list (n+1) = none) := Option.decidable_eq_none
+    apply dec.byContradiction
+    intro contra
+    let n' : Fin (n+1) := ⟨n, by simp⟩  
+    have : ¬ cb.branch.infinite_list n' = none := by apply cb.branch.no_holes; apply contra
+    contradiction
+  | some fs => 
+    simp
+    cases eq2 : cb.branch.infinite_list (n+1) with
+    | none => simp [Option.none_or]
+    | some fs2 => 
+      simp [Option.none_or]
+      intro f h
+      have trg_ex_n := cb.triggers_exist n 
+      simp [eq, Option.none_or] at trg_ex_n
+      cases trg_ex_n with
+      | inl g =>
+        cases g with | intro trg h_trg => 
+          cases h_trg.right with | intro i h_i =>
+            rw [eq2] at h_i
+            injection h_i with h_i
+            rw [← h_i]
+            simp [Set.element, Set.union]
+            apply Or.inl
+            exact h
+      | inr g =>
+        have g_right := g.right
+        rw [eq2] at g_right 
+        contradiction
+
+theorem chaseTreeSetIsSubsetOfEachNext (ct : ChaseTree obs kb) : ∀ address : List Nat, 
+  match ct.tree.get address with 
+  | .none => ct.tree.children address = []
+  | .some fs => ∀ fs2, fs2 ∈ ct.tree.children address -> fs ⊆ fs2 :=
+by
+  intro address
+  cases eq : ct.tree.get address with 
+  | none => simp; apply FiniteDegreeTree.children_empty_when_not_existing; exact eq
+  | some fs => 
+    simp
+    intro fs2 h
+    have trg_ex_addr := ct.triggers_exist address
+    simp [eq, Option.none_or] at trg_ex_addr
+    cases trg_ex_addr with 
+    | inl g => 
+      cases g with | intro trg h_trg =>
+        rw [← h_trg.right] at h
+        rw [List.mem_map] at h
+        cases h with | intro head h_head =>
+          rw [← h_head.right]
+          intro f h 
+          apply Or.inl
+          exact h
+    | inr g => 
+      rw [g.right] at h
+      contradiction
+
+theorem chaseBranchSetIsSubsetOfAllFollowing (cb : ChaseBranch obs kb) : ∀ (n m : Nat), 
+  match cb.branch.infinite_list n with 
+  | .none => cb.branch.infinite_list (n+m) = none
+  | .some fs => (cb.branch.infinite_list (n+m)).none_or (fun fs2 => fs ⊆ fs2) := 
+by
   intro n m
-  induction m
-  simp
-  intro f h 
-  exact h 
-  intro f h 
-  case succ i ih =>
-    apply chaseSequenceSetIsSubsetOfNext cs (n + i)
-    apply ih f
-    exact h 
+  induction m with
+  | zero => 
+    cases eq : cb.branch.infinite_list n with 
+    | none => simp; exact eq
+    | some fs => simp [Option.none_or, eq, Set.subset]
+  | succ m ih =>
+    cases eq : cb.branch.infinite_list n with 
+    | none => 
+      simp 
+      simp [eq] at ih 
+      have step := chaseBranchSetIsSubsetOfNext cb (n+m)
+      simp [ih] at step
+      exact step
+    | some fs => 
+      simp
+      simp [eq, Option.none_or] at ih
+      have step := chaseBranchSetIsSubsetOfNext cb (n+m)
+      cases eq2 : cb.branch.infinite_list (n+m) with
+      | none => simp [eq2] at step; rw [← Nat.add_assoc, step, Option.none_or]; simp
+      | some fs2 => 
+        simp [eq2] at step; simp [eq2] at ih; rw [← Nat.add_assoc] 
+        cases eq3 : cb.branch.infinite_list (n+m+1) with
+        | none => simp [Option.none_or]
+        | some fs3 => 
+          simp [Option.none_or]; simp [eq3, Option.none_or] at step; 
+          apply Set.subsetTransitive; constructor; apply ih; apply step
 
+theorem chaseTreeSetIsSubsetOfAllFollowing (ct : ChaseTree obs kb) : ∀ (n m : List Nat), 
+  match ct.tree.get n with 
+  | .none => ct.tree.get (m ++ n) = none
+  | .some fs => (ct.tree.get (m ++ n)).none_or (fun fs2 => fs ⊆ fs2) :=
+by 
+  intro n m
+  induction m with
+  | nil => 
+    cases eq : ct.tree.get n with 
+    | none => simp; exact eq
+    | some fs => simp [Option.none_or, eq, Set.subset]
+  | cons i m ih =>
+    cases eq : ct.tree.get n with 
+    | none => 
+      simp 
+      simp [eq] at ih 
+      have step := chaseTreeSetIsSubsetOfEachNext ct (m ++ n)
+      simp [ih] at step
+      apply FiniteDegreeTree.children_empty_means_all_following_none
+      apply step
+    | some fs => 
+      simp
+      simp [eq, Option.none_or] at ih
+      have step := chaseTreeSetIsSubsetOfEachNext ct (m ++ n)
+      cases eq2 : ct.tree.get (m ++ n) with
+      | none => 
+        simp [eq2] at step 
+        rw [Option.none_or]
+        have helper := ct.tree.children_empty_means_all_following_none (m ++ n) step
+        rw [helper]
+        simp
+      | some fs2 => 
+        simp [eq2] at step; simp [eq2] at ih
+        cases eq3 : ct.tree.get (i :: (m ++ n)) with 
+        | none => simp [Option.none_or]
+        | some fs3 =>
+          simp [Option.none_or]
+          apply Set.subsetTransitive
+          constructor
+          apply ih
+          apply step
+
+          rw [ct.tree.in_children_iff_index_exists]
+          exists i
+
+/-
 theorem chaseSequenceSetIsSubsetOfResult (cs : ChaseSequence obs kb) : ∀ n : Nat, cs.fact_sets n ⊆ cs.result := by 
   intro n 
   intro e 
@@ -776,4 +945,5 @@ theorem chaseResultUnivModelsKb (cs : ChaseSequence obs kb) : cs.result.universa
         apply this
         simp [Set.element, applyFactSet]
         exists e
+-/
 

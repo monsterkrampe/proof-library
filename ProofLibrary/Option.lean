@@ -1,4 +1,12 @@
 namespace Option
+  def none_or : Option α -> (α -> Prop) -> Prop 
+    | none, _ => True
+    | some a, pred => pred a
+
+  def some_and : Option α -> (α -> Prop) -> Prop 
+    | none, _ => False
+    | some a, pred => pred a
+
   def unwrap : (opt : Option α) -> (opt ≠ none) -> α
     | none, h => absurd rfl h
     | some a, _ => a
