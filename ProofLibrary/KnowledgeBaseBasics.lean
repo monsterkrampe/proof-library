@@ -74,11 +74,11 @@ theorem FunctionFreeConjunction.v_in_vars_occurs_in_fact (conj : FunctionFreeCon
 structure Rule where
   id : Nat
   body : FunctionFreeConjunction
-  head : FunctionFreeConjunction
+  head : List FunctionFreeConjunction
 
 def Rule.frontier (r : Rule) : List Variable :=
   -- NOTE: using ∈ does not really work here because it produces a Prop which can not always be simply cast into Bool
-  List.filter (fun v => r.head.vars.elem v) (FunctionFreeConjunction.vars r.body)
+  List.filter (fun v => r.head.any (fun h => h.vars.elem v)) (FunctionFreeConjunction.vars r.body)
 
 theorem Rule.frontier_var_occurs_in_fact_in_body (r : Rule) : ∀ v, List.elem v r.frontier -> ∃ f, f ∈ r.body.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by 
   unfold frontier
@@ -99,7 +99,7 @@ theorem Rule.frontier_var_occurs_in_fact_in_body (r : Rule) : ∀ v, List.elem v
 --   }
 
 def Rule.isDatalog (r : Rule) : Bool :=
-  List.all r.head.vars (fun v => r.body.vars.elem v)
+  r.head.all (fun h => h.vars.all (fun v => r.body.vars.elem v))
 
 structure RuleSet where 
   rules : Set Rule

@@ -26,14 +26,14 @@ namespace Trigger
     simp
 
   def mapped_body (trg : Trigger) : List Fact := SubsTarget.apply trg.subs trg.rule.body
-  def mapped_head (trg : Trigger) : List Fact := trg.rule.head.map trg.apply_to_function_free_atom
+  def mapped_head (trg : Trigger) : List (List Fact) := trg.rule.head.map (fun h => h.map trg.apply_to_function_free_atom)
 
   theorem head_length_eq_mapped_head_length (trg : Trigger) : trg.rule.head.length = trg.mapped_head.length := by 
     unfold mapped_head
     rw [List.length_map]
 
-  def result (trg : Trigger) : FactSet :=
-    trg.mapped_head.toSet
+  def result (trg : Trigger) : List FactSet :=
+    trg.mapped_head.map List.toSet
 
   theorem subs_application_is_injective_for_freshly_introduced_terms {t : Variable} (trg : Trigger) (t_not_in_frontier : ¬ trg.rule.frontier.elem t) : ∀ s, (trg.apply_to_var_or_const (VarOrConst.var t) = trg.apply_to_var_or_const (VarOrConst.var s)) -> trg.skolemize_var_or_const (VarOrConst.var t) = trg.skolemize_var_or_const (VarOrConst.var s) := by 
     intro s apply_eq_for_t_and_s
@@ -59,28 +59,32 @@ namespace Trigger
       apply List.listElementAlsoToSetElement
       apply hl
 
-  def idx_of_fact_in_result (trg : Trigger) (f : Fact) (f_in_res : f ∈ trg.result) : Fin trg.rule.head.length :=
-    let fin_mapped := trg.mapped_head.idx_of f (trg.mapped_head.listToSetElementAlsoListElement f f_in_res)
+  def idx_of_fact_in_result (trg : Trigger) (f : Fact) (disj_index : Fin trg.result.length) (f_in_res : f ∈ trg.result.get disj_index) : Fin (trg.rule.head.get ⟨disj_index.val, (by rw [head_length_eq_mapped_head_length]; have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩).length :=
+    let disj_index_mapped_head : Fin trg.mapped_head.length := ⟨disj_index.val, (by have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩
+    let fin_mapped := (trg.mapped_head.get disj_index_mapped_head).idx_of f ((trg.mapped_head.get disj_index_mapped_head).listToSetElementAlsoListElement f (by unfold result at f_in_res; rw [List.get_map] at f_in_res; apply f_in_res))
     have fin_mapped_isLt := fin_mapped.isLt
-    ⟨fin_mapped.val, by simp [mapped_head, List.length_map, List.length_enum] at fin_mapped_isLt; exact fin_mapped_isLt⟩
+    ⟨fin_mapped.val, by simp only [mapped_head, List.length_map, List.get_map] at fin_mapped_isLt; exact fin_mapped_isLt⟩
 
-  theorem apply_subs_to_atom_at_idx_same_as_fact_at_idx (trg : Trigger) (idx : Fin trg.rule.head.length) : trg.apply_to_function_free_atom (trg.rule.head.get idx) = trg.mapped_head.get ⟨idx.val, by rw [← head_length_eq_mapped_head_length]; exact idx.isLt⟩ := by 
+  theorem apply_subs_to_atom_at_idx_same_as_fact_at_idx (trg : Trigger) (disj_index : Fin trg.rule.head.length) (idx : Fin (trg.rule.head.get disj_index).length) : trg.apply_to_function_free_atom ((trg.rule.head.get disj_index).get idx) = (trg.mapped_head.get ⟨disj_index.val, (by rw [← head_length_eq_mapped_head_length]; exact disj_index.isLt)⟩).get ⟨idx.val, (by unfold mapped_head; rw [List.get_map]; rw [List.length_map]; exact idx.isLt)⟩ := by 
     unfold mapped_head
-    simp [List.get_map]
+    have : (trg.rule.head.map (fun h => h.map trg.apply_to_function_free_atom)).get ⟨disj_index.val, (by rw [List.length_map]; exact disj_index.isLt)⟩ = (trg.rule.head.get disj_index).map trg.apply_to_function_free_atom := by 
+      rw [List.get_map]
+    rw [List.get_eq_of_eq this]
+    rw [List.get_map]
   
   def loaded (trg : Trigger) (F : FactSet) : Prop :=
     trg.mapped_body.toSet ⊆ F
 
   def sobsolete (trg : Trigger) (F : FactSet) : Prop := 
-    trg.mapped_head.toSet ⊆ F
+    ∃ i : Fin trg.mapped_head.length, (trg.mapped_head.get i).toSet ⊆ F
 
   def sactive (trg : Trigger) (F : FactSet) : Prop :=
     trg.loaded F ∧ ¬ (trg.sobsolete F)
 
   def robsolete (trg : Trigger) (F : FactSet) : Prop := 
-    ∃ s : GroundSubstitution,
+    ∃ (s : GroundSubstitution) (i : Fin trg.rule.head.length),
       (∀ v, List.elem v (Rule.frontier trg.rule) → s v = trg.subs v) ∧
-      ((s.apply_function_free_conj trg.rule.head).toSet ⊆ F)
+      ((s.apply_function_free_conj (trg.rule.head.get i)).toSet ⊆ F)
 
   def ractive (trg : Trigger) (F : FactSet) : Prop :=
     trg.loaded F ∧ ¬ (trg.robsolete F)

@@ -1,141 +1,92 @@
 import ProofLibrary.Option
 import ProofLibrary.List
 import ProofLibrary.PossiblyInfiniteList
--- import Std.Data.List.Lemmas
 
-structure NodeInformation (α) where
-  value : α
-  number_of_children : Nat
+def InfiniteTreeSkeleton (α : Type u) := (List Nat) -> α
 
-structure PossiblyInfiniteTree (α : Type u) where
-  data : PossiblyInfiniteList (List (NodeInformation α))
-  consistency : ∀ depth : Nat, match (data.infinite_list depth) with
-    | none => True
-    | some list => match (list.map (fun ni => ni.number_of_children)).sum with
-      | Nat.zero => (data.infinite_list (depth + 1)) = none
-      | Nat.succ n => ∃ next_layer, (data.infinite_list (depth + 1)) = some next_layer ∧ next_layer.length = Nat.succ n
+namespace InfiniteTreeSkeleton
+  def children (tree : InfiniteTreeSkeleton α) (node : List Nat) : InfiniteList α := fun n => tree (node ++ [n])
 
-structure NodeInPossiblyInfiniteTree (α) where
-  tree : PossiblyInfiniteTree α
-  depth : Nat
-  position_in_layer : Nat
-  layer_exists : ∃ layer, tree.data.infinite_list depth = some layer
-  layer_large_enough : ∀ layer, tree.data.infinite_list depth = some layer -> position_in_layer < layer.length
+  def branch_for (tree : InfiniteTreeSkeleton α) (address : InfiniteList Nat) : InfiniteList α := fun n => tree (address.take n)
 
-namespace NodeInPossiblyInfiniteTree
-  def layer (node : NodeInPossiblyInfiniteTree α) : List (NodeInformation α) :=
-    let layer_opt := node.tree.data.infinite_list node.depth
-    let layer := layer_opt.unwrap (by
-      cases node.layer_exists with | intro x h =>
-        exact layer_opt.someNotNone h
-    )
-    layer
+  -- def branches (tree : InfiniteTreeSkeleton α) : Set (InfiniteList α) := fun branch => ∃ nodes : InfiniteList Nat, 
+  --   ∀ n : Nat, branch n = tree (nodes.take n) 
+end InfiniteTreeSkeleton
 
-  theorem nodeLayerIsLayerAtDepth (node : NodeInPossiblyInfiniteTree α) : node.tree.data.infinite_list node.depth = some node.layer := by
-    cases node.layer_exists with | intro x h =>
-      simp [layer]
-      rw [Option.someRevertsUnwrap]
+structure PossiblyInfiniteTree (α : Type u) where 
+  infinite_tree : InfiniteTreeSkeleton (Option α)
+  no_orphans : ∀ node : List Nat, infinite_tree node ≠ none -> ∀ parent : { l : List Nat // ∃ diff, l ++ diff = node}, infinite_tree parent ≠ none
+  no_holes_in_children : ∀ node : List Nat, ∀ n : Nat, (infinite_tree.children node) n ≠ none -> ∀ m : Fin n, (infinite_tree.children node) m ≠ none
 
-  def node_info (node : NodeInPossiblyInfiniteTree α) : NodeInformation α :=
-    let layer := node.layer
-    layer.get ⟨node.position_in_layer, (by
-      have h := node.layer_large_enough layer
-      apply h
-      rw [nodeLayerIsLayerAtDepth]
-    )⟩
+namespace PossiblyInfiniteTree
+  def get (tree : PossiblyInfiniteTree α) (node : List Nat) : Option α := tree.infinite_tree node
 
-  theorem nodeInfoIsInLayer (node : NodeInPossiblyInfiniteTree α) : node.node_info ∈ node.layer.toSet := by
-    simp [node_info]
-    apply List.listGetInToSet
+  def children (tree : PossiblyInfiniteTree α) (node : List Nat) : PossiblyInfiniteList α := {
+    infinite_list := tree.infinite_tree.children node,
+    no_holes := by apply tree.no_holes_in_children
+  }
 
-  def children (node : NodeInPossiblyInfiniteTree α) : List (NodeInPossiblyInfiniteTree α) :=
-    let current_layer := node.layer
-    let next_layer_opt := node.tree.data.infinite_list (node.depth + 1)
-    --let current_layer_before_this := current_layer.before_index node.position_in_layer
-    let node_info := node.node_info
-    let number_of_children := node_info.number_of_children
-    let layer_mapped := current_layer.map (fun ni => ni.number_of_children)
-    --let number_of_children_before := (current_layer_before_this.map (fun ni => ni.number_of_children)).sum
-    let layer_mapped_before := layer_mapped.before_index node.position_in_layer
-    let number_of_children_before := layer_mapped_before.sum
+  def branch_for (tree : PossiblyInfiniteTree α) (address : InfiniteList Nat) : PossiblyInfiniteList α := {
+    infinite_list := tree.infinite_tree.branch_for address,
+    no_holes := by 
+      intro n h m 
+      -- unfold InfiniteTreeSkeleton.branch_for
+      apply tree.no_orphans (address.take n) h (⟨address.take m, _⟩)
+      exists (address.skip m).take (n - m)
+      rw [InfiniteList.combine_skip_take]
+  }
 
-    have no_children_in_mapped_layer : number_of_children ∈ layer_mapped.toSet := by
-      apply List.mappedElemInMappedList
-      apply nodeInfoIsInLayer
+  -- def branches (tree : PossiblyInfiniteTree α) : Set (PossiblyInfiniteList α) := fun pil => pil.infinite_list ∈ tree.infinite_tree.branches
 
-    have no_children_le_sum_layer_mapped : number_of_children ≤ layer_mapped.sum := by
-      apply List.everyElementLeSum
-      exact no_children_in_mapped_layer
+  def leaves (tree : PossiblyInfiniteTree α) : Set α := fun a => ∃ node : List Nat, tree.get node = some a ∧ tree.children node = PossiblyInfiniteList.empty
+end PossiblyInfiniteTree
 
-    let fin_pos : Fin layer_mapped.length := ⟨node.position_in_layer, (by
-      have h := node.layer_large_enough node.layer
-      rw [← List.length_map node.layer (fun ni => ni.number_of_children)] at h
-      apply h
-      rw [nodeLayerIsLayerAtDepth]
-    )⟩
-    have no_children_is_at_pos_in_mapped_layer : number_of_children = layer_mapped.get fin_pos := by
-      simp [current_layer, node_info, number_of_children, layer_mapped, NodeInPossiblyInfiniteTree.node_info, List.get_map]
+structure FiniteDegreeTree (α : Type u) where 
+  tree : PossiblyInfiniteTree α 
+  finitely_many_children : ∀ node : List Nat, ∃ k, (tree.children node).infinite_list k = none ∧ ∀ k' : Fin k, (tree.children node).infinite_list k' ≠ none
 
-    have no_c_before_add_no_c_le_layer_length : number_of_children_before + number_of_children ≤ layer_mapped.sum := by
-      rw [no_children_is_at_pos_in_mapped_layer]
-      apply List.before_and_element_le_sum layer_mapped fin_pos
+namespace FiniteDegreeTree
+  def get (tree : FiniteDegreeTree α) (node : List Nat) : Option α := tree.tree.get node
 
-    match equality_noc : node_info.number_of_children with
-      | Nat.zero => List.nil
-      | Nat.succ n =>
-        let sumNeZero : layer_mapped.sum ≠ 0 := by
-          apply Nat.not_eq_zero_of_lt
-          apply Nat.lt_of_lt_of_le
-          apply Nat.zero_lt_of_ne_zero
-          exact Nat.succ_ne_zero n
-          rw [←equality_noc]
-          exact no_children_le_sum_layer_mapped
+  def children (tree : FiniteDegreeTree α) (node : List Nat) : List α := 
+    -- have k : Nat := by sorry
+    let rec loop (n : Nat) (l : List α) : List α := match eq : (tree.tree.children node).infinite_list n with 
+      | .none => l
+      | .some a => 
+        have : Classical.choose (tree.finitely_many_children node) - (n+1) < Classical.choose (tree.finitely_many_children node) - n := by 
+          apply Nat.sub_add_lt_sub
+          . apply Classical.byContradiction
+            intro contra 
+            simp at contra
+            have hk_none := (Classical.choose_spec (tree.finitely_many_children node)).left
+            have hk_not_none : (tree.tree.children node).infinite_list (Classical.choose (tree.finitely_many_children node)) ≠ none := by 
+              simp only [PossiblyInfiniteTree.children]
+              simp only [PossiblyInfiniteTree.children] at eq
+              have goal := 
+                tree.tree.no_holes_in_children 
+                node 
+                n 
+                (by apply Option.someNotNone; apply eq) 
+                ⟨Classical.choose (tree.finitely_many_children node), by 
+                  cases Nat.eq_or_lt_of_le (Nat.le_of_lt_succ contra) with 
+                  | inl hl => 
+                    simp only [PossiblyInfiniteTree.children] at hk_none
+                    rw [hl] at hk_none
+                    have eq_not_none := Option.someNotNone eq
+                    contradiction
+                  | inr hr => exact hr
+                ⟩ 
+              exact goal
+            contradiction
+          . simp
+        loop (n+1) (l ++ [a])
+    termination_by Classical.choose (tree.finitely_many_children node) - n
+    loop 0 []
 
-        match equality_sum : layer_mapped.sum with
-          | Nat.zero => absurd equality_sum sumNeZero
-          | Nat.succ m =>
-            let consistency := node.tree.consistency node.depth
-            have nextLayerExists : next_layer_opt ≠ none := by
-              simp [nodeLayerIsLayerAtDepth] at consistency
-              simp [equality_sum] at consistency
-              cases consistency with | intro _ h =>
-                have layer_exists := h.left
-                exact Option.someNotNone layer_exists
+  def branch_for (tree : FiniteDegreeTree α) (address : InfiniteList Nat) : PossiblyInfiniteList α := tree.tree.branch_for address
 
-            let next_layer := next_layer_opt.unwrap nextLayerExists
-            let child_information := (next_layer.drop number_of_children_before).take number_of_children
+  -- def branches (tree : FiniteDegreeTree α) : Set (PossiblyInfiniteList α) := tree.tree.branches
 
-            child_information.enum_with_lt.map (fun (indexFin, _) => {
-              tree := node.tree,
-              depth := node.depth + 1,
-              position_in_layer := number_of_children_before + indexFin.val,
-              layer_exists := by
-                exists next_layer
-                simp [next_layer]
-                rw [Option.someRevertsUnwrap]
-              layer_large_enough := by
-                intro layer h
-                have someNextEqSomeLayer : some next_layer = some layer := by simp [Option.someRevertsUnwrap, ← h, next_layer]
-                have nextEqLayer : next_layer = layer := Option.someEqImpliesEq someNextEqSomeLayer
-                rw [← nextEqLayer]
-                simp [nodeLayerIsLayerAtDepth] at consistency
-                simp [equality_sum] at consistency
-                cases consistency with | intro next_layer' h' =>
-                  let ⟨exis, count⟩ := h'
-                  rw [h, ← someNextEqSomeLayer] at exis
-                  have nextEqNextPrime : next_layer = next_layer' := Option.someEqImpliesEq exis
-                  rw [← nextEqNextPrime] at count
-                  rw [count, ← equality_sum]
-                  have indexLt := indexFin.isLt
-                  have child_info_length_le_no_children : child_information.length ≤ number_of_children := by apply List.length_take_le
-                  have indexLtNoChildren : indexFin.val < number_of_children := by apply Nat.lt_of_lt_of_le indexLt child_info_length_le_no_children
-                  rw [Nat.add_comm]
-                  apply Nat.add_lt_of_lt_sub
-                  apply Nat.lt_of_lt_of_le indexLtNoChildren
-                  apply Nat.le_sub_of_add_le
-                  rw [Nat.add_comm]
-                  exact no_c_before_add_no_c_le_layer_length
-            })
+  def leaves (tree : FiniteDegreeTree α) : Set α := tree.tree.leaves
+end FiniteDegreeTree
 
-  /- TODO: maybe also define siblings similarly, i.e. as node.layer but with NodeInPossiblyInfiniteTree instead of just NodeInformation -/
-end NodeInPossiblyInfiniteTree

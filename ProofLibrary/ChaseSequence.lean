@@ -1,25 +1,105 @@
 import ProofLibrary.KnowledgeBaseBasics
 import ProofLibrary.Trigger
 import ProofLibrary.Logic
+import ProofLibrary.PossiblyInfiniteTree
 
-def InfiniteList (α : Type u) := Nat → α  
+def exists_trigger_opt_fs (rules : RuleSet) (before : FactSet) (after : Option FactSet) : Prop := 
+  ∃ trg : (RTrigger rules), trg.val.ractive before ∧ ∃ i, some (before ∪ trg.val.result.get i) = after
 
-structure ChaseSequence (kb : KnowledgeBase) where
-  fact_sets : InfiniteList FactSet
-  database_first : fact_sets 0 = kb.db
-  triggers_exist : ∀ n : Nat, (
-      ∃ trg : (RTrigger kb.rules), trg.val.ractive (fact_sets n) ∧ trg.val.result ∪ fact_sets n = fact_sets (n + 1)
-    ) ∨ (
-      ¬(∃ trg : (RTrigger kb.rules), trg.val.ractive (fact_sets n)) ∧ fact_sets n = fact_sets (n + 1)
-    )
-  fairness : ∀ (trg : (RTrigger kb.rules)) (i : Nat), (trg.val.ractive (fact_sets i)) → ∃ j : Nat, j ≥ i ∧ (¬ trg.val.ractive (fact_sets j))
+def exists_trigger_list (rules : RuleSet) (before : FactSet) (after : List FactSet) : Prop := 
+  ∃ trg : (RTrigger rules), trg.val.ractive before ∧ trg.val.result.map (fun fs => before ∪ fs) = after
 
-namespace ChaseSequence
-  def result {kb : KnowledgeBase} (cs : ChaseSequence kb) : FactSet := fun f => ∃ n : Nat, f ∈ cs.fact_sets n
+def not_exists_trigger_opt_fs (rules : RuleSet) (before : FactSet) (after : Option FactSet) : Prop := 
+  ¬(∃ trg : (RTrigger rules), trg.val.ractive before) ∧ after = none
 
-  def terminates {kb : KnowledgeBase} (cs : ChaseSequence kb) : Prop :=
-    ∃ n : Nat, cs.fact_sets n = cs.fact_sets (n + 1)
-end ChaseSequence
+def not_exists_trigger_list (rules : RuleSet) (before : FactSet) (after : List FactSet) : Prop := 
+  ¬(∃ trg : (RTrigger rules), trg.val.ractive before) ∧ after = []
+
+structure ChaseBranch (kb : KnowledgeBase) where 
+  branch : PossiblyInfiniteList FactSet 
+  database_first : branch.infinite_list 0 = some kb.db.toFactSet
+  triggers_exist : ∀ n : Nat, 
+    match branch.infinite_list n with 
+    | .none => True 
+    | .some before =>
+      let after := branch.infinite_list (n+1)
+      (exists_trigger_opt_fs kb.rules before after) ∨ 
+      (not_exists_trigger_opt_fs kb.rules before after)
+  fairness : ∀ trg : (RTrigger kb.rules), ∃ i : Nat,  
+    (match branch.infinite_list i with 
+    | .none => False
+    | .some fs => ¬ trg.val.ractive fs)
+    ∧ (∀ j : Nat, j > i -> 
+      match branch.infinite_list n with 
+      | .none => True 
+      | .some fs => ¬ trg.val.ractive fs)
+
+namespace ChaseBranch
+  def result {kb : KnowledgeBase} (branch : ChaseBranch kb) : FactSet := 
+    fun f => ∃ n : Nat, match branch.branch.infinite_list n with 
+    | .none => False
+    | .some fs => f ∈ fs
+
+  def terminates {kb : KnowledgeBase} (branch : ChaseBranch kb) : Prop :=
+    ∃ n : Nat, branch.branch.infinite_list n = none
+end ChaseBranch
+
+structure ChaseTree (kb : KnowledgeBase) where
+  tree : FiniteDegreeTree FactSet
+  database_first : tree.get [] = some kb.db.toFactSet
+  triggers_exist : ∀ node : List Nat, 
+    match tree.get node with 
+    | .none => True
+    | .some before => 
+      let after := tree.children node
+      (exists_trigger_list kb.rules before after) ∨ 
+      (not_exists_trigger_list kb.rules before after)
+
+  -- triggers_exist : ∀ n : Nat, 
+  --   ∃ next : List (List FactSet),
+  --     next.length = (fact_sets n).length ∧ 
+  --     fact_sets (n+1) = next.flatten ∧ 
+  --     ((length_eq : next.length = (fact_sets n).length) -> 
+  --     (∀ fs_index : Fin (fact_sets n).length, 
+  --       (exists_trigger kb.rules ((fact_sets n).get fs_index) (next.get ⟨fs_index.val, (by rw [length_eq]; exact fs_index.isLt)⟩)) ∨ 
+  --       (not_exists_trigger kb.rules ((fact_sets n).get fs_index) (next.get ⟨fs_index.val, (by rw [length_eq]; exact fs_index.isLt)⟩))))
+
+  -- triggers_exist : ∀ n : Nat, (
+  --     ∃ trg : (RTrigger kb.rules), trg.val.ractive (fact_sets n) ∧ trg.val.result ∪ fact_sets n = fact_sets (n + 1)
+  --   ) ∨ (
+  --     ¬(∃ trg : (RTrigger kb.rules), trg.val.ractive (fact_sets n)) ∧ fact_sets n = fact_sets (n + 1)
+  --   )
+  fairness_leaves : ∀ leaf, leaf ∈ tree.leaves -> ∀ trg : (RTrigger kb.rules), ¬ trg.val.ractive leaf 
+  fairness_infinite_branches : ∀ trg : (RTrigger kb.rules), ∃ i : Nat, ∀ node : List Nat, node.length ≥ i -> 
+    match tree.get node with 
+    | .none => True
+    | .some fs => ¬ trg.val.ractive fs
+
+namespace ChaseTree
+  -- TODO: this does not work; the address might not be valid in the sense that a number might be bigger than the number of disjuncts in a rule head, which leads to malformed branches that are no valid ChaseBranches
+  def branch_for {kb : KnowledgeBase} (ct : ChaseTree kb) (address : InfiniteList Nat) : ChaseBranch kb := {
+    branch := ct.tree.branch_for address
+    database_first := by 
+      rw [← ct.database_first]
+      unfold FiniteDegreeTree.branch_for 
+      unfold PossiblyInfiniteTree.branch_for 
+      unfold InfiniteTreeSkeleton.branch_for 
+      simp
+      unfold FiniteDegreeTree.get
+      unfold PossiblyInfiniteTree.get 
+      unfold InfiniteList.take
+      rfl
+    triggers_exist := by sorry
+    fairness := by sorry
+  }
+
+  -- def branches {kb : KnowledgeBase} (ct : ChaseTree kb) : Set (ChaseBranch kb) := fun branch => branch.branch ∈ ct.tree.branches
+
+  def result {kb : KnowledgeBase} (ct : ChaseTree kb) : Set FactSet := fun fs => ∃ address, (ct.branch_for address).result = fs
+
+  def terminates {kb : KnowledgeBase} (ct : ChaseTree kb) : Prop :=
+    ∀ address, (ct.branch_for address).terminates
+end ChaseTree
 
 theorem chaseSequenceSetIsSubsetOfNext (kb : KnowledgeBase) (cs : ChaseSequence kb) : ∀ n : Nat, cs.fact_sets n ⊆ cs.fact_sets (n+1) := by
   intro n f h
