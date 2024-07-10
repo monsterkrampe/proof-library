@@ -118,8 +118,7 @@ namespace NodeInPossiblyInfiniteTree
                 have someNextEqSomeLayer : some next_layer = some layer := by simp [Option.someRevertsUnwrap, ← h, next_layer]
                 have nextEqLayer : next_layer = layer := Option.someEqImpliesEq someNextEqSomeLayer
                 rw [← nextEqLayer]
-                simp [nodeLayerIsLayerAtDepth] at consistency
-                simp [equality_sum] at consistency
+                simp only [nodeLayerIsLayerAtDepth, equality_sum] at consistency
                 cases consistency with | intro next_layer' h' =>
                   let ⟨exis, count⟩ := h'
                   rw [h, ← someNextEqSomeLayer] at exis

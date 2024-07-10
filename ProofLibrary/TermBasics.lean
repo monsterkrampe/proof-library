@@ -109,7 +109,7 @@ theorem VarOrConst.filterVars_occur_in_original_list (l : List VarOrConst) (v : 
 
 def VarOrConst.skolemize (ruleId : Nat) (frontier : List Variable) (voc : VarOrConst) : SkolemTerm :=
   match voc with
-    | VarOrConst.var v => ite (List.elem v frontier)
+    | VarOrConst.var v => ite (v ∈ frontier)
       (SkolemTerm.var v)
       (SkolemTerm.func { ruleId := ruleId, var := v} frontier)
     | VarOrConst.const c => SkolemTerm.const c
@@ -127,11 +127,11 @@ theorem VarOrConst.skolemize_injective (ruleId : Nat) (frontier : List Variable)
         . intros; contradiction
         . simp
     | const _ => 
-      simp [skolemize]
+      simp only [skolemize]
       split <;> intros <;> assumption
   | const cs => cases t with 
     | var vt => 
-      simp [skolemize]
+      simp only [skolemize]
       split <;> intros <;> assumption
     | const _ => simp [skolemize]
 

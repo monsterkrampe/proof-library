@@ -90,8 +90,8 @@ theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (kb : KnowledgeBase) (cs :
           intro a b
           simp [Nat.max_def]
           split -- seems to be the same as the following above: cases Decidable.em (a ≤ b) 
-          case inl h => simp [h]
-          case inr h => apply Nat.le_of_lt; apply Nat.lt_of_succ_le; rw [← Nat.not_le_eq]; exact h
+          case isTrue h => simp [h]
+          case isFalse h => apply Nat.le_of_lt; apply Nat.lt_of_succ_le; rw [← Nat.not_le_eq]; exact h
         have help_i : i ≤ Nat.max i j := by apply max_help_left
         have help_j : j ≤ Nat.max i j := by apply max_help_right
         
@@ -141,7 +141,7 @@ theorem rObsoletenessSubsetMonotone {trg : Trigger} {F G : FactSet} : F ⊆ G �
     exact hs.right 
     exact sub 
 
-theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (trg.val.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ ((trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet)) -> ∃ j, j ≤ i ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j := by 
+theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ ((trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet)) -> ∃ j, j ≤ i ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j := by 
   intro ⟨var_not_in_frontier, exis_f⟩
   induction i with 
   | zero => 
@@ -157,8 +157,8 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
         case h_1 => contradiction
         case h_2 _ _ to_fff_is_some =>  
           split at to_fff_is_some
-          case inr => contradiction
-          case inl _ _ all_terms_ff =>
+          case isFalse h => contradiction
+          case isTrue _ _ all_terms_ff =>
             have : ¬ (List.all f.terms fun t => match t with
               | GroundTerm.const _ => true
               | _ => false) = true := by 
@@ -221,7 +221,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                   exact hf.right
               . exact hf.right
           
-          have : ∃ var2, trg'.val.rule.frontier.elem var2 = false ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const (VarOrConst.var var2)) := by 
+          have : ∃ var2, ¬ var2 ∈ trg'.val.rule.frontier ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const (VarOrConst.var var2)) := by 
             cases this with | intro f hf =>
               have ⟨f_in_res, apply_var_in_f_terms⟩ := hf
               let i := trg'.val.idx_of_fact_in_result f f_in_res
@@ -261,7 +261,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                   contradiction
                 | var var_for_f =>
                   exists var_for_f
-                  have var_for_f_not_in_frontier : trg'.val.rule.frontier.elem var_for_f = false := by 
+                  have var_for_f_not_in_frontier : ¬ var_for_f ∈ trg'.val.rule.frontier := by 
                     apply Decidable.byContradiction
                     intro h 
                     simp at h
@@ -313,7 +313,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
             cases voc with 
             | const c => simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] 
             | var v =>
-              cases Decidable.em (trg.val.rule.frontier.elem v) with 
+              cases Decidable.em (v ∈ trg.val.rule.frontier) with 
               | inl v_in_frontier => 
                 simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term]
                 rw [← this.left]
@@ -338,7 +338,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
           rw [this]
           exact h_trg'.right
 
-theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (trg.val.rule.frontier.elem var = false) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet) -> trg.val.result ⊆ cs.fact_sets i := by 
+theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet) -> trg.val.result ⊆ cs.fact_sets i := by 
   intro h 
   cases funcTermForExisVarInChaseMeansTriggerIsUsed kb cs trg var i h with | intro j hj =>
     have : trg.val.result ⊆ cs.fact_sets j := by 
@@ -505,7 +505,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
               simp [next_hom, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const]
               split 
               case h_1 c h_c_eq =>
-                have v_is_in_frontier : trg.val.rule.frontier.elem v_from_head_atom := by 
+                have v_is_in_frontier : v_from_head_atom ∈ trg.val.rule.frontier := by 
                   apply Decidable.byContradiction
                   intro opp
                   simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, opp] at h_c_eq
@@ -519,7 +519,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
               case h_2 => 
                 split 
                 case h_1 _ exis_f _ => 
-                  have v_is_in_frontier : trg.val.rule.frontier.elem v_from_head_atom := by 
+                  have v_is_in_frontier : v_from_head_atom ∈ trg.val.rule.frontier := by 
                     apply Decidable.byContradiction
                     intro v_not_in_frontier
                     simp at v_not_in_frontier
@@ -568,7 +568,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                   rw [← this]
                   apply v_is_in_frontier
                 case h_2 _ n_exis_f_for_step_j _ => 
-                  have v_not_in_frontier : ¬ trg.val.rule.frontier.elem v_from_head_atom := by 
+                  have v_not_in_frontier : ¬ v_from_head_atom ∈ trg.val.rule.frontier := by 
                     intro v_is_in_frontier
                     have v_in_body := Rule.frontier_var_occurs_in_fact_in_body _ _ v_is_in_frontier
                     cases v_in_body with | intro f hf =>
@@ -724,13 +724,13 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
     cases not_active_eventually with | intro j not_ractive_j => 
       have ⟨j_ge_i, not_ractive_j⟩ := not_ractive_j 
       simp [Trigger.ractive] at not_ractive_j
-      have obsolete_j := notnotelim (not_ractive_j (by 
+      have obsolete_j := not_ractive_j (by 
         simp [Trigger.loaded] 
         apply Set.subsetTransitive 
         constructor 
         apply ractive_i.left 
         cases Nat.le.dest j_ge_i with | intro m hm => rw [← hm]; apply chaseSequenceSetIsSubsetOfAllFollowing kb cs i m
-      ))
+      )
       have obsolete_result := rObsoletenessSubsetMonotone (And.intro (chaseSequenceSetIsSubsetOfResult kb cs j) obsolete_j)
       contradiction
   

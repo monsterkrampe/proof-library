@@ -35,9 +35,10 @@ namespace Trigger
   def result (trg : Trigger) : FactSet :=
     trg.mapped_head.toSet
 
-  theorem subs_application_is_injective_for_freshly_introduced_terms {t : Variable} (trg : Trigger) (t_not_in_frontier : ¬ trg.rule.frontier.elem t) : ∀ s, (trg.apply_to_var_or_const (VarOrConst.var t) = trg.apply_to_var_or_const (VarOrConst.var s)) -> trg.skolemize_var_or_const (VarOrConst.var t) = trg.skolemize_var_or_const (VarOrConst.var s) := by 
+  theorem subs_application_is_injective_for_freshly_introduced_terms {t : Variable} (trg : Trigger) (t_not_in_frontier : ¬ t ∈ trg.rule.frontier) : ∀ s, (trg.apply_to_var_or_const (VarOrConst.var t) = trg.apply_to_var_or_const (VarOrConst.var s)) -> trg.skolemize_var_or_const (VarOrConst.var t) = trg.skolemize_var_or_const (VarOrConst.var s) := by 
     intro s apply_eq_for_t_and_s
-    cases Decidable.em (trg.rule.frontier.elem s) with 
+
+    cases Decidable.em (s ∈ trg.rule.frontier) with 
     | inr hr => 
       simp [t_not_in_frontier, hr, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at apply_eq_for_t_and_s
       simp [t_not_in_frontier, hr, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]
@@ -79,7 +80,7 @@ namespace Trigger
 
   def robsolete (trg : Trigger) (F : FactSet) : Prop := 
     ∃ s : GroundSubstitution,
-      (∀ v, List.elem v (Rule.frontier trg.rule) → s v = trg.subs v) ∧
+      (∀ v, v ∈ (Rule.frontier trg.rule) → s v = trg.subs v) ∧
       ((s.apply_function_free_conj trg.rule.head).toSet ⊆ F)
 
   def ractive (trg : Trigger) (F : FactSet) : Prop :=
@@ -147,8 +148,8 @@ namespace RTrigger
     {rs : RuleSet} 
     (trg1 trg2 : RTrigger rs) 
     (var1 var2 : Variable) 
-    (var1_not_in_frontier : trg1.val.rule.frontier.elem var1 = false) 
-    (var2_not_in_frontier : trg2.val.rule.frontier.elem var2 = false) 
+    (var1_not_in_frontier : ¬ var1 ∈ trg1.val.rule.frontier) 
+    (var2_not_in_frontier : ¬ var2 ∈ trg2.val.rule.frontier) 
     : 
     (trg1.val.apply_to_var_or_const (VarOrConst.var var1)) = (trg2.val.apply_to_var_or_const (VarOrConst.var var2))
     -> 
