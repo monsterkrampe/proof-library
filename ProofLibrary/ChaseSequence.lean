@@ -4,24 +4,24 @@ import ProofLibrary.Logic
 
 def InfiniteList (α : Type u) := Nat → α  
 
-structure ChaseSequence (kb : KnowledgeBase) where
+structure ChaseSequence (obs : ObsoletenessCondition) (kb : KnowledgeBase) where
   fact_sets : InfiniteList FactSet
   database_first : fact_sets 0 = kb.db
   triggers_exist : ∀ n : Nat, (
-      ∃ trg : (RTrigger kb.rules), trg.val.ractive (fact_sets n) ∧ trg.val.result ∪ fact_sets n = fact_sets (n + 1)
+      ∃ trg : (RTrigger obs kb.rules), trg.val.active (fact_sets n) ∧ trg.val.result ∪ fact_sets n = fact_sets (n + 1)
     ) ∨ (
-      ¬(∃ trg : (RTrigger kb.rules), trg.val.ractive (fact_sets n)) ∧ fact_sets n = fact_sets (n + 1)
+      ¬(∃ trg : (RTrigger obs kb.rules), trg.val.active (fact_sets n)) ∧ fact_sets n = fact_sets (n + 1)
     )
-  fairness : ∀ (trg : (RTrigger kb.rules)) (i : Nat), (trg.val.ractive (fact_sets i)) → ∃ j : Nat, j ≥ i ∧ (¬ trg.val.ractive (fact_sets j))
+  fairness : ∀ (trg : (RTrigger obs kb.rules)) (i : Nat), (trg.val.active (fact_sets i)) → ∃ j : Nat, j ≥ i ∧ (¬ trg.val.active (fact_sets j))
 
 namespace ChaseSequence
-  def result {kb : KnowledgeBase} (cs : ChaseSequence kb) : FactSet := fun f => ∃ n : Nat, f ∈ cs.fact_sets n
+  def result (cs : ChaseSequence obs kb) : FactSet := fun f => ∃ n : Nat, f ∈ cs.fact_sets n
 
-  def terminates {kb : KnowledgeBase} (cs : ChaseSequence kb) : Prop :=
+  def terminates (cs : ChaseSequence obs kb) : Prop :=
     ∃ n : Nat, cs.fact_sets n = cs.fact_sets (n + 1)
 end ChaseSequence
 
-theorem chaseSequenceSetIsSubsetOfNext (kb : KnowledgeBase) (cs : ChaseSequence kb) : ∀ n : Nat, cs.fact_sets n ⊆ cs.fact_sets (n+1) := by
+theorem chaseSequenceSetIsSubsetOfNext (cs : ChaseSequence obs kb) : ∀ n : Nat, cs.fact_sets n ⊆ cs.fact_sets (n+1) := by
   intro n f h
   cases cs.triggers_exist n 
   case inl g =>
@@ -35,7 +35,7 @@ theorem chaseSequenceSetIsSubsetOfNext (kb : KnowledgeBase) (cs : ChaseSequence 
     simp [Set.element, Set.union]
     exact h
  
-theorem chaseSequenceSetIsSubsetOfAllFollowing (kb : KnowledgeBase) (cs : ChaseSequence kb) : ∀ (n m : Nat), cs.fact_sets n ⊆ cs.fact_sets (n + m) := by
+theorem chaseSequenceSetIsSubsetOfAllFollowing (cs : ChaseSequence obs kb) : ∀ (n m : Nat), cs.fact_sets n ⊆ cs.fact_sets (n + m) := by
   intro n m
   induction m
   simp
@@ -43,20 +43,20 @@ theorem chaseSequenceSetIsSubsetOfAllFollowing (kb : KnowledgeBase) (cs : ChaseS
   exact h 
   intro f h 
   case succ i ih =>
-    apply chaseSequenceSetIsSubsetOfNext kb cs (n + i)
+    apply chaseSequenceSetIsSubsetOfNext cs (n + i)
     apply ih f
     exact h 
 
-theorem chaseSequenceSetIsSubsetOfResult (kb : KnowledgeBase) (cs : ChaseSequence kb) : ∀ n : Nat, cs.fact_sets n ⊆ cs.result := by 
+theorem chaseSequenceSetIsSubsetOfResult (cs : ChaseSequence obs kb) : ∀ n : Nat, cs.fact_sets n ⊆ cs.result := by 
   intro n 
   intro e 
   intro inSet 
   simp [ChaseSequence.result, Set.element]
   exists n 
 
-theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (kb : KnowledgeBase) (cs : ChaseSequence kb) : ∀ trg : Trigger, trg.loaded cs.result -> ∃ n : Nat, trg.loaded (cs.fact_sets n) := by
+theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (cs : ChaseSequence obs kb) : ∀ trg : Trigger obs, trg.loaded cs.result -> ∃ n : Nat, trg.loaded (cs.fact_sets n) := by
   intro trg 
-  simp [ChaseSequence.result, Trigger.loaded]
+  simp [ChaseSequence.result, PreTrigger.loaded]
 
   induction trg.mapped_body
   case nil =>
@@ -102,46 +102,30 @@ theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (kb : KnowledgeBase) (cs :
         simp [Set.element] at he 
         rw [he]
         assumption
-        cases Nat.le.dest help_i with | intro m hm => rw [← hm]; apply chaseSequenceSetIsSubsetOfAllFollowing kb cs i m
+        cases Nat.le.dest help_i with | intro m hm => rw [← hm]; apply chaseSequenceSetIsSubsetOfAllFollowing cs i m
         cases Nat.le.dest help_j with | intro m hm => 
           rw [← hm]
           apply Set.subsetTransitive
           constructor
           apply hj
-          apply chaseSequenceSetIsSubsetOfAllFollowing kb cs j m 
+          apply chaseSequenceSetIsSubsetOfAllFollowing cs j m 
 
-theorem trgRActiveForChaseResultMeansRActiveAtSomeIndex (kb : KnowledgeBase) (cs : ChaseSequence kb) : ∀ trg : Trigger, trg.ractive cs.result -> ∃ n : Nat, trg.ractive (cs.fact_sets n) := by 
+theorem trgActiveForChaseResultMeansActiveAtSomeIndex (cs : ChaseSequence obs kb) : ∀ trg : Trigger obs, trg.active cs.result -> ∃ n : Nat, trg.active (cs.fact_sets n) := by 
   intro trg
-  simp [ChaseSequence.result, Trigger.ractive]
-  intro loaded ractive
-  have trgLoadedForN := trgLoadedForChaseResultMeansLoadedAtSomeIndex kb cs trg loaded 
+  simp [ChaseSequence.result, Trigger.active]
+  intro loaded active
+  have trgLoadedForN := trgLoadedForChaseResultMeansLoadedAtSomeIndex cs trg loaded 
   cases trgLoadedForN with | intro n loadedN => 
     exists n 
     constructor 
     exact loadedN
     intro contra 
-    cases contra with | intro s rActiveS => 
-      have ractiveForall := notExistsToForall ractive 
-      cases implToNotOr (notAndDeMorgan (ractiveForall s))
-      case inl _ => have rActiveSLeft := rActiveS.left; contradiction
-      case inr contra => 
-        have rActiveSRight := rActiveS.right 
-        have actualContra := Set.subsetTransitive _ _ _ (And.intro rActiveSRight (chaseSequenceSetIsSubsetOfResult kb cs n))
-        contradiction
+    apply active
+    apply obs.monotone
+    apply chaseSequenceSetIsSubsetOfResult cs n
+    apply contra
 
-theorem rObsoletenessSubsetMonotone {trg : Trigger} {F G : FactSet} : F ⊆ G ∧ trg.robsolete F -> trg.robsolete G := by 
-  intro ⟨sub, robsF⟩ 
-  simp [Trigger.robsolete] at * 
-  cases robsF with | intro s hs => 
-    exists s 
-    constructor 
-    exact hs.left 
-    apply Set.subsetTransitive 
-    constructor 
-    exact hs.right 
-    exact sub 
-
-theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ ((trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet)) -> ∃ j, j ≤ i ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j := by 
+theorem funcTermForExisVarInChaseMeansTriggerIsUsed (cs : ChaseSequence obs kb) (trg : RTrigger obs kb.rules) (var : Variable) (i : Nat) : (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ ((trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet)) -> ∃ j, j ≤ i ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j := by 
   intro ⟨var_not_in_frontier, exis_f⟩
   induction i with 
   | zero => 
@@ -204,7 +188,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
             contradiction
           contradiction
         | inl trg_ex => cases trg_ex with | intro trg' h_trg' =>
-          have : ∃ f, f ∈ Trigger.result trg'.val ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ List.toSet f.terms := by 
+          have : ∃ f, f ∈ PreTrigger.result trg'.val ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ List.toSet f.terms := by
             cases exis_f with | intro f hf => 
               exists f 
               constructor
@@ -228,12 +212,12 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
               let atom_for_f := trg'.val.rule.head.get i
 
               cases List.inToSetMeansExistsIndex _ _ apply_var_in_f_terms with | intro k hk =>
-                have f_is_at_its_idx : f = trg'.val.mapped_head.get ⟨i.val, by simp [Trigger.mapped_head]⟩ := by simp [i, Trigger.idx_of_fact_in_result]; apply List.idx_of_get
+                have f_is_at_its_idx : f = trg'.val.mapped_head.get ⟨i.val, by simp [PreTrigger.mapped_head]⟩ := by simp [i, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
 
                 have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_for_f) := by 
                   rw [f_is_at_its_idx]
-                  unfold Trigger.mapped_head
-                  unfold Trigger.apply_to_function_free_atom
+                  unfold PreTrigger.mapped_head
+                  unfold PreTrigger.apply_to_function_free_atom
                   rw [List.get_map]
                   simp
 
@@ -246,9 +230,9 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                 have : (trg'.val.apply_to_var_or_const term_for_f) = f.terms.get k := by 
                   have : f.terms = (trg'.val.apply_to_function_free_atom atom_for_f).terms := by
                     conv => lhs; rw [f_is_at_its_idx]
-                    rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
+                    rw [← PreTrigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
                   rw [List.get_eq_of_eq this]
-                  simp [Trigger.apply_to_function_free_atom, List.get_map]
+                  simp [PreTrigger.apply_to_function_free_atom, List.get_map]
 
                 have : (trg.val.apply_to_var_or_const (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const term_for_f) := by 
                   rw [← this] at hk
@@ -257,7 +241,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                 cases eq_term_for_f : term_for_f with 
                 | const c => 
                   rw [eq_term_for_f] at this
-                  simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier] at this
+                  simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier] at this
                   contradiction
                 | var var_for_f =>
                   exists var_for_f
@@ -274,13 +258,13 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                       constructor 
                       . have trg'_loaded := h_trg'.left.left
                         apply trg'_loaded
-                        unfold Trigger.mapped_body
+                        unfold PreTrigger.mapped_body
                         simp [SubsTarget.apply]
                         unfold GroundSubstitution.apply_function_free_conj
                         apply List.mappedElemInMappedList
                         apply h_body_atom_for_f.left
                       . simp [SubsTarget.apply, GroundSubstitution.apply_function_free_atom]
-                        simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const] at this
+                        simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const] at this
                         rw [this]
                         simp [GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, h]
                         apply List.existsIndexMeansInToSet
@@ -302,27 +286,27 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
               apply hvar2.left
               apply hvar2.right
           have : trg.val.mapped_head = trg'.val.mapped_head := by 
-            unfold Trigger.mapped_head
+            unfold PreTrigger.mapped_head
             rw [← this.left]
             apply List.map_eq_map_if_functions_eq
             intro a _
-            unfold Trigger.apply_to_function_free_atom
+            unfold PreTrigger.apply_to_function_free_atom
             simp
             apply List.map_eq_map_if_functions_eq
             intro voc hvoc
             cases voc with 
-            | const c => simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] 
+            | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] 
             | var v =>
               cases Decidable.em (v ∈ trg.val.rule.frontier) with 
               | inl v_in_frontier => 
-                simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term]
+                simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term]
                 rw [← this.left]
                 simp [VarOrConst.skolemize, v_in_frontier]
                 apply this.right
                 apply List.listElementAlsoToSetElement
                 apply v_in_frontier
               | inr v_not_in_frontier => 
-                simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term]
+                simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term]
                 rw [← this.left]
                 simp [VarOrConst.skolemize, v_not_in_frontier]
                 apply congrArg
@@ -333,14 +317,14 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (kb : KnowledgeBase) (cs : C
                 exact hw
 
           have : trg.val.result = trg'.val.result := by 
-            unfold Trigger.result 
+            unfold PreTrigger.result 
             rw [this]
           rw [this]
           exact h_trg'.right
 
-theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (cs : ChaseSequence kb) (trg : RTrigger kb.rules) (var : Variable) (i : Nat) : (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet) -> trg.val.result ⊆ cs.fact_sets i := by 
+theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (cs : ChaseSequence obs kb) (trg : RTrigger obs kb.rules) (var : Variable) (i : Nat) : (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ (trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet) -> trg.val.result ⊆ cs.fact_sets i := by 
   intro h 
-  cases funcTermForExisVarInChaseMeansTriggerIsUsed kb cs trg var i h with | intro j hj =>
+  cases funcTermForExisVarInChaseMeansTriggerIsUsed cs trg var i h with | intro j hj =>
     have : trg.val.result ⊆ cs.fact_sets j := by 
       rw [← hj.right]
       apply Set.subsetUnionSomethingStillSubset
@@ -354,14 +338,14 @@ theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (kb : KnowledgeBase) (
       apply chaseSequenceSetIsSubsetOfAllFollowing
 
 namespace KnowledgeBase
-  def terminates (kb : KnowledgeBase) : Prop :=
-    ∃ cs : ChaseSequence kb, cs.terminates
+  def terminates (obs : ObsoletenessCondition) (kb : KnowledgeBase) : Prop :=
+    ∃ cs : ChaseSequence obs kb, cs.terminates
 
-  def universally_terminates (kb : KnowledgeBase) : Prop :=
-    ∀ cs : ChaseSequence kb, cs.terminates
+  def universally_terminates (obs : ObsoletenessCondition) (kb : KnowledgeBase) : Prop :=
+    ∀ cs : ChaseSequence obs kb, cs.terminates
 end KnowledgeBase
 
-noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequence kb) (m : FactSet) (mIsModel : m.modelsKb kb) : (i : Nat) -> { hom : GroundTermMapping // isHomomorphism hom (cs.fact_sets i) m }
+noncomputable def inductive_homomorphism (cs : ChaseSequence obs kb) (m : FactSet) (mIsModel : m.modelsKb obs kb) : (i : Nat) -> { hom : GroundTermMapping // isHomomorphism hom (cs.fact_sets i) m }
 | .zero => ⟨id, (by 
   constructor 
   . unfold isIdOnConstants ; intro gt ; cases gt <;> simp
@@ -377,9 +361,9 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
       exact hf.left
 )⟩ 
 | .succ j => 
-  let prev_hom := inductive_homomorphism kb cs m mIsModel j
+  let prev_hom := inductive_homomorphism cs m mIsModel j
 
-  let trg_ex_dec := Classical.propDecidable (∃ trg : (RTrigger kb.rules), trg.val.ractive (cs.fact_sets j) ∧ trg.val.result ∪ cs.fact_sets j = cs.fact_sets (j + 1))
+  let trg_ex_dec := Classical.propDecidable (∃ trg : (RTrigger obs kb.rules), trg.val.active (cs.fact_sets j) ∧ trg.val.result ∪ cs.fact_sets j = cs.fact_sets (j + 1))
   match trg_ex_dec with 
   | .isFalse n_trg_ex => ⟨prev_hom.val, (by 
     have sequence_finished := by cases cs.triggers_exist j with
@@ -392,7 +376,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
     let trg := Classical.choose trg_ex
     let ⟨trg_active_for_current_step, trg_result_used_for_next_chase_step⟩ := Classical.choose_spec trg_ex
 
-    let trg_variant_for_m : RTrigger kb.rules := {
+    let trg_variant_for_m : RTrigger obs kb.rules := {
       val := {
         rule := trg.val.rule
         subs := fun t => prev_hom.val (trg.val.subs t)
@@ -401,21 +385,21 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
     }
     have trg_variant_loaded_for_m : trg_variant_for_m.val.loaded m := by 
       have : trg_variant_for_m.val.loaded (applyFactSet prev_hom (cs.fact_sets j)) := by 
-        apply Trigger.term_mapping_preserves_loadedness
+        apply PreTrigger.term_mapping_preserves_loadedness
         exact prev_hom.property.left
         exact trg_active_for_current_step.left
       apply Set.subsetTransitive
       exact ⟨this, prev_hom.property.right⟩
-    have trg_variant_obsolete_on_m : trg_variant_for_m.val.robsolete m := by 
-      have m_models_trg : m.modelsRule trg_variant_for_m.val.rule := by exact mIsModel.right trg.val.rule trg.property 
+    have trg_variant_obsolete_on_m : obs.cond trg_variant_for_m.val m := by 
+      have m_models_trg : m.modelsRule obs trg_variant_for_m.val.rule := by exact mIsModel.right trg.val.rule trg.property 
       unfold FactSet.modelsRule at m_models_trg
       apply m_models_trg
       constructor
       rfl 
       apply trg_variant_loaded_for_m
 
-    let obs_for_m_subs := Classical.choose trg_variant_obsolete_on_m
-    let h_obs_for_m_subs := Classical.choose_spec trg_variant_obsolete_on_m
+    let obs_for_m_subs := Classical.choose (obs.implies_subs trg_variant_obsolete_on_m)
+    let h_obs_for_m_subs := Classical.choose_spec (obs.implies_subs trg_variant_obsolete_on_m)
 
     let next_hom : GroundTermMapping := fun t =>
       match t with 
@@ -436,12 +420,12 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
             let atom_in_head := trg.val.rule.head.get idx_f
             let idx_t_in_f := f.terms.idx_of t (List.listToSetElementAlsoListElement _ _ t_in_f)
             have idx_t_in_f_isLt := idx_t_in_f.isLt
-            have f_is_at_its_idx : f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head]⟩ := by simp [idx_f, Trigger.idx_of_fact_in_result]; apply List.idx_of_get
+            have f_is_at_its_idx : f = trg.val.mapped_head.get ⟨idx_f.val, by simp [PreTrigger.mapped_head]⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
 
             have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by 
                 rw [f_is_at_its_idx]
-                unfold Trigger.mapped_head
-                unfold Trigger.apply_to_function_free_atom
+                unfold PreTrigger.mapped_head
+                unfold PreTrigger.apply_to_function_free_atom
                 rw [List.get_map]
                 simp
 
@@ -485,7 +469,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
               . contradiction
           | inl fact_in_trg_result => 
             let idx_of_fact_in_result := trg.val.idx_of_fact_in_result fact fact_in_trg_result
-            have fact_is_at_its_idx : fact = trg.val.mapped_head.get ⟨idx_of_fact_in_result.val, by simp [Trigger.mapped_head]⟩ := by simp [idx_of_fact_in_result, Trigger.idx_of_fact_in_result]; apply List.idx_of_get
+            have fact_is_at_its_idx : fact = trg.val.mapped_head.get ⟨idx_of_fact_in_result.val, by simp [PreTrigger.mapped_head]⟩ := by simp [idx_of_fact_in_result, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
 
             rw [fact_is_at_its_idx]
             unfold applyFact
@@ -493,14 +477,14 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
             apply h_obs_for_m_subs.right
             apply List.existsIndexMeansInToSet
             exists ⟨idx_of_fact_in_result.val, (by simp [GroundSubstitution.apply_function_free_conj])⟩ 
-            simp [GroundSubstitution.apply_function_free_conj, List.get_map, GroundSubstitution.apply_function_free_atom, Trigger.mapped_head, Trigger.apply_to_function_free_atom]
+            simp [GroundSubstitution.apply_function_free_conj, List.get_map, GroundSubstitution.apply_function_free_atom, PreTrigger.mapped_head, PreTrigger.apply_to_function_free_atom]
             rw [← List.map_eq_map_iff]
 
             -- we show that applying next_hom after trg is the same is applying trg_variant_for_m for each relevant VarOrConst
 
             intro voc voc_is_in_head_atom_for_fact 
             cases voc with 
-            | const _ => simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const]
+            | const _ => simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const]
             | var v_from_head_atom => 
               simp [next_hom, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const]
               split 
@@ -508,10 +492,10 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                 have v_is_in_frontier : v_from_head_atom ∈ trg.val.rule.frontier := by 
                   apply Decidable.byContradiction
                   intro opp
-                  simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, opp] at h_c_eq
+                  simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, opp] at h_c_eq
                 rw [h_obs_for_m_subs.left _ v_is_in_frontier]
-                simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier]
-                simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier] at h_c_eq
+                simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier]
+                simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier] at h_c_eq
                 rw [h_c_eq]
                 have prev_hom_id_on_constants := prev_hom.property.left (FiniteTree.leaf c)
                 simp at prev_hom_id_on_constants
@@ -530,40 +514,13 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                       apply v_not_in_frontier
                       apply exis_f
 
-                    have : trg.val.robsolete (cs.fact_sets j) := by 
-                      let obs_subs := fun v : Variable => trg.val.apply_to_var_or_const (VarOrConst.var v)
+                    have : obs.cond trg.val (cs.fact_sets j) := obs.contained_in_trg_result_implies_cond this
 
-                      exists obs_subs
-                      constructor
-                      . intro _ v'_in_frontier 
-                        simp [obs_subs, Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v'_in_frontier]
-                      . simp [obs_subs, SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
-                        unfold GroundSubstitution.apply_function_free_atom
-                        intro f' hf'
-                        apply this
-                        unfold Trigger.result
-                        unfold Trigger.mapped_head
-                        unfold Trigger.apply_to_function_free_atom
-
-                        have : ∀ a : FunctionFreeAtom, (List.map (GroundSubstitution.apply_var_or_const obs_subs) a.terms) = (List.map (trg.val.apply_to_var_or_const) a.terms) := by 
-                          intro a 
-                          induction a.terms with 
-                          | nil => simp [List.map]
-                          | cons head tail ih => 
-                            simp [List.map, ih] 
-                            simp [obs_subs, SubsTarget.apply, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const, Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const] 
-                            cases head with 
-                            | var v => simp 
-                            | const c => simp [VarOrConst.skolemize]
-
-                        simp [← this]
-                        apply hf'
-
-                    have : ¬ trg.val.robsolete (cs.fact_sets j) := trg_active_for_current_step.right
+                    have : ¬ obs.cond trg.val (cs.fact_sets j) := trg_active_for_current_step.right
                     contradiction
 
                   rw [h_obs_for_m_subs.left]
-                  simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier]
+                  simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier]
                   have : trg.val.rule = trg_variant_for_m.val.rule := by rfl
                   rw [← this]
                   apply v_is_in_frontier
@@ -576,10 +533,10 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                       exists (trg.val.subs.apply_function_free_atom f)
                       constructor 
                       . apply trg_active_for_current_step.left
-                        unfold Trigger.mapped_body
+                        unfold PreTrigger.mapped_body
                         apply List.mappedElemInMappedList
                         apply hf.left
-                      . simp [Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier, GroundSubstitution.apply_function_free_atom]
+                      . simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier, GroundSubstitution.apply_function_free_atom]
                         have : trg.val.subs v_from_head_atom = trg.val.subs.apply_var_or_const (VarOrConst.var v_from_head_atom) := by simp [GroundSubstitution.apply_var_or_const]
                         rw [this]
                         apply List.mappedElemInMappedList
@@ -593,15 +550,15 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                     exact fact_in_trg_result 
                     rw [fact_is_at_its_idx]
 
-                    rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
+                    rw [← PreTrigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
 
                     apply List.existsIndexMeansInToSet
                     cases (List.inToSetMeansExistsIndex _ _ voc_is_in_head_atom_for_fact) with | intro voc_idx h_voc_idx =>
                       exists ⟨voc_idx.val, (by 
-                        rw [← Trigger.apply_to_function_free_atom_terms_same_length]
+                        rw [← PreTrigger.apply_to_function_free_atom_terms_same_length]
                         apply voc_idx.isLt
                       )⟩
-                      simp [GroundSubstitution.apply_atom, VarOrConst.skolemize, List.get_map, GroundSubstitution.apply_skolem_term, FunctionFreeAtom.skolemize, Trigger.apply_to_function_free_atom, Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const]
+                      simp [GroundSubstitution.apply_atom, VarOrConst.skolemize, List.get_map, GroundSubstitution.apply_skolem_term, FunctionFreeAtom.skolemize, PreTrigger.apply_to_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const]
                       rw [← h_voc_idx]
                   case h_2 _ exis_f _ => 
                     split
@@ -615,14 +572,14 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                       let atom_in_head := trg.val.rule.head.get idx_f
                       let idx_v_in_f := chosen_f.terms.idx_of (trg.val.apply_to_var_or_const v_from_head_atom) (List.listToSetElementAlsoListElement _ _ applied_v_is_in_chosen_f)
                       have idx_v_in_f_isLt := idx_v_in_f.isLt
-                      have f_is_at_its_idx : chosen_f = trg.val.mapped_head.get ⟨idx_f.val, by simp [Trigger.mapped_head]⟩ := by simp [idx_f, Trigger.idx_of_fact_in_result]; apply List.idx_of_get
+                      have f_is_at_its_idx : chosen_f = trg.val.mapped_head.get ⟨idx_f.val, by simp [PreTrigger.mapped_head]⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
                       have v_is_at_its_idx : (trg.val.apply_to_var_or_const v_from_head_atom) = chosen_f.terms.get idx_v_in_f := by simp [idx_v_in_f]; apply List.idx_of_get
 
                       have atom_arity_same_as_fact : chosen_f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by 
                         rw [f_is_at_its_idx]
-                        unfold Trigger.mapped_head
+                        unfold PreTrigger.mapped_head
                         rw [List.get_map]
-                        rw [← Trigger.apply_to_function_free_atom_terms_same_length]
+                        rw [← PreTrigger.apply_to_function_free_atom_terms_same_length]
 
                       let var_corresponding_to_applied_v := atom_in_head.terms.get ⟨idx_v_in_f.val, (by 
                         rw [← atom_arity_same_as_fact]
@@ -635,27 +592,27 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
                         intro s hs
                         cases s with 
                         | const const_s => 
-                          simp [skolem_v, Trigger.apply_to_var_or_const, Trigger.apply_to_skolemized_term, Trigger.skolemize_var_or_const, VarOrConst.skolemize, v_not_in_frontier, GroundSubstitution.apply_skolem_term] at hs
+                          simp [skolem_v, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, v_not_in_frontier, GroundSubstitution.apply_skolem_term] at hs
                           contradiction
                         | var var_s =>
-                          apply Trigger.subs_application_is_injective_for_freshly_introduced_terms
+                          apply PreTrigger.subs_application_is_injective_for_freshly_introduced_terms
                           apply v_not_in_frontier
                           apply hs
 
                       have skolemized_ts_are_equal : skolem_term_corresponding_to_applied_v = skolem_v := by 
                         apply Eq.symm 
                         apply subs_application_is_injective_for_freshly_introduced_terms
-                        unfold Trigger.apply_to_var_or_const at v_is_at_its_idx
+                        unfold PreTrigger.apply_to_var_or_const at v_is_at_its_idx
                         simp at v_is_at_its_idx
                         rw [v_is_at_its_idx]
 
                         have : chosen_f.terms = (trg.val.apply_to_function_free_atom atom_in_head).terms := by 
                           rw [f_is_at_its_idx]
-                          rw [← Trigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
+                          rw [← PreTrigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
 
                         rw [List.get_eq_of_eq this]
 
-                        simp [Trigger.apply_to_function_free_atom, List.get_map]
+                        simp [PreTrigger.apply_to_function_free_atom, List.get_map]
 
                       have : var_corresponding_to_applied_v = v_from_head_atom := by 
                         apply VarOrConst.skolemize_injective trg.val.rule.id (Rule.frontier trg.val.rule)
@@ -666,7 +623,7 @@ noncomputable def inductive_homomorphism (kb : KnowledgeBase) (cs : ChaseSequenc
 
     )⟩
 
-theorem inductive_homomorphism_same_on_terms_in_next_step (kb : KnowledgeBase) (cs : ChaseSequence kb) (m : FactSet) (mIsModel : m.modelsKb kb) : ∀ i f t, f ∈ cs.fact_sets i ∧ t ∈ f.terms.toSet -> (inductive_homomorphism kb cs m mIsModel i).val t = (inductive_homomorphism kb cs m mIsModel (Nat.succ i)).val t := by 
+theorem inductive_homomorphism_same_on_terms_in_next_step (cs : ChaseSequence obs kb) (m : FactSet) (mIsModel : m.modelsKb obs kb) : ∀ i f t, f ∈ cs.fact_sets i ∧ t ∈ f.terms.toSet -> (inductive_homomorphism cs m mIsModel i).val t = (inductive_homomorphism cs m mIsModel (Nat.succ i)).val t := by 
   intro i f t ⟨f_in_step_i, t_is_term_in_f⟩
   conv =>
     rhs
@@ -678,13 +635,13 @@ theorem inductive_homomorphism_same_on_terms_in_next_step (kb : KnowledgeBase) (
     split
     simp
     split
-    case h_1 c => exact (inductive_homomorphism kb cs m mIsModel i).property.left (GroundTerm.const c)
+    case h_1 c => exact (inductive_homomorphism cs m mIsModel i).property.left (GroundTerm.const c)
     case h_2 ft => 
       split 
       case h_1 _ ex_f _ => rfl
       case h_2 _ n_ex_f _ => apply False.elim; apply n_ex_f; exists f
 
-theorem inductive_homomorphism_same_on_all_following_terms (kb : KnowledgeBase) (cs : ChaseSequence kb) (m : FactSet) (mIsModel : m.modelsKb kb) : ∀ i j f t, f ∈ cs.fact_sets i ∧ t ∈ f.terms.toSet -> (inductive_homomorphism kb cs m mIsModel i).val t = (inductive_homomorphism kb cs m mIsModel (i + j)).val t := by 
+theorem inductive_homomorphism_same_on_all_following_terms (cs : ChaseSequence obs kb) (m : FactSet) (mIsModel : m.modelsKb obs kb) : ∀ i j f t, f ∈ cs.fact_sets i ∧ t ∈ f.terms.toSet -> (inductive_homomorphism cs m mIsModel i).val t = (inductive_homomorphism cs m mIsModel (i + j)).val t := by 
   intro i j f t
   induction j with 
   | zero => intros; rfl
@@ -697,7 +654,7 @@ theorem inductive_homomorphism_same_on_all_following_terms (kb : KnowledgeBase) 
     apply h_precondition.left
     apply h_precondition.right
 
-theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : cs.result.universallyModelsKb kb := by
+theorem chaseResultUnivModelsKb (cs : ChaseSequence obs kb) : cs.result.universallyModelsKb obs kb := by
   constructor
   constructor
 
@@ -719,25 +676,27 @@ theorem chaseResultUnivModelsKb (kb : KnowledgeBase) (cs : ChaseSequence kb) : c
   intro trg trg_rule trg_loaded
   apply Classical.byContradiction
   intro trg_not_obsolete
-  cases (trgRActiveForChaseResultMeansRActiveAtSomeIndex kb cs trg ⟨trg_loaded, trg_not_obsolete⟩) with | intro i ractive_i => 
-    have not_active_eventually := cs.fairness ⟨trg, by rw [← trg_rule] at h; apply h⟩ i ractive_i 
-    cases not_active_eventually with | intro j not_ractive_j => 
-      have ⟨j_ge_i, not_ractive_j⟩ := not_ractive_j 
-      simp [Trigger.ractive] at not_ractive_j
-      have obsolete_j := not_ractive_j (by 
-        simp [Trigger.loaded] 
+  cases (trgActiveForChaseResultMeansActiveAtSomeIndex cs trg ⟨trg_loaded, trg_not_obsolete⟩) with | intro i active_i => 
+    have not_active_eventually := cs.fairness ⟨trg, by rw [← trg_rule] at h; apply h⟩ i active_i 
+    cases not_active_eventually with | intro j not_active_j => 
+      have ⟨j_ge_i, not_active_j⟩ := not_active_j 
+      simp [Trigger.active] at not_active_j
+      have obsolete_j := not_active_j (by 
+        simp [PreTrigger.loaded] 
         apply Set.subsetTransitive 
         constructor 
-        apply ractive_i.left 
-        cases Nat.le.dest j_ge_i with | intro m hm => rw [← hm]; apply chaseSequenceSetIsSubsetOfAllFollowing kb cs i m
+        apply active_i.left 
+        cases Nat.le.dest j_ge_i with | intro m hm => rw [← hm]; apply chaseSequenceSetIsSubsetOfAllFollowing cs i m
       )
-      have obsolete_result := rObsoletenessSubsetMonotone (And.intro (chaseSequenceSetIsSubsetOfResult kb cs j) obsolete_j)
-      contradiction
+      apply trg_not_obsolete
+      apply obs.monotone
+      apply chaseSequenceSetIsSubsetOfResult cs j
+      apply obsolete_j
   
   -- universality
   intro m mIsModel
 
-  let inductive_homomorphism_shortcut := inductive_homomorphism kb cs m mIsModel
+  let inductive_homomorphism_shortcut := inductive_homomorphism cs m mIsModel
 
   let global_h : GroundTermMapping := fun t => 
     let dec := Classical.propDecidable (∃ f, f ∈ cs.result ∧ t ∈ f.terms.toSet)
