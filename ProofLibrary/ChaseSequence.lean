@@ -398,8 +398,8 @@ noncomputable def inductive_homomorphism (cs : ChaseSequence obs kb) (m : FactSe
       rfl 
       apply trg_variant_loaded_for_m
 
-    let obs_for_m_subs := Classical.choose (obs.implies_subs trg_variant_obsolete_on_m)
-    let h_obs_for_m_subs := Classical.choose_spec (obs.implies_subs trg_variant_obsolete_on_m)
+    let obs_for_m_subs := Classical.choose (obs.cond_implies_trg_is_satisfied trg_variant_obsolete_on_m)
+    let h_obs_for_m_subs := Classical.choose_spec (obs.cond_implies_trg_is_satisfied trg_variant_obsolete_on_m)
 
     let next_hom : GroundTermMapping := fun t =>
       match t with 

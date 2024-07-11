@@ -110,8 +110,7 @@ end PreTrigger
 structure ObsoletenessCondition where 
   cond : PreTrigger -> FactSet -> Prop
   monotone : ∀ trg (A B : FactSet), A ⊆ B -> cond trg A -> cond trg B
-  implies_subs : cond trg F -> 
-    -- TODO: this is robsoleteness right now, maybe this should be different?
+  cond_implies_trg_is_satisfied : cond trg F -> 
     ∃ s : GroundSubstitution,
       (∀ v, v ∈ (Rule.frontier trg.rule) → s v = trg.subs v) ∧
       ((s.apply_function_free_conj trg.rule.head).toSet ⊆ F)
@@ -137,7 +136,7 @@ def SkolemObsoleteness : ObsoletenessCondition := {
     constructor
     . apply head_sub_A
     . apply A_sub_B
-  implies_subs := by 
+  cond_implies_trg_is_satisfied := by 
     intro trg F h
     exists (fun v => trg.apply_to_var_or_const (VarOrConst.var v))
     constructor
@@ -180,7 +179,7 @@ def RestrictedObsoleteness : ObsoletenessCondition := {
       constructor
       . apply applied_head_sub_A
       . apply A_sub_B
-  implies_subs := by intro _ _ h; exact h 
+  cond_implies_trg_is_satisfied := by intro _ _ h; exact h 
   contained_in_trg_result_implies_cond := by 
     intro trg F result_in_F
     let obs_subs := fun v : Variable => trg.apply_to_var_or_const (VarOrConst.var v)
@@ -222,7 +221,7 @@ namespace FactSet
   def modelsRule (fs : FactSet) (rule : Rule) : Prop :=
     ∀ (trg : Trigger obs),
       (trg.rule = rule ∧ trg.loaded fs)
-      -> obs.cond trg fs -- the rule is ractive iff it is not satisfied under FOL semantics
+      -> obs.cond trg fs 
 
   def modelsRules (fs : FactSet) (rules : RuleSet) : Prop :=
     ∀ r, r ∈ rules.rules -> fs.modelsRule obs r
