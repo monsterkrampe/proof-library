@@ -514,7 +514,7 @@ noncomputable def inductive_homomorphism (cs : ChaseSequence obs kb) (m : FactSe
                       apply v_not_in_frontier
                       apply exis_f
 
-                    have : obs.cond trg.val (cs.fact_sets j) := obs.contained_in_trg_result_implies_cond this
+                    have : obs.cond trg.val (cs.fact_sets j) := obs.contains_trg_result_implies_cond this
 
                     have : ¬ obs.cond trg.val (cs.fact_sets j) := trg_active_for_current_step.right
                     contradiction

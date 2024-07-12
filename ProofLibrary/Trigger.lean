@@ -114,7 +114,7 @@ structure ObsoletenessCondition where
     ∃ s : GroundSubstitution,
       (∀ v, v ∈ (Rule.frontier trg.rule) → s v = trg.subs v) ∧
       ((s.apply_function_free_conj trg.rule.head).toSet ⊆ F)
-  contained_in_trg_result_implies_cond : ∀ {trg} {F}, trg.result ⊆ F -> cond trg F
+  contains_trg_result_implies_cond : ∀ {trg} {F}, trg.result ⊆ F -> cond trg F
 
 structure Trigger (obsolete : ObsoletenessCondition) extends PreTrigger
 
@@ -155,7 +155,7 @@ def SkolemObsoleteness : ObsoletenessCondition := {
         | const => simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize]
       rw [this]
       apply h
-  contained_in_trg_result_implies_cond := by
+  contains_trg_result_implies_cond := by
     intro trg F result_in_F
     unfold PreTrigger.result at result_in_F
     exact result_in_F
@@ -180,7 +180,7 @@ def RestrictedObsoleteness : ObsoletenessCondition := {
       . apply applied_head_sub_A
       . apply A_sub_B
   cond_implies_trg_is_satisfied := by intro _ _ h; exact h 
-  contained_in_trg_result_implies_cond := by 
+  contains_trg_result_implies_cond := by 
     intro trg F result_in_F
     let obs_subs := fun v : Variable => trg.apply_to_var_or_const (VarOrConst.var v)
 
