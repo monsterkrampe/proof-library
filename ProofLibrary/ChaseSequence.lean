@@ -3,47 +3,52 @@ import ProofLibrary.Trigger
 import ProofLibrary.Logic
 import ProofLibrary.PossiblyInfiniteTree
 
-def exists_trigger_opt_fs (obs : ObsoletenessCondition) (rules : RuleSet) (before : FactSet) (after : Option FactSet) : Prop :=
-  ∃ trg : (RTrigger obs rules), trg.val.active before ∧ ∃ i, some (before ∪ trg.val.result.get i) = after
+structure ChaseNode (obs : ObsoletenessCondition) (rules : RuleSet) where
+  fact : FactSet
+  -- the origin if none only for the database
+  origin : Option ((trg : RTrigger obs rules) × Fin trg.val.result.length)
 
-def exists_trigger_list (obs : ObsoletenessCondition) (rules : RuleSet) (before : FactSet) (after : List FactSet) : Prop :=
-  ∃ trg : (RTrigger obs rules), trg.val.active before ∧ trg.val.result.map (fun fs => before ∪ fs) = after
+def exists_trigger_opt_fs (obs : ObsoletenessCondition) (rules : RuleSet) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
+  ∃ trg : (RTrigger obs rules), trg.val.active before.fact ∧ ∃ i, some { fact := before.fact ∪ trg.val.result.get i, origin := some ⟨trg, i⟩ } = after
 
-def not_exists_trigger_opt_fs (obs : ObsoletenessCondition) (rules : RuleSet) (before : FactSet) (after : Option FactSet) : Prop :=
-  ¬(∃ trg : (RTrigger obs rules), trg.val.active before) ∧ after = none
+def exists_trigger_list (obs : ObsoletenessCondition) (rules : RuleSet) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) : Prop :=
+  ∃ trg : (RTrigger obs rules), trg.val.active before.fact ∧ trg.val.result.enum_with_lt.map (fun ⟨i, fs⟩ => { fact := before.fact ∪ fs, origin := some ⟨trg, i⟩ }) = after
 
-def not_exists_trigger_list (obs : ObsoletenessCondition) (rules : RuleSet) (before : FactSet) (after : List FactSet) : Prop :=
-  ¬(∃ trg : (RTrigger obs rules), trg.val.active before) ∧ after = []
+def not_exists_trigger_opt_fs (obs : ObsoletenessCondition) (rules : RuleSet) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
+  ¬(∃ trg : (RTrigger obs rules), trg.val.active before.fact) ∧ after = none
+
+def not_exists_trigger_list (obs : ObsoletenessCondition) (rules : RuleSet) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) : Prop :=
+  ¬(∃ trg : (RTrigger obs rules), trg.val.active before.fact) ∧ after = []
 
 structure ChaseBranch (obs : ObsoletenessCondition) (kb : KnowledgeBase) where
-  branch : PossiblyInfiniteList FactSet
-  database_first : branch.infinite_list 0 = some kb.db.toFactSet
+  branch : PossiblyInfiniteList (ChaseNode obs kb.rules)
+  database_first : branch.infinite_list 0 = some { fact := kb.db.toFactSet, origin := none }
   triggers_exist : ∀ n : Nat, (branch.infinite_list n).is_none_or (fun before =>
     let after := branch.infinite_list (n+1)
     (exists_trigger_opt_fs obs kb.rules before after) ∨
     (not_exists_trigger_opt_fs obs kb.rules before after))
-  fairness : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ((branch.infinite_list i).is_some_and (fun fs => ¬ trg.val.active fs))
-    ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).is_none_or (fun fs => ¬ trg.val.active fs))
+  fairness : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ((branch.infinite_list i).is_some_and (fun fs => ¬ trg.val.active fs.fact))
+    ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).is_none_or (fun fs => ¬ trg.val.active fs.fact))
 
 namespace ChaseBranch
   def result (branch : ChaseBranch obs kb) : FactSet :=
-    fun f => ∃ n : Nat, (branch.branch.infinite_list n).is_some_and (fun fs => f ∈ fs)
+    fun f => ∃ n : Nat, (branch.branch.infinite_list n).is_some_and (fun fs => f ∈ fs.fact)
 
   def terminates (branch : ChaseBranch obs kb) : Prop :=
     ∃ n : Nat, branch.branch.infinite_list n = none
 end ChaseBranch
 
 structure ChaseTree (obs : ObsoletenessCondition) (kb : KnowledgeBase) where
-  tree : FiniteDegreeTree FactSet
-  database_first : tree.get [] = some kb.db.toFactSet
+  tree : FiniteDegreeTree (ChaseNode obs kb.rules)
+  database_first : tree.get [] = some { fact := kb.db.toFactSet, origin := none }
   triggers_exist : ∀ node : List Nat, (tree.get node).is_none_or (fun before =>
     let after := tree.children node
     (exists_trigger_list obs kb.rules before after) ∨
     (not_exists_trigger_list obs kb.rules before after))
 
-  fairness_leaves : ∀ leaf, leaf ∈ tree.leaves -> ∀ trg : (RTrigger obs kb.rules), ¬ trg.val.active leaf
+  fairness_leaves : ∀ leaf, leaf ∈ tree.leaves -> ∀ trg : (RTrigger obs kb.rules), ¬ trg.val.active leaf.fact
   fairness_infinite_branches : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ∀ node : List Nat, node.length ≥ i ->
-    (tree.get node).is_none_or (fun fs => ¬ trg.val.active fs)
+    (tree.get node).is_none_or (fun fs => ¬ trg.val.active fs.fact)
 
 namespace ChaseTree
   -- NOTE: this does not work; the address might not be valid in the sense that a number might be bigger than the number of disjuncts in a rule head, which leads to malformed branches that are no valid ChaseBranches
@@ -74,7 +79,7 @@ end ChaseTree
 theorem chaseBranchSetIsSubsetOfNext (cb : ChaseBranch obs kb) : ∀ n : Nat,
   match cb.branch.infinite_list n with
   | .none => cb.branch.infinite_list (n+1) = none
-  | .some fs => (cb.branch.infinite_list (n+1)).is_none_or (fun fs2 => fs ⊆ fs2) :=
+  | .some fs => (cb.branch.infinite_list (n+1)).is_none_or (fun fs2 => fs.fact ⊆ fs2.fact) :=
 by
   intro n
   cases eq : cb.branch.infinite_list n with
@@ -113,7 +118,7 @@ by
 theorem chaseTreeSetIsSubsetOfEachNext (ct : ChaseTree obs kb) : ∀ address : List Nat,
   match ct.tree.get address with
   | .none => ct.tree.children address = []
-  | .some fs => ∀ fs2, fs2 ∈ ct.tree.children address -> fs ⊆ fs2 :=
+  | .some fs => ∀ fs2, fs2 ∈ ct.tree.children address -> fs.fact ⊆ fs2.fact :=
 by
   intro address
   cases eq : ct.tree.get address with
@@ -140,7 +145,7 @@ by
 theorem chaseBranchSetIsSubsetOfAllFollowing (cb : ChaseBranch obs kb) : ∀ (n m : Nat),
   match cb.branch.infinite_list n with
   | .none => cb.branch.infinite_list (n+m) = none
-  | .some fs => (cb.branch.infinite_list (n+m)).is_none_or (fun fs2 => fs ⊆ fs2) :=
+  | .some fs => (cb.branch.infinite_list (n+m)).is_none_or (fun fs2 => fs.fact ⊆ fs2.fact) :=
 by
   intro n m
   induction m with
@@ -173,7 +178,7 @@ by
 theorem chaseTreeSetIsSubsetOfAllFollowing (ct : ChaseTree obs kb) : ∀ (n m : List Nat),
   match ct.tree.get n with
   | .none => ct.tree.get (m ++ n) = none
-  | .some fs => (ct.tree.get (m ++ n)).is_none_or (fun fs2 => fs ⊆ fs2) :=
+  | .some fs => (ct.tree.get (m ++ n)).is_none_or (fun fs2 => fs.fact ⊆ fs2.fact) :=
 by
   intro n m
   induction m with
@@ -215,14 +220,26 @@ by
           rw [ct.tree.in_children_iff_index_exists]
           exists i
 
-/-
-theorem chaseSequenceSetIsSubsetOfResult (cs : ChaseSequence obs kb) : ∀ n : Nat, cs.fact_sets n ⊆ cs.result := by
+theorem chaseBranchSetIsSubsetOfResult (cb : ChaseBranch obs kb) : ∀ n : Nat, (cb.branch.infinite_list n).is_none_or (fun fs => fs.fact ⊆ cb.result) := by
   intro n
-  intro e
-  intro inSet
-  simp [ChaseSequence.result, Set.element]
-  exists n
+  unfold Option.is_none_or
 
+  cases eq : cb.branch.infinite_list n with
+  | none => simp
+  | some fs =>
+    simp
+    unfold ChaseBranch.result
+    intro f h
+    simp [Set.element]
+    exists n
+    unfold Option.is_some_and
+    simp [eq]
+    exact h
+
+theorem chaseTreeSetIsSubsetOfResult (ct : ChaseTree obs kb) : ∀ node : List Nat, (ct.tree.get node).is_none_or (fun fs => sorry) := by
+  sorry
+
+/-
 theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (cs : ChaseSequence obs kb) : ∀ trg : Trigger obs, trg.loaded cs.result -> ∃ n : Nat, trg.loaded (cs.fact_sets n) := by
   intro trg
   simp [ChaseSequence.result, PreTrigger.loaded]
