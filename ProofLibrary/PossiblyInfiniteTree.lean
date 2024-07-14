@@ -10,10 +10,11 @@ def InfiniteTreeSkeleton (α : Type u) := (List Nat) -> α
 namespace InfiniteTreeSkeleton
   def children (tree : InfiniteTreeSkeleton α) (node : List Nat) : InfiniteList α := fun n => tree (n :: node)
 
-  -- def branch_for (tree : InfiniteTreeSkeleton α) (address : InfiniteList Nat) : InfiniteList α := fun n => tree (address.take n)
+  def branches (tree : InfiniteTreeSkeleton α) : Set (InfiniteList α) := fun branch => 
+    ∃ nodes : InfiniteList Nat, ∀ n : Nat, branch n = tree (nodes.take n).reverse 
 
-  def branches (tree : InfiniteTreeSkeleton α) : Set (InfiniteList α) := fun branch => ∃ nodes : InfiniteList Nat, 
-    ∀ n : Nat, branch n = tree (nodes.take n).reverse 
+  def branches_through (tree : InfiniteTreeSkeleton α) (node : List Nat) : Set (InfiniteList α) := fun branch => 
+    branch ∈ tree.branches ∧ ∀ (i : Fin (node.length + 1)), branch i = tree (node.drop (node.length-i))
 end InfiniteTreeSkeleton
 
 structure PossiblyInfiniteTree (α : Type u) where 
@@ -56,7 +57,11 @@ namespace PossiblyInfiniteTree
     apply congr h
     rfl
 
-  def branches (tree : PossiblyInfiniteTree α) : Set (PossiblyInfiniteList α) := fun pil => pil.infinite_list ∈ tree.infinite_tree.branches
+  def branches (tree : PossiblyInfiniteTree α) : Set (PossiblyInfiniteList α) := fun pil => 
+    pil.infinite_list ∈ tree.infinite_tree.branches
+
+  def branches_through (tree : PossiblyInfiniteTree α) (node : List Nat) : Set (PossiblyInfiniteList α) := fun pil => 
+    pil.infinite_list ∈ tree.infinite_tree.branches_through node
 
   def leaves (tree : PossiblyInfiniteTree α) : Set α := fun a => ∃ node : List Nat, tree.get node = some a ∧ tree.children node = PossiblyInfiniteList.empty
 end PossiblyInfiniteTree
@@ -306,9 +311,9 @@ namespace FiniteDegreeTree
     simp at this
     apply this
 
-  -- def branch_for (tree : FiniteDegreeTree α) (address : InfiniteList Nat) : PossiblyInfiniteList α := tree.tree.branch_for address
-
   def branches (tree : FiniteDegreeTree α) : Set (PossiblyInfiniteList α) := tree.tree.branches
+
+  def branches_through (tree : FiniteDegreeTree α) (node : List Nat) : Set (PossiblyInfiniteList α) := tree.tree.branches_through node
 
   def leaves (tree : FiniteDegreeTree α) : Set α := tree.tree.leaves
 end FiniteDegreeTree
