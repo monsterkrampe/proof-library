@@ -68,7 +68,11 @@ namespace ChaseTree
   --   fairness := by sorry
   -- }
 
-  def branches (ct : ChaseTree obs kb) : Set (ChaseBranch obs kb) := fun branch => branch.branch ∈ ct.tree.branches
+  def branches (ct : ChaseTree obs kb) : Set (ChaseBranch obs kb) := fun branch =>
+    branch.branch ∈ ct.tree.branches
+
+  def branches_through (ct : ChaseTree obs kb) (node : List Nat) : Set (ChaseBranch obs kb) := fun branch =>
+    branch.branch ∈ ct.tree.branches_through node
 
   def result (ct : ChaseTree obs kb) : Set FactSet := fun fs => ∃ branch, branch ∈ ct.branches ∧ branch.result = fs
 
@@ -236,18 +240,42 @@ theorem chaseBranchSetIsSubsetOfResult (cb : ChaseBranch obs kb) : ∀ n : Nat, 
     simp [eq]
     exact h
 
-theorem chaseTreeSetIsSubsetOfResult (ct : ChaseTree obs kb) : ∀ node : List Nat, (ct.tree.get node).is_none_or (fun fs => sorry) := by
-  sorry
+theorem chaseTreeSetIsSubsetOfResult (ct : ChaseTree obs kb) : ∀ node : List Nat, (ct.tree.get node).is_none_or (fun fs => ∀ branch, branch ∈ ct.branches_through node -> fs.fact ⊆ branch.result) := by
+  intro node
+  unfold Option.is_none_or
 
-/-
-theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (cs : ChaseSequence obs kb) : ∀ trg : Trigger obs, trg.loaded cs.result -> ∃ n : Nat, trg.loaded (cs.fact_sets n) := by
+  cases eq : ct.tree.get node with
+  | none => simp
+  | some fs =>
+    simp
+    intro branch branch_through_node
+    have : branch.branch.infinite_list node.length = ct.tree.get node := by
+      unfold ChaseTree.branches_through at branch_through_node
+      -- simp [Set.element] at branch_through_node
+      unfold FiniteDegreeTree.branches_through at branch_through_node
+      unfold PossiblyInfiniteTree.branches_through at branch_through_node
+      unfold InfiniteTreeSkeleton.branches_through at branch_through_node
+      simp [Set.element] at branch_through_node
+      rw [branch_through_node.right ⟨node.length, by simp⟩]
+      simp
+      rfl
+
+    have branch_subs_result := chaseBranchSetIsSubsetOfResult branch node.length
+    rw [this] at branch_subs_result
+    simp [eq, Option.is_none_or] at branch_subs_result
+    apply branch_subs_result
+
+theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (cb : ChaseBranch obs kb) : ∀ trg : Trigger obs, trg.loaded cb.result -> ∃ n : Nat, (cb.branch.infinite_list n).is_some_and (fun fs => trg.loaded fs.fact) := by
   intro trg
-  simp [ChaseSequence.result, PreTrigger.loaded]
+  unfold ChaseBranch.result
+  unfold PreTrigger.loaded
 
   induction trg.mapped_body
   case nil =>
     intro _
     exists 0
+    rw [cb.database_first]
+    simp [Option.is_some_and]
     intro _ contra
     contradiction
   case cons head tail ih =>
@@ -264,7 +292,6 @@ theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (cs : ChaseSequence obs kb
       cases ex_tail_n with | intro j hj =>
         exists Nat.max i j
         simp [List.toSet]
-        rw [Set.unionSubsetEachSubset]
 
         have max_help_left : ∀ a b : Nat, a ≤ Nat.max a b := by
           intro a b
@@ -281,36 +308,78 @@ theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (cs : ChaseSequence obs kb
         have help_i : i ≤ Nat.max i j := by apply max_help_left
         have help_j : j ≤ Nat.max i j := by apply max_help_right
 
-        constructor
-        apply Set.subsetTransitive _ (cs.fact_sets i) _
-        constructor
-        intro e he
-        simp [Set.element] at he
-        rw [he]
-        assumption
-        cases Nat.le.dest help_i with | intro m hm => rw [← hm]; apply chaseSequenceSetIsSubsetOfAllFollowing cs i m
-        cases Nat.le.dest help_j with | intro m hm =>
-          rw [← hm]
-          apply Set.subsetTransitive
-          constructor
-          apply hj
-          apply chaseSequenceSetIsSubsetOfAllFollowing cs j m
+        unfold Option.is_some_and
+        split
+        case h_1 heq =>
+          simp [Nat.max_def] at heq
+          split at heq
+          . rw [heq] at hj
+            simp [Option.is_some_and] at hj
+          . rw [heq] at hi
+            simp [Option.is_some_and] at hi
 
-theorem trgActiveForChaseResultMeansActiveAtSomeIndex (cs : ChaseSequence obs kb) : ∀ trg : Trigger obs, trg.active cs.result -> ∃ n : Nat, trg.active (cs.fact_sets n) := by
+        case h_2 heq =>
+          simp
+          rw [Set.unionSubsetEachSubset]
+          constructor
+          . unfold Option.is_some_and at hi
+            split at hi
+            . contradiction
+            case h_2 a heq2 =>
+              apply Set.subsetTransitive _ a.fact _
+              constructor
+              . intro e he
+                simp [Set.element] at he
+                rw [he]
+                assumption
+              . cases Nat.le.dest help_i with | intro m hm =>
+                have subsOfAllFollowing := chaseBranchSetIsSubsetOfAllFollowing cb i m
+                rw [heq2] at subsOfAllFollowing
+                simp at subsOfAllFollowing
+                rw [← hm] at heq
+                rw [heq] at subsOfAllFollowing
+                simp [Option.is_none_or] at subsOfAllFollowing
+                exact subsOfAllFollowing
+          . cases Nat.le.dest help_j with | intro m hm =>
+              have subsOfAllFollowing := chaseBranchSetIsSubsetOfAllFollowing cb j m
+              split at subsOfAllFollowing
+              . rw [hm, heq] at subsOfAllFollowing; contradiction
+              case h_2 heq2 =>
+                rw [heq2] at hj
+                simp [Option.is_some_and] at hj
+                rw [← hm] at heq
+                rw [heq] at subsOfAllFollowing
+                simp [Option.is_none_or] at subsOfAllFollowing
+                apply Set.subsetTransitive
+                constructor
+                apply hj
+                apply subsOfAllFollowing
+
+theorem trgActiveForChaseResultMeansActiveAtSomeIndex (cb : ChaseBranch obs kb) : ∀ trg : Trigger obs, trg.active cb.result -> ∃ n : Nat, (cb.branch.infinite_list n).is_some_and (fun fs => trg.active fs.fact) := by
   intro trg
-  simp [ChaseSequence.result, Trigger.active]
+  unfold Trigger.active
+  simp
   intro loaded active
-  have trgLoadedForN := trgLoadedForChaseResultMeansLoadedAtSomeIndex cs trg loaded
+  have trgLoadedForN := trgLoadedForChaseResultMeansLoadedAtSomeIndex cb trg loaded
   cases trgLoadedForN with | intro n loadedN =>
     exists n
-    constructor
-    exact loadedN
-    intro contra
-    apply active
-    apply obs.monotone
-    apply chaseSequenceSetIsSubsetOfResult cs n
-    apply contra
+    unfold Option.is_some_and
+    split
+    case h_1 heq => rw [heq] at loadedN; simp [Option.is_some_and] at loadedN
+    case h_2 heq =>
+      simp
+      constructor
+      . rw [heq] at loadedN; simp [Option.is_some_and] at loadedN; exact loadedN
+      . intro contra
+        apply active
+        apply obs.monotone
+        . have subsetOfResult := chaseBranchSetIsSubsetOfResult cb n
+          rw [heq] at subsetOfResult
+          simp [Option.is_none_or] at subsetOfResult
+          apply subsetOfResult
+        . apply contra
 
+/-
 theorem funcTermForExisVarInChaseMeansTriggerIsUsed (cs : ChaseSequence obs kb) (trg : RTrigger obs kb.rules) (var : Variable) (i : Nat) : (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact, f ∈ cs.fact_sets i ∧ ((trg.val.apply_to_var_or_const (VarOrConst.var var)) ∈ f.terms.toSet)) -> ∃ j, j ≤ i ∧ trg.val.result ∪ cs.fact_sets (j-1) = cs.fact_sets j := by
   intro ⟨var_not_in_frontier, exis_f⟩
   induction i with
@@ -841,7 +910,76 @@ theorem inductive_homomorphism_same_on_all_following_terms (cs : ChaseSequence o
     apply chaseSequenceSetIsSubsetOfAllFollowing
     apply h_precondition.left
     apply h_precondition.right
+-/
 
+theorem chaseBranchResultModelsKb (cb : ChaseBranch obs kb) : cb.result.modelsKb obs kb := by
+  constructor
+  . unfold FactSet.modelsDb
+    unfold ChaseBranch.result
+    intro f h
+    exists 0
+    rw [cb.database_first]
+    simp [Option.is_some_and]
+    exact h
+  . unfold FactSet.modelsRules
+    intro r h
+    unfold FactSet.modelsRule
+    simp
+    intro trg trg_rule trg_loaded
+    apply Classical.byContradiction
+    intro trg_not_obsolete
+    cases (trgActiveForChaseResultMeansActiveAtSomeIndex cb trg ⟨trg_loaded, trg_not_obsolete⟩) with | intro i active_i =>
+      have not_active_eventually := cb.fairness ⟨trg, by rw [← trg_rule] at h; apply h⟩
+      cases not_active_eventually with | intro j not_active =>
+        have not_active_j := not_active.left
+        simp [Trigger.active] at not_active_j
+        unfold Option.is_some_and at not_active_j
+        split at not_active_j
+        . contradiction
+        case h_2 heq =>
+          have obsolete_j := not_active_j (by
+            simp [PreTrigger.loaded]
+            unfold Option.is_some_and at active_i
+            cases eq : cb.branch.infinite_list i with
+            | none => rw [eq] at active_i; simp at active_i
+            | some step_i =>
+              rw [eq] at active_i; simp at active_i
+              apply Set.subsetTransitive
+              constructor
+              . apply active_i.left
+              . cases Decidable.em (i ≤ j) with
+                | inl j_ge_i =>
+                  cases Nat.le.dest j_ge_i with | intro m hm =>
+                    have step_i_subs_following := chaseBranchSetIsSubsetOfAllFollowing cb i m
+                    rw [eq] at step_i_subs_following
+                    simp at step_i_subs_following
+                    rw [hm, heq] at step_i_subs_following
+                    simp [Option.is_none_or] at step_i_subs_following
+                    exact step_i_subs_following
+                | inr h =>
+                  have h : j < i := Nat.lt_of_not_le h
+                  have contra := not_active.right i h
+                  rw [eq] at contra
+                  simp [Option.is_none_or] at contra
+                  contradiction
+          )
+          apply trg_not_obsolete
+          apply obs.monotone
+          have step_j_subs_result := chaseBranchSetIsSubsetOfResult cb j
+          rw [heq] at step_j_subs_result
+          simp [Option.is_none_or] at step_j_subs_result
+          exact step_j_subs_result
+          exact obsolete_j
+
+theorem chaseTreeResultModelsKb (ct : ChaseTree obs kb) : ∀ fs, fs ∈ ct.result -> fs.modelsKb obs kb := by
+  intro fs is_result
+  unfold Set.element at is_result
+  unfold ChaseTree.result at is_result
+  cases is_result with | intro branch h =>
+    rw [← h.right]
+    apply chaseBranchResultModelsKb
+
+/-
 theorem chaseResultUnivModelsKb (cs : ChaseSequence obs kb) : cs.result.universallyModelsKb obs kb := by
   constructor
   constructor
