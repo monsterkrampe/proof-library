@@ -263,26 +263,29 @@ namespace List
     induction l generalizing n with
     | nil => have : i.val < 0 := i.isLt; contradiction
     | cons a as ih => cases eq : i.val with 
-      | zero => simp [get?, enumFrom]; rw [← Option.someInj, ← get?_eq_get]; rw [eq]; simp[get?]
+      | zero => simp [get?, enumFrom]; rw [← Option.someInj]; simp [eq]
       | succ j => 
-        simp [get?, enumFrom]
+        unfold enumFrom
+        unfold get?
         let jFin : Fin as.length := ⟨j, (by have isLt := i.isLt; unfold length at isLt; rw [eq] at isLt; apply Nat.lt_of_succ_lt_succ; exact isLt)⟩ 
         rw [ih (n+1) jFin]
         simp 
         constructor
         . rw [Nat.add_assoc, Nat.add_comm 1 j]
-        . rw [← Option.someInj, ← get?_eq_get, ← get?_eq_get]; rw [eq]; simp [get?]
+        . rw [← Option.someInj]; simp [eq]
 
   theorem get_enum (l : List α) (i : Fin l.length) : l.enum.get ⟨i.val, (by rw [length_enum]; exact i.isLt)⟩ = (i.val, l.get i) := by 
     unfold enum
-    simp [get_enum_from]
+    rw [get_enum_from]
+    simp
 
   theorem map_eq_map_then_functions_eq (h : (List.map f l) = (List.map g l)) : ∀ x, x ∈ l.toSet -> f x = g x := by 
     intro x x_in_l
     induction l with 
     | nil => trivial  
     | cons a as ih => 
-      simp [map] at h 
+      unfold map at h 
+      rw [List.cons_eq_cons] at h
       simp [toSet, Set.element, Set.union] at x_in_l
       cases x_in_l with 
       | inl hl => rw [hl]; exact h.left
@@ -293,7 +296,8 @@ namespace List
     induction l with 
     | nil => trivial 
     | cons a as ih => 
-      simp [map]
+      unfold map
+      rw [List.cons_eq_cons]
       constructor 
       apply h
       simp [toSet, Set.element, Set.union]

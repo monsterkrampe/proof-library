@@ -218,8 +218,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (cs : ChaseSequence obs kb) 
                   rw [f_is_at_its_idx]
                   unfold PreTrigger.mapped_head
                   unfold PreTrigger.apply_to_function_free_atom
-                  rw [List.get_map]
-                  simp
+                  simp [atom_for_f]
 
                 let term_for_f := atom_for_f.terms.get ⟨k.val, (by 
                   rw [← atom_arity_same_as_fact]
@@ -232,7 +231,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (cs : ChaseSequence obs kb) 
                     conv => lhs; rw [f_is_at_its_idx]
                     rw [← PreTrigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
                   rw [List.get_eq_of_eq this]
-                  simp [PreTrigger.apply_to_function_free_atom, List.get_map]
+                  simp [PreTrigger.apply_to_function_free_atom, term_for_f]
 
                 have : (trg.val.apply_to_var_or_const (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const term_for_f) := by 
                   rw [← this] at hk
@@ -270,7 +269,8 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (cs : ChaseSequence obs kb) 
                         apply List.existsIndexMeansInToSet
                         cases (List.inToSetMeansExistsIndex _ _ h_body_atom_for_f.right) with | intro l h_l =>
                           exists ⟨l, (by rw [List.length_map]; exact l.isLt)⟩
-                          simp [List.get_map]
+                          simp
+                          simp at h_l
                           rw [← h_l]
                           simp [GroundSubstitution.apply_var_or_const]
 
@@ -292,7 +292,6 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (cs : ChaseSequence obs kb) 
             intro a _
             unfold PreTrigger.apply_to_function_free_atom
             simp
-            apply List.map_eq_map_if_functions_eq
             intro voc hvoc
             cases voc with 
             | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] 
@@ -426,8 +425,7 @@ noncomputable def inductive_homomorphism (cs : ChaseSequence obs kb) (m : FactSe
                 rw [f_is_at_its_idx]
                 unfold PreTrigger.mapped_head
                 unfold PreTrigger.apply_to_function_free_atom
-                rw [List.get_map]
-                simp
+                simp [atom_in_head]
 
             let term_corresponding_to_t := atom_in_head.terms.get ⟨idx_t_in_f.val, (by 
               rw [← atom_arity_same_as_fact]
@@ -457,9 +455,13 @@ noncomputable def inductive_homomorphism (cs : ChaseSequence obs kb) (m : FactSe
             exact fact_in_prev_step 
             unfold applyFact
             simp
-            rw [← List.map_eq_map_iff]
             intro ground_term _
-            have : ∃ f, f ∈ (cs.fact_sets j) ∧ ground_term ∈ f.terms.toSet := by exists fact 
+            have : ∃ f, f ∈ (cs.fact_sets j) ∧ ground_term ∈ f.terms.toSet := by 
+              exists fact
+              rw [← List.listElementIffToSetElement]
+              constructor
+              assumption
+              assumption
             cases ground_term with 
             | leaf c => simp [next_hom]; apply prev_hom.property.left (GroundTerm.const c)
             | inner _ _ => 
@@ -477,8 +479,7 @@ noncomputable def inductive_homomorphism (cs : ChaseSequence obs kb) (m : FactSe
             apply h_obs_for_m_subs.right
             apply List.existsIndexMeansInToSet
             exists ⟨idx_of_fact_in_result.val, (by simp [GroundSubstitution.apply_function_free_conj])⟩ 
-            simp [GroundSubstitution.apply_function_free_conj, List.get_map, GroundSubstitution.apply_function_free_atom, PreTrigger.mapped_head, PreTrigger.apply_to_function_free_atom]
-            rw [← List.map_eq_map_iff]
+            simp [GroundSubstitution.apply_function_free_conj, GroundSubstitution.apply_function_free_atom, PreTrigger.mapped_head, PreTrigger.apply_to_function_free_atom]
 
             -- we show that applying next_hom after trg is the same is applying trg_variant_for_m for each relevant VarOrConst
 
@@ -553,12 +554,14 @@ noncomputable def inductive_homomorphism (cs : ChaseSequence obs kb) (m : FactSe
                     rw [← PreTrigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
 
                     apply List.existsIndexMeansInToSet
+                    rw [List.listElementIffToSetElement] at voc_is_in_head_atom_for_fact
                     cases (List.inToSetMeansExistsIndex _ _ voc_is_in_head_atom_for_fact) with | intro voc_idx h_voc_idx =>
                       exists ⟨voc_idx.val, (by 
                         rw [← PreTrigger.apply_to_function_free_atom_terms_same_length]
                         apply voc_idx.isLt
                       )⟩
-                      simp [GroundSubstitution.apply_atom, VarOrConst.skolemize, List.get_map, GroundSubstitution.apply_skolem_term, FunctionFreeAtom.skolemize, PreTrigger.apply_to_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const]
+                      simp [GroundSubstitution.apply_atom, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, FunctionFreeAtom.skolemize, PreTrigger.apply_to_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const]
+                      simp at h_voc_idx
                       rw [← h_voc_idx]
                   case h_2 _ exis_f _ => 
                     split
@@ -578,8 +581,9 @@ noncomputable def inductive_homomorphism (cs : ChaseSequence obs kb) (m : FactSe
                       have atom_arity_same_as_fact : chosen_f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by 
                         rw [f_is_at_its_idx]
                         unfold PreTrigger.mapped_head
-                        rw [List.get_map]
+                        simp
                         rw [← PreTrigger.apply_to_function_free_atom_terms_same_length]
+                        simp [atom_in_head]
 
                       let var_corresponding_to_applied_v := atom_in_head.terms.get ⟨idx_v_in_f.val, (by 
                         rw [← atom_arity_same_as_fact]
@@ -610,15 +614,13 @@ noncomputable def inductive_homomorphism (cs : ChaseSequence obs kb) (m : FactSe
                           rw [f_is_at_its_idx]
                           rw [← PreTrigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
 
-                        rw [List.get_eq_of_eq this]
-
-                        simp [PreTrigger.apply_to_function_free_atom, List.get_map]
+                        simp [this, PreTrigger.apply_to_function_free_atom, var_corresponding_to_applied_v]
 
                       have : var_corresponding_to_applied_v = v_from_head_atom := by 
                         apply VarOrConst.skolemize_injective trg.val.rule.id (Rule.frontier trg.val.rule)
                         apply skolemized_ts_are_equal
 
-                      simp [var_corresponding_to_applied_v] at this
+                      simp [var_corresponding_to_applied_v, atom_in_head] at this
                       rw [this]
 
     )⟩
@@ -712,17 +714,17 @@ theorem chaseResultUnivModelsKb (cs : ChaseSequence obs kb) : cs.result.universa
     intro i f f_in_step_i
     unfold applyFact
     simp [global_h]
-    apply List.map_eq_map_if_functions_eq
+    -- apply List.map_eq_map_if_functions_eq
     intro t t_is_term_in_f
     split 
-    case a.h_2 _ n_ex_f' _ => 
+    case h_2 _ n_ex_f' _ => 
       apply False.elim 
       apply n_ex_f' 
       exists f 
       constructor 
       . apply chaseSequenceSetIsSubsetOfResult; apply f_in_step_i
-      . apply t_is_term_in_f
-    case a.h_1 _ ex_f' _ => 
+      . rw [← List.listElementIffToSetElement]; apply t_is_term_in_f
+    case h_1 _ ex_f' _ => 
       split
       case _ f' t_is_term_in_f' _ => 
         let j := Classical.choose f'
@@ -737,7 +739,7 @@ theorem chaseResultUnivModelsKb (cs : ChaseSequence obs kb) : cs.result.universa
             apply inductive_homomorphism_same_on_all_following_terms
             constructor
             apply f_in_step_i
-            apply t_is_term_in_f
+            rw [← List.listElementIffToSetElement]; apply t_is_term_in_f
         | inr j_le_i => 
           have i_is_j_plus_k := Nat.le.dest j_le_i 
           cases i_is_j_plus_k with | intro k hk =>

@@ -74,7 +74,7 @@ namespace NodeInPossiblyInfiniteTree
       rw [nodeLayerIsLayerAtDepth]
     )⟩
     have no_children_is_at_pos_in_mapped_layer : number_of_children = layer_mapped.get fin_pos := by
-      simp [current_layer, node_info, number_of_children, layer_mapped, NodeInPossiblyInfiniteTree.node_info, List.get_map]
+      simp [current_layer, node_info, number_of_children, layer_mapped, NodeInPossiblyInfiniteTree.node_info]
 
     have no_c_before_add_no_c_le_layer_length : number_of_children_before + number_of_children ≤ layer_mapped.sum := by
       rw [no_children_is_at_pos_in_mapped_layer]

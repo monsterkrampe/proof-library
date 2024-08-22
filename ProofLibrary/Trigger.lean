@@ -67,7 +67,7 @@ namespace PreTrigger
 
   theorem apply_subs_to_atom_at_idx_same_as_fact_at_idx (trg : PreTrigger) (idx : Fin trg.rule.head.length) : trg.apply_to_function_free_atom (trg.rule.head.get idx) = trg.mapped_head.get ⟨idx.val, by rw [← head_length_eq_mapped_head_length]; exact idx.isLt⟩ := by 
     unfold mapped_head
-    simp [List.get_map]
+    simp
   
   def loaded (trg : PreTrigger) (F : FactSet) : Prop :=
     trg.mapped_body.toSet ⊆ F

@@ -181,8 +181,11 @@ namespace FiniteTree
       cases t with 
       | leaf _ => unfold mapLeaves; unfold leaves; simp [List.map]
       | inner _ _ => 
-        unfold mapLeaves; unfold leaves; simp
+        unfold mapLeaves; unfold leaves; 
+        intro h
+        simp
         apply mapLeavesListEqIfMapEqOnLeavesList
+        exact h
 
     theorem mapLeavesListEqIfMapEqOnLeavesList (f : β -> FiniteTree α γ) (g : β -> FiniteTree α γ) (ts : FiniteTreeList α β) : (leavesList ts).map f = (leavesList ts).map g -> mapLeavesList f ts = mapLeavesList g ts := by 
       cases ts with 

@@ -43,7 +43,7 @@ namespace GroundSubstitution
 
   theorem eq_under_subs_means_term_is_eq (σ : GroundSubstitution) (a : Atom) (f : Fact) (idx : Fin a.terms.length) (h : σ.apply_atom a = f) : (σ.apply_skolem_term (a.terms.get idx) = f.terms.get { val := idx.val, isLt := (by rw [← eq_under_subs_means_same_length σ a f h]; exact idx.isLt) }) := by
     cases h
-    simp [apply_atom, List.get_map]
+    simp [apply_atom]
 
   -- TODO: is the extra assumption with injectivity reasonable?
   theorem eq_under_subs_means_elements_are_preserved [DecidableEq SkolemTerm] (σ : GroundSubstitution) (a : Atom) (f : Fact) (h : σ.apply_atom a = f) : ∀ t, (∀ s, s ∈ a.terms.toSet ∧ σ.apply_skolem_term t = σ.apply_skolem_term s -> t = s) -> ((σ.apply_skolem_term t) ∈ f.terms ↔ t ∈ a.terms) := by 
