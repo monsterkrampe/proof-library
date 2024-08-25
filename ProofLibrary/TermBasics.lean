@@ -20,6 +20,7 @@ structure FunctionSymbol where
 
 structure SkolemFS where
   ruleId : Nat
+  disjunctIndex : Nat
   var : Variable
   deriving DecidableEq
 
@@ -107,14 +108,14 @@ theorem VarOrConst.filterVars_occur_in_original_list (l : List VarOrConst) (v : 
 --   | Term.const _ => List.nil
 --   | Term.func ft => VarOrConst.filterVars ft.leaves
 
-def VarOrConst.skolemize (ruleId : Nat) (frontier : List Variable) (voc : VarOrConst) : SkolemTerm :=
+def VarOrConst.skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List Variable) (voc : VarOrConst) : SkolemTerm :=
   match voc with
     | VarOrConst.var v => ite (v ∈ frontier)
       (SkolemTerm.var v)
-      (SkolemTerm.func { ruleId := ruleId, var := v} frontier)
+      (SkolemTerm.func { ruleId, disjunctIndex, var := v} frontier)
     | VarOrConst.const c => SkolemTerm.const c
 
-theorem VarOrConst.skolemize_injective (ruleId : Nat) (frontier : List Variable) (s t : VarOrConst) : s.skolemize ruleId frontier = t.skolemize ruleId frontier -> s = t := by
+theorem VarOrConst.skolemize_injective (ruleId : Nat) (disjunctIndex : Nat) (frontier : List Variable) (s t : VarOrConst) : s.skolemize ruleId disjunctIndex frontier = t.skolemize ruleId disjunctIndex frontier -> s = t := by
   cases s with
   | var vs => cases t with
     | var vt =>
