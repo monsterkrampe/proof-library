@@ -145,21 +145,92 @@ namespace List
       | List.cons _ _ => as.last
   -/
 
-  -- TODO: is there some more idiomatic way to get a lt proof with indices in enum?
-  def enum_with_lt_from : (l : List α) -> (start totalLength : Nat) -> (start + l.length = totalLength) -> List ((Fin totalLength) × α)
-    | nil => fun _ _ _ => nil
-    | cons head tail => fun s tl h =>
-      cons ({ val := s, isLt := (by
-        rw [← h]
+  theorem length_attachWith (l : List α) (p : α -> Prop) (h : ∀ x ∈ l, p x) : (l.attachWith p h).length = l.length := by simp [attachWith]
+
+  theorem getElem_attachWith (l : List α) (p : α -> Prop) (h : ∀ x ∈ l, p x) (index : Nat) (h_index : index < l.length) : ((l.attachWith p h)[index]'(by rw [length_attachWith]; exact h_index)).val = l[index] := by
+    induction l generalizing index with
+    | nil => simp at h_index
+    | cons head tail ih =>
+      simp [attachWith]
+      simp [attachWith] at ih
+      cases index with
+      | zero => simp
+      | succ index' =>
         simp
-      ) }, head) (tail.enum_with_lt_from (s + 1) tl (by
-        rw [← h]
-        rw [Nat.add_assoc, Nat.add_comm 1 _, ← Nat.succ_eq_add_one]
-        simp
-      ))
+        apply ih
+
+  theorem getElem_attach (l : List α) (index : Nat) (h : index < l.length) : (l.attach[index]'(by rw [List.length_attach]; exact h)).val = l[index] := by
+    unfold attach
+    apply getElem_attachWith
 
   def enum_with_lt (l : List α) : List ((Fin l.length) × α) :=
-    l.enum_with_lt_from 0 l.length (by simp)
+    l.enum.attach.map (fun ⟨pair, h⟩ => (⟨pair.fst, by apply List.fst_lt_of_mem_enum; exact h⟩, pair.snd))
+
+  theorem enum_with_lt_length_eq (l : List α) : l.enum_with_lt.length = l.length := by unfold enum_with_lt; simp
+
+  theorem enum_with_lt_getElem_fst_eq_index (l : List α) (index : Nat) (h : index < l.length) : (l.enum_with_lt[index]'(by rw [enum_with_lt_length_eq]; exact h)).fst = ⟨index, h⟩ := by
+    unfold enum_with_lt
+    simp
+    rw [l.enum.getElem_attach index (by simp; exact h)]
+    simp
+
+  theorem enum_with_lt_getElem_snd_eq_getElem (l : List α) (index : Nat) (h : index < l.length) : (l.enum_with_lt[index]'(by rw [enum_with_lt_length_eq]; exact h)).snd = l[index] := by
+    unfold enum_with_lt
+    simp
+    rw [l.enum.getElem_attach index (by simp; exact h)]
+    simp
+
+  -- FIXME: enum_with_lt seems to be totally unusable in proofs; define it via enum instead I suppose
+
+  -- TODO: is there some more idiomatic way to get a lt proof with indices in enum?
+
+  /- def enum_with_lt_from : (l : List α) -> (start totalLength : Nat) -> (start + l.length = totalLength) -> List ((Fin totalLength) × α) -/
+  /-   | nil => fun _ _ _ => nil -/
+  /-   | cons head tail => fun s tl h => -/
+  /-     cons ({ val := s, isLt := (by -/
+  /-       rw [← h] -/
+  /-       simp -/
+  /-     ) }, head) (tail.enum_with_lt_from (s + 1) tl (by -/
+  /-       rw [← h] -/
+  /-       rw [Nat.add_assoc, Nat.add_comm 1 _] -/
+  /-       simp -/
+  /-     )) -/
+
+  /- theorem enum_with_lt_length_eq_of_totalLength_eq (l : List α) (start totalLength totalLength' : Nat) (h : start + l.length = totalLength) (h' : totalLength = totalLength') : (l.enum_with_lt_from start totalLength h).length = (l.enum_with_lt_from start totalLength' (by rw [← h']; exact h)).length := by -/
+  /-   induction l generalizing start with -/
+  /-   | nil => simp [enum_with_lt_from] -/
+  /-   | cons head tail ih => -/
+  /-     simp [enum_with_lt_from] -/
+  /-     apply ih -/
+
+  /- theorem enum_with_lt_from_length_eq (l : List α) : ∀ n, (l.enum_with_lt_from n (n + l.length) rfl).length = l.length := by -/
+  /-   induction l with -/
+  /-   | nil => intros; simp [enum_with_lt_from] -/
+  /-   | cons head tail ih => -/
+  /-     intro n -/
+  /-     simp [enum_with_lt_from] -/
+  /-     specialize ih (n+1) -/
+  /-     simp [← ih] -/
+  /-     apply enum_with_lt_length_eq_of_totalLength_eq -/
+  /-     rw [Nat.add_assoc, Nat.add_comm _ 1] -/
+
+  /- theorem enum_with_lt_from_getElem_snd_eq_getElem (l : List α) (index : Fin l.length) : ∀ n, ((l.enum_with_lt_from n (n + l.length) rfl)[index]'(by rw [enum_with_lt_from_length_eq]; exact index.isLt)).snd = l[index] := by -/
+  /-   induction l with -/
+  /-   | nil => have isLt := index.isLt; simp at isLt -/
+  /-   | cons head tail ih => -/
+  /-     simp [enum_with_lt_from] -/
+  /-     intro n -/
+  /-     cases index using Fin.cases with -/
+  /-     | zero => simp -/
+  /-     | succ index' => -/
+  /-       simp -/
+  /-       specialize ih index' (n+1) -/
+  /-       simp at ih -/
+  /-       rw [← ih] -/
+  /-       sorry -/
+
+  /- def enum_with_lt (l : List α) : List ((Fin l.length) × α) := -/
+  /-   l.enum_with_lt_from 0 l.length (by simp) -/
 
   def idx_of_with_count [DecidableEq α] (l : List α) (e : α) (e_in_l : e ∈ l) (c : Nat) : Fin (c + l.length) :=
     match l with
@@ -392,5 +463,10 @@ namespace List
 
   theorem get_eq_of_eq {as bs : List α} (h : as = bs) (idx : Fin as.length) : as.get idx = bs.get ⟨idx.val, (by rw [← h]; exact idx.isLt)⟩ := by
     cases h; rfl
+
+  theorem head_cons_tail (l : List α)  (h : l ≠ []) : l = (l.head h) :: l.tail := by
+    cases l with
+    | nil => contradiction
+    | cons head tail => simp
 end List
 
