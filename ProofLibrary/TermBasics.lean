@@ -28,7 +28,7 @@ structure SkolemFS where
 --   | func (ft : FiniteTree SkolemFS Constant) : GroundTerm
 --   deriving DecidableEq
 
-def GroundTerm := FiniteTree SkolemFS Constant 
+def GroundTerm := FiniteTree SkolemFS Constant
 deriving DecidableEq
 
 @[match_pattern]
@@ -65,19 +65,19 @@ def VarOrConst.filterVars : List VarOrConst -> List Variable
     | VarOrConst.const _ => (VarOrConst.filterVars vocs)
 
 theorem VarOrConst.filterVars_occur_in_original_list (l : List VarOrConst) (v : Variable) : v ∈ (filterVars l).toSet -> VarOrConst.var v ∈ l.toSet := by
-  induction l with 
+  induction l with
   | nil => intros; contradiction
-  | cons head tail ih => 
-    intro h 
+  | cons head tail ih =>
+    intro h
     unfold filterVars at h
     split at h
     . simp [Set.element, List.toSet] at h
-      simp [Set.element, List.toSet] 
-      cases h with 
+      simp [Set.element, List.toSet]
+      cases h with
       | inl hl => apply Or.inl; simp [Set.element] at hl; rw [hl]; simp [Set.element]
       | inr hr => apply Or.inr; apply ih; apply hr
-    . simp [Set.element] 
-      apply Or.inr 
+    . simp [Set.element]
+      apply Or.inr
       apply ih
       apply h
 
@@ -114,32 +114,32 @@ def VarOrConst.skolemize (ruleId : Nat) (frontier : List Variable) (voc : VarOrC
       (SkolemTerm.func { ruleId := ruleId, var := v} frontier)
     | VarOrConst.const c => SkolemTerm.const c
 
-theorem VarOrConst.skolemize_injective (ruleId : Nat) (frontier : List Variable) (s t : VarOrConst) : s.skolemize ruleId frontier = t.skolemize ruleId frontier -> s = t := by 
-  cases s with 
-  | var vs => cases t with 
-    | var vt => 
+theorem VarOrConst.skolemize_injective (ruleId : Nat) (frontier : List Variable) (s t : VarOrConst) : s.skolemize ruleId frontier = t.skolemize ruleId frontier -> s = t := by
+  cases s with
+  | var vs => cases t with
+    | var vt =>
       simp [skolemize]
       split
-      . split 
-        . simp 
+      . split
+        . simp
         . intros; contradiction
-      . split 
+      . split
         . intros; contradiction
         . simp
-    | const _ => 
+    | const _ =>
       simp only [skolemize]
-      split <;> intros <;> assumption
-  | const cs => cases t with 
-    | var vt => 
+      split <;> intros <;> contradiction
+  | const cs => cases t with
+    | var vt =>
       simp only [skolemize]
-      split <;> intros <;> assumption
+      split <;> intros <;> contradiction
     | const _ => simp [skolemize]
 
--- def VarOrConst.skolemize_into_functional_term (ruleId : Nat) (frontier : List Variable) (v : Variable) (v_not_frontier : ¬ frontier.elem v) : FiniteTree SkolemFS Variable := 
---   match eq : skolemize ruleId frontier (VarOrConst.var v) with 
+-- def VarOrConst.skolemize_into_functional_term (ruleId : Nat) (frontier : List Variable) (v : Variable) (v_not_frontier : ¬ frontier.elem v) : FiniteTree SkolemFS Variable :=
+--   match eq : skolemize ruleId frontier (VarOrConst.var v) with
 --   | .var _ => by simp [skolemize, v_not_frontier] at eq
 --   | .const _ => by simp [skolemize, v_not_frontier] at eq
---   | .func ft => 
+--   | .func ft =>
 --     let mapper : VarOrConst
 --     ft
 --
