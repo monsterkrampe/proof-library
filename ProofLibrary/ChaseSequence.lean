@@ -3,8 +3,6 @@ import ProofLibrary.Trigger
 import ProofLibrary.Logic
 import ProofLibrary.PossiblyInfiniteTree
 
-set_option pp.proofs true
-
 structure ChaseNode (obs : ObsoletenessCondition) (rules : RuleSet) where
   fact : FactSet
   -- the origin is none only for the database
