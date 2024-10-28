@@ -23,20 +23,20 @@ structure Atom where
 -- TODO: remove duplicates here maybe
 def FunctionFreeAtom.variables (a : FunctionFreeAtom) : List Variable := VarOrConst.filterVars a.terms
 
-def FunctionFreeAtom.skolemize (ruleId : Nat) (frontier : List Variable) (a : FunctionFreeAtom) : Atom := { predicate := a.predicate, terms := a.terms.map (VarOrConst.skolemize ruleId frontier) }
+def FunctionFreeAtom.skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List Variable) (a : FunctionFreeAtom) : Atom := { predicate := a.predicate, terms := a.terms.map (VarOrConst.skolemize ruleId disjunctIndex frontier) }
 
-theorem FunctionFreeAtom.skolemize_same_length (ruleId : Nat) (frontier : List Variable) (a : FunctionFreeAtom) : a.terms.length = (a.skolemize ruleId frontier).terms.length := by 
+theorem FunctionFreeAtom.skolemize_same_length (ruleId : Nat) (disjunctIndex : Nat) (frontier : List Variable) (a : FunctionFreeAtom) : a.terms.length = (a.skolemize ruleId disjunctIndex frontier).terms.length := by
   unfold skolemize
   rw [List.length_map]
 
-theorem FunctionFreeAtom.skolem_term_in_skolem_atom_if_term_in_atom (ruleId : Nat) (frontier : List Variable) (a : FunctionFreeAtom) (t : VarOrConst) : t ∈ a.terms.toSet -> (↑(t.skolemize ruleId frontier)) ∈ (a.skolemize ruleId frontier).terms.toSet := by 
+theorem FunctionFreeAtom.skolem_term_in_skolem_atom_if_term_in_atom (ruleId : Nat) (disjunctIndex : Nat) (frontier : List Variable) (a : FunctionFreeAtom) (t : VarOrConst) : t ∈ a.terms.toSet -> (↑(t.skolemize ruleId disjunctIndex frontier)) ∈ (a.skolemize ruleId disjunctIndex frontier).terms.toSet := by
   unfold skolemize
-  induction a.terms with 
+  induction a.terms with
   | nil => intros; contradiction
-  | cons head tail ih => 
+  | cons head tail ih =>
     simp [Set.element, List.toSet]
-    intro h 
-    cases h with 
+    intro h
+    cases h with
     | inl hl => apply Or.inl; simp [Set.element] at hl; rw [hl]; simp [Set.element]
     | inr hr => apply Or.inr; apply ih; apply hr
 
@@ -48,7 +48,7 @@ def FunctionFreeConjunction.vars (conj : FunctionFreeConjunction) : List Variabl
 
 theorem FunctionFreeConjunction.v_in_vars_occurs_in_fact (conj : FunctionFreeConjunction) : ∀ v, v ∈ conj.vars -> ∃ f, f ∈ conj.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by
   unfold vars
-  cases conj with 
+  cases conj with
   | nil => intros; contradiction
   | cons head tail =>
     intro v vInVars
@@ -58,10 +58,10 @@ theorem FunctionFreeConjunction.v_in_vars_occurs_in_fact (conj : FunctionFreeCon
       cases vInSomeOriginalAtom with | intro e' he' =>
         exists e'
         constructor
-        . apply List.listElementAlsoToSetElement 
+        . apply List.listElementAlsoToSetElement
           exact he'.left
-        . have : v ∈ (FunctionFreeAtom.variables e').toSet := by 
-            apply List.listElementAlsoToSetElement 
+        . have : v ∈ (FunctionFreeAtom.variables e').toSet := by
+            apply List.listElementAlsoToSetElement
             have hL'right := hL'.right
             rw [he'.right] at hL'right
             apply hL'right
@@ -74,17 +74,17 @@ theorem FunctionFreeConjunction.v_in_vars_occurs_in_fact (conj : FunctionFreeCon
 structure Rule where
   id : Nat
   body : FunctionFreeConjunction
-  head : FunctionFreeConjunction
+  head : List FunctionFreeConjunction
 
 def Rule.frontier (r : Rule) : List Variable :=
   -- NOTE: using ∈ does not really work here because it produces a Prop which can not always be simply cast into Bool
-  List.filter (fun v => v ∈ r.head.vars) (FunctionFreeConjunction.vars r.body)
+  List.filter (fun v => r.head.any (fun h => v ∈ h.vars)) (FunctionFreeConjunction.vars r.body)
 
-theorem Rule.frontier_var_occurs_in_fact_in_body (r : Rule) : ∀ v, v ∈ r.frontier -> ∃ f, f ∈ r.body.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by 
+theorem Rule.frontier_var_occurs_in_fact_in_body (r : Rule) : ∀ v, v ∈ r.frontier -> ∃ f, f ∈ r.body.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by
   unfold frontier
   cases r.body with
   | nil => intros; contradiction
-  | cons head tail => 
+  | cons head tail =>
     intro v vInFrontier
     have vInBody := List.elemFilterAlsoElemList _ _ v vInFrontier
     have exFactInBody := FunctionFreeConjunction.v_in_vars_occurs_in_fact _ v vInBody
@@ -99,11 +99,11 @@ theorem Rule.frontier_var_occurs_in_fact_in_body (r : Rule) : ∀ v, v ∈ r.fro
 --   }
 
 def Rule.isDatalog (r : Rule) : Bool :=
-  List.all r.head.vars (fun v => v ∈ r.body.vars)
+  r.head.all (fun h => h.vars.all (fun v => v ∈ r.body.vars))
 
-structure RuleSet where 
+structure RuleSet where
   rules : Set Rule
-  id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2 
+  id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2
 
 def FactSet := Set Fact
 

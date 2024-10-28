@@ -9,7 +9,7 @@ namespace Set
   def element (e : α) (X : Set α) : Prop := X e
   infixr:75 " ∈ " => element
 
-  theorem element_mapping_preserves_membership (e : α) (X : Set α) (f : α -> α) : e ∈ X -> f e ∈ (fun e' => ∃ e'', X e'' ∧ e' = f e'') := by 
+  theorem element_mapping_preserves_membership (e : α) (X : Set α) (f : α -> α) : e ∈ X -> f e ∈ (fun e' => ∃ e'', X e'' ∧ e' = f e'') := by
     intro helem
     exists e
 
@@ -23,11 +23,11 @@ namespace Set
     intros _ h
     exact h
 
-  theorem subsetTransitive (a b c : Set α) : a ⊆ b ∧ b ⊆ c -> a ⊆ c := by 
-    intro ⟨ha, hb⟩ 
-    intro e he 
-    apply hb 
-    apply ha 
+  theorem subsetTransitive (a b c : Set α) : a ⊆ b ∧ b ⊆ c -> a ⊆ c := by
+    intro ⟨ha, hb⟩
+    intro e he
+    apply hb
+    apply ha
     assumption
 
   theorem subsetUnionSomethingStillSubset (a b c : Set α) : a ⊆ b -> a ⊆ b ∪ c := by
@@ -36,38 +36,44 @@ namespace Set
     apply aSubB
     exact eInA
 
-  theorem unionSubsetEachSubset (a b c : Set α) : a ∪ b ⊆ c ↔ a ⊆ c ∧ b ⊆ c := by 
+  theorem subsetUnionSomethingStillSubset' (a b c : Set α) : a ⊆ c -> a ⊆ b ∪ c := by
+    intro aSubC e eInA
+    apply Or.inr
+    apply aSubC
+    exact eInA
+
+  theorem unionSubsetEachSubset (a b c : Set α) : a ∪ b ⊆ c ↔ a ⊆ c ∧ b ⊆ c := by
     constructor
     -- mp
-    intro h 
+    intro h
     simp [union, subset] at h
     simp [subset]
     constructor
     -- left
-    intro e hl 
+    intro e hl
     apply h
     simp [element]
-    apply Or.inl 
+    apply Or.inl
     exact hl
     -- right
     intro e hr
     apply h
     simp [element]
-    apply Or.inr 
+    apply Or.inr
     exact hr
     -- mpr
     intro ⟨ha, hb⟩
     unfold Set.union
     unfold Set.subset
-    intro e 
-    unfold Set.element 
-    simp 
-    intro h 
-    cases h 
+    intro e
+    unfold Set.element
+    simp
+    intro h
+    cases h
     -- inl
     apply ha
     assumption
     -- inr
-    apply hb 
+    apply hb
     assumption
 end Set
