@@ -1,4 +1,3 @@
--- import Mathlib.Data.Stream.Defs
 import ProofLibrary.List
 
 def InfiniteList (α : Type u) := Nat -> α

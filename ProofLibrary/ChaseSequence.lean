@@ -246,7 +246,6 @@ theorem chaseTreeSetIsSubsetOfResult (ct : ChaseTree obs kb) : ∀ node : List N
     intro branch branch_through_node
     have : branch.branch.infinite_list node.length = ct.tree.get node := by
       unfold ChaseTree.branches_through at branch_through_node
-      -- simp [Set.element] at branch_through_node
       unfold FiniteDegreeTree.branches_through at branch_through_node
       unfold PossiblyInfiniteTree.branches_through at branch_through_node
       unfold InfiniteTreeSkeleton.branches_through at branch_through_node

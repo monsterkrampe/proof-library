@@ -113,9 +113,6 @@ namespace PreTrigger
     unfold equiv
     intro h
 
-    /- unfold result -/
-    /- simp -/
-
     have : trg1.mapped_head = trg2.mapped_head := by
       unfold mapped_head
       rw [h.left]
