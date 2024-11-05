@@ -363,7 +363,6 @@ namespace FiniteDegreeTree
           exact heq
         simp
         rw [this]
-        simp
       case h_2 heq =>
         simp
         rw [ih]

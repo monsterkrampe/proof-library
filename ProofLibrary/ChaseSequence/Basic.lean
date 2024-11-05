@@ -460,7 +460,6 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg
             have head_lt_aux_1 : head < trg'.val.result.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.enum_with_lt_length_eq] at head_lt_tail_children_length; exact head_lt_tail_children_length
             have head_lt_aux_2 : head < trg'.val.rule.head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.enum_with_lt_length_eq] at head_lt_tail_children_length; rw [PreTrigger.head_length_eq_mapped_head_length]; unfold PreTrigger.result at head_lt_tail_children_length; simp at head_lt_tail_children_length; exact head_lt_tail_children_length
             have head_lt_aux_3 : head < trg'.val.mapped_head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.enum_with_lt_length_eq] at head_lt_tail_children_length; unfold PreTrigger.result at head_lt_tail_children_length; simp at head_lt_tail_children_length; exact head_lt_tail_children_length
-            have head_lt_aux_4 : head < trg'.val.result.enum_with_lt.length := by rw [List.enum_with_lt_length_eq]; exact head_lt_aux_1
 
             rw [← ct.tree.getElem_children_eq_get_tree tail ⟨head, head_lt_tail_children_length⟩] at node_is_at_path
             injection node_is_at_path with node_is_at_path
@@ -474,7 +473,6 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg
                   simp [← htrg'.right] at f_in_next_step
                   cases f_in_next_step with
                   | inr f_in_result =>
-                    simp only [List.getElem_attach _ _ head_lt_aux_4] at f_in_result
                     rw [List.enum_with_lt_getElem_snd_eq_getElem] at f_in_result
                     assumption
                   | inl f_in_j =>
@@ -570,7 +568,6 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg
             simp [← htrg'.right] at node_is_at_path
             rw [node_is_at_path]
             simp
-            simp only [List.getElem_attach _ _ head_lt_aux_4]
             rw [List.enum_with_lt_getElem_fst_eq_index _ _ head_lt_aux_1]
             exact this
 
@@ -715,10 +712,6 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
         simp
         simp at length_eq_helper_1
         exact length_eq_helper_1
-      have length_lt_helper : head_index_for_m_subs.val < trg.val.result.enum_with_lt.length := by
-        simp at length_eq_helper_1
-        rw [← length_eq_helper_1]
-        exact head_index_for_m_subs.isLt
       rw [List.map_eq_iff] at trg_result_used_for_next_chase_step
       specialize trg_result_used_for_next_chase_step head_index_for_m_subs.val
       have index_valid : head_index_for_m_subs < (ct.tree.children prev_path).length := by rw [← length_eq_helper_2]; exact head_index_for_m_subs.isLt
@@ -732,7 +725,6 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       rw [this] at trg_result_used_for_next_chase_step
       rw [trg_result_used_for_next_chase_step]
       simp
-      simp only [List.getElem_attach _ _ length_lt_helper]
       rw [List.enum_with_lt_getElem_snd_eq_getElem]
     rw [next_node_results_from_trg]
 
@@ -1379,16 +1371,14 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ m, m.modelsKb o
           . exact h.left
           let i : Fin trg.val.result.length := ⟨((inductive_homomorphism_shortcut (n+1)).val.fst.head (inductive_homomorphism_path_not_empty n)), inductive_homomorphism_latest_index_lt_trg_result_length n node (by rw [← eq]) ex_trg⟩
           let i' : Fin (ct.tree.children (inductive_homomorphism_shortcut n).val.1).length := ⟨i.val, by rw [← h.right]; simp; rw [List.enum_with_lt_length_eq]; exact i.isLt⟩
-          have i_lt_helper : i.val < trg.val.result.enum_with_lt.length := by rw [List.enum_with_lt_length_eq]; exact i.isLt
-          simp only [i, trg] at i_lt_helper
           exists i
           rw [inductive_homomorphism_path_extends_prev]
           rw [← ct.tree.getElem_children_eq_get_tree _ i']
           simp only [← h.right]
           simp
           constructor
-          . simp only [List.getElem_attach _ _ i_lt_helper]; rw [List.enum_with_lt_getElem_snd_eq_getElem]
-          . simp only [List.getElem_attach _ _ i_lt_helper]; rw [List.enum_with_lt_getElem_fst_eq_index]
+          . rw [List.enum_with_lt_getElem_snd_eq_getElem]
+          . rw [List.enum_with_lt_getElem_fst_eq_index]
         | inr ex_trg =>
           apply Or.inr
           unfold not_exists_trigger_opt_fs

@@ -145,24 +145,6 @@ namespace List
       | List.cons _ _ => as.last
   -/
 
-  theorem length_attachWith (l : List α) (p : α -> Prop) (h : ∀ x ∈ l, p x) : (l.attachWith p h).length = l.length := by simp [attachWith]
-
-  theorem getElem_attachWith (l : List α) (p : α -> Prop) (h : ∀ x ∈ l, p x) (index : Nat) (h_index : index < l.length) : ((l.attachWith p h)[index]'(by rw [length_attachWith]; exact h_index)).val = l[index] := by
-    induction l generalizing index with
-    | nil => simp at h_index
-    | cons head tail ih =>
-      simp [attachWith]
-      simp [attachWith] at ih
-      cases index with
-      | zero => simp
-      | succ index' =>
-        simp
-        apply ih
-
-  theorem getElem_attach (l : List α) (index : Nat) (h : index < l.length) : (l.attach[index]'(by rw [List.length_attach]; exact h)).val = l[index] := by
-    unfold attach
-    apply getElem_attachWith
-
   def enum_with_lt (l : List α) : List ((Fin l.length) × α) :=
     l.enum.attach.map (fun ⟨pair, h⟩ => (⟨pair.fst, by apply List.fst_lt_of_mem_enum; exact h⟩, pair.snd))
 
@@ -171,13 +153,9 @@ namespace List
   theorem enum_with_lt_getElem_fst_eq_index (l : List α) (index : Nat) (h : index < l.length) : (l.enum_with_lt[index]'(by rw [enum_with_lt_length_eq]; exact h)).fst = ⟨index, h⟩ := by
     unfold enum_with_lt
     simp
-    rw [l.enum.getElem_attach index (by simp; exact h)]
-    simp
 
   theorem enum_with_lt_getElem_snd_eq_getElem (l : List α) (index : Nat) (h : index < l.length) : (l.enum_with_lt[index]'(by rw [enum_with_lt_length_eq]; exact h)).snd = l[index] := by
     unfold enum_with_lt
-    simp
-    rw [l.enum.getElem_attach index (by simp; exact h)]
     simp
 
   theorem mem_enum_with_lt_iff_mem_enum (l : List α) : ∀ (i : Fin l.length) (el : α), (i, el) ∈ l.enum_with_lt ↔ (i.val, el) ∈ l.enum := by

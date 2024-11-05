@@ -69,16 +69,12 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                   rw [← trg_ex.right]
                   simp [List.enum_with_lt_length_eq]
                   exact length_aux_1
-                have length_aux_3 : 0 < trg.val.result.enum_with_lt.length := by
-                  simp [List.enum_with_lt_length_eq]
-                  exact length_aux_1
                 exists ⟨0, length_aux_1⟩
                 unfold List.repeat
                 rw [← ct.tree.getElem_children_eq_get_tree (List.repeat 0 n) ⟨0, length_aux_2⟩]
                 simp
                 simp only [← trg_ex.right]
                 simp
-                simp only [List.getElem_attach _ _ length_aux_3]
                 rw [List.enum_with_lt_getElem_snd_eq_getElem]
                 rw [List.enum_with_lt_getElem_fst_eq_index]
                 constructor
