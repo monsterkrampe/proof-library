@@ -384,6 +384,12 @@ namespace FiniteDegreeTree
     rw [getElem_children_eq_getElem_tree_children]
     apply PossiblyInfiniteTree.getElem_children_eq_get_tree
 
+  theorem children_eq_lifted_children (tree : FiniteDegreeTree α) (node : List Nat) : PossiblyInfiniteList.fromList (tree.children node) = tree.tree.children node := by
+    rw [PossiblyInfiniteList.eq_iff_same_on_all_indices]
+    intro n
+    rw [PossiblyInfiniteList.get_fromList_eq_list_getElem]
+    apply getElem_children_eq_getElem_tree_children
+
   def branches (tree : FiniteDegreeTree α) : Set (PossiblyInfiniteList α) := tree.tree.branches
 
   def branches_through (tree : FiniteDegreeTree α) (node : List Nat) : Set (PossiblyInfiniteList α) := tree.tree.branches_through node

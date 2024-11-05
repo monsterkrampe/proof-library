@@ -105,6 +105,8 @@ structure RuleSet where
   rules : Set Rule
   id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2
 
+def RuleSet.isDeterministic (rs : RuleSet) : Prop := ∀ (r : Rule), r ∈ rs.rules -> r.head.length = 1
+
 def FactSet := Set Fact
 
 def Database := Set FunctionFreeFact
@@ -112,6 +114,8 @@ def Database := Set FunctionFreeFact
 structure KnowledgeBase where
   db : Database
   rules : RuleSet
+
+def KnowledgeBase.isDeterministic (kb : KnowledgeBase) : Prop := kb.rules.isDeterministic
 
 def Fact.toFunctionFreeFact (f : Fact) : Option FunctionFreeFact :=
   ite

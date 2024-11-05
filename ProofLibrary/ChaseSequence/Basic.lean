@@ -1603,5 +1603,3 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ m, m.modelsKb o
             simp [Set.element, applyFactSet]
             exists e
 
--- TODO: universality result for special case of rules without disjunctions
-
