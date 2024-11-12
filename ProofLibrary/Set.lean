@@ -13,6 +13,8 @@ namespace Set
     intro helem
     exists e
 
+  def finite (X : Set α) : Prop := ∃ (l : List α), ∀ (e : α), e ∈ l ↔ e ∈ X
+
   def union (X Y : Set α) : Set α := fun e => e ∈ X ∨ e ∈ Y
   infixr:65 " ∪ " => union
 

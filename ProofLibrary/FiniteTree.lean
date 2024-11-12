@@ -13,18 +13,18 @@ end
 
 mutual
   def finiteTreeEq [DecidableEq α] [DecidableEq β] (a b : FiniteTree α β) : Decidable (a = b) :=
-    match a with 
-      | .leaf la => match b with 
-        | .leaf lb => if eq_ls : la = lb 
-          then isTrue (by simp [eq_ls]) 
-          else isFalse (by 
-            let unwrap := fun (x : FiniteTree α β) (hx : ∀ a b, x ≠ FiniteTree.inner a b) => match x with 
+    match a with
+      | .leaf la => match b with
+        | .leaf lb => if eq_ls : la = lb
+          then isTrue (by simp [eq_ls])
+          else isFalse (by
+            let unwrap := fun (x : FiniteTree α β) (hx : ∀ a b, x ≠ FiniteTree.inner a b) => match x with
               | FiniteTree.leaf lx => lx
               | FiniteTree.inner a b => absurd rfl (hx a b)
             intro contra
             have : la = lb := by
-              have ha : la = unwrap (FiniteTree.leaf la) (by intro _ _ contra; exact FiniteTree.noConfusion contra) := by rfl  
-              have hb : lb = unwrap (FiniteTree.leaf lb) (by intro _ _ contra; exact FiniteTree.noConfusion contra) := by rfl  
+              have ha : la = unwrap (FiniteTree.leaf la) (by intro _ _ contra; exact FiniteTree.noConfusion contra) := by rfl
+              have hb : lb = unwrap (FiniteTree.leaf lb) (by intro _ _ contra; exact FiniteTree.noConfusion contra) := by rfl
               rw [ha, hb]
               simp [contra]
             contradiction
@@ -32,46 +32,46 @@ mutual
         | .inner _ _ => isFalse (by intro contra; exact FiniteTree.noConfusion contra)
       | .inner la ca => match b with
         | .leaf lb => isFalse (by intro contra; exact FiniteTree.noConfusion contra)
-        | .inner lb cb => if eq_ls : la = lb 
+        | .inner lb cb => if eq_ls : la = lb
           then match finiteTreeListEq ca cb with
             | .isTrue p => isTrue (by simp [eq_ls, p])
-            | .isFalse np => isFalse (by 
-            let unwrap := fun (x : FiniteTree α β) (hx : ∀ a, x ≠ FiniteTree.leaf a) => match x with 
+            | .isFalse np => isFalse (by
+            let unwrap := fun (x : FiniteTree α β) (hx : ∀ a, x ≠ FiniteTree.leaf a) => match x with
               | FiniteTree.leaf a => absurd rfl (hx a)
               | FiniteTree.inner _ b => b
             intro contra
             have : ca = cb := by
-              have ha : ca = unwrap (FiniteTree.inner la ca) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl  
-              have hb : cb = unwrap (FiniteTree.inner lb cb) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl  
+              have ha : ca = unwrap (FiniteTree.inner la ca) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl
+              have hb : cb = unwrap (FiniteTree.inner lb cb) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl
               rw [ha, hb]
               simp [contra]
             contradiction
           )
-          else isFalse (by 
-            let unwrap := fun (x : FiniteTree α β) (hx : ∀ a, x ≠ FiniteTree.leaf a) => match x with 
+          else isFalse (by
+            let unwrap := fun (x : FiniteTree α β) (hx : ∀ a, x ≠ FiniteTree.leaf a) => match x with
               | FiniteTree.leaf a => absurd rfl (hx a)
               | FiniteTree.inner a _ => a
             intro contra
             have : la = lb := by
-              have ha : la = unwrap (FiniteTree.inner la ca) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl  
-              have hb : lb = unwrap (FiniteTree.inner lb cb) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl  
+              have ha : la = unwrap (FiniteTree.inner la ca) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl
+              have hb : lb = unwrap (FiniteTree.inner lb cb) (by intro _ contra; exact FiniteTree.noConfusion contra) := by rfl
               rw [ha, hb]
               simp [contra]
             contradiction
           )
 
   def finiteTreeListEq [DecidableEq α] [DecidableEq β] (a b : FiniteTreeList α β) : Decidable (a = b) :=
-    match a with 
-      | .nil => match b with 
+    match a with
+      | .nil => match b with
         | .nil => isTrue (by rfl)
         | .cons _ _ => isFalse (by intro contra; exact FiniteTreeList.noConfusion contra)
-      | .cons ta la => match b with 
+      | .cons ta la => match b with
         | .nil => isFalse (by intro contra; exact FiniteTreeList.noConfusion contra)
-        | .cons tb lb => match finiteTreeEq ta tb with 
-          | .isTrue tp => match finiteTreeListEq la lb with 
+        | .cons tb lb => match finiteTreeEq ta tb with
+          | .isTrue tp => match finiteTreeListEq la lb with
             | .isTrue lp => isTrue (by simp [tp, lp])
-            | .isFalse lnp => isFalse (by 
-              let unwrap := fun (x : FiniteTreeList α β) (hx : x ≠ FiniteTreeList.nil) => match x with 
+            | .isFalse lnp => isFalse (by
+              let unwrap := fun (x : FiniteTreeList α β) (hx : x ≠ FiniteTreeList.nil) => match x with
                 | FiniteTreeList.nil => absurd rfl hx
                 | FiniteTreeList.cons _ b => b
               intro contra
@@ -83,7 +83,7 @@ mutual
               contradiction
             )
           | .isFalse tnp => isFalse (by
-            let unwrap := fun (x : FiniteTreeList α β) (hx : x ≠ FiniteTreeList.nil) => match x with 
+            let unwrap := fun (x : FiniteTreeList α β) (hx : x ≠ FiniteTreeList.nil) => match x with
               | FiniteTreeList.nil => absurd rfl hx
               | FiniteTreeList.cons a _ => a
             intro contra
@@ -114,31 +114,31 @@ namespace FiniteTreeList
   instance : Coe (List (FiniteTree α β)) (FiniteTreeList α β) where
     coe := fromList
 
-  theorem eqIffFromListEq (as bs : List (FiniteTree α β)) : as = bs ↔ fromList as = fromList bs := by 
-    induction as generalizing bs with 
+  theorem eqIffFromListEq (as bs : List (FiniteTree α β)) : as = bs ↔ fromList as = fromList bs := by
+    induction as generalizing bs with
     | nil => cases bs; constructor; intros; rfl; intros; rfl; constructor; intros; contradiction; intros; contradiction
-    | cons a as ih => 
-      cases bs with 
+    | cons a as ih =>
+      cases bs with
       | nil => constructor; intros; contradiction; intros; contradiction
-      | cons b bs => 
+      | cons b bs =>
         constructor
         intro h
         injection h with head tail
         simp [fromList]
         constructor; exact head; rw [← ih]; exact tail
-        intro h 
+        intro h
         simp [fromList] at h
         simp [h.left]
         rw [ih]
         exact h.right
 
-  theorem toListFromListIsId (as : FiniteTreeList α β) : FiniteTreeList.fromList as.toList = as := by 
-    cases as with 
+  theorem toListFromListIsId (as : FiniteTreeList α β) : FiniteTreeList.fromList as.toList = as := by
+    cases as with
     | nil => simp [toList, fromList]
     | cons a as => simp [toList, fromList]; apply toListFromListIsId
 
-  theorem fromListToListIsId (as : List (FiniteTree α β)) : (FiniteTreeList.fromList as).toList = as := by 
-    induction as with 
+  theorem fromListToListIsId (as : List (FiniteTree α β)) : (FiniteTreeList.fromList as).toList = as := by
+    induction as with
     | nil => simp [toList, fromList]
     | cons a as ih => simp [toList, fromList]; apply ih
 
@@ -177,33 +177,33 @@ namespace FiniteTree
 
   -- TODO: should we remove this? I think we do not need this anymore...
   mutual
-    theorem mapLeavesEqIfMapEqOnLeaves (f : β -> FiniteTree α γ) (g : β -> FiniteTree α γ) (t : FiniteTree α β) : t.leaves.map f = t.leaves.map g -> t.mapLeaves f = t.mapLeaves g := by 
-      cases t with 
+    theorem mapLeavesEqIfMapEqOnLeaves (f : β -> FiniteTree α γ) (g : β -> FiniteTree α γ) (t : FiniteTree α β) : t.leaves.map f = t.leaves.map g -> t.mapLeaves f = t.mapLeaves g := by
+      cases t with
       | leaf _ => unfold mapLeaves; unfold leaves; simp [List.map]
-      | inner _ _ => 
-        unfold mapLeaves; unfold leaves; 
+      | inner _ _ =>
+        unfold mapLeaves; unfold leaves;
         intro h
         simp
         apply mapLeavesListEqIfMapEqOnLeavesList
         exact h
 
-    theorem mapLeavesListEqIfMapEqOnLeavesList (f : β -> FiniteTree α γ) (g : β -> FiniteTree α γ) (ts : FiniteTreeList α β) : (leavesList ts).map f = (leavesList ts).map g -> mapLeavesList f ts = mapLeavesList g ts := by 
-      cases ts with 
+    theorem mapLeavesListEqIfMapEqOnLeavesList (f : β -> FiniteTree α γ) (g : β -> FiniteTree α γ) (ts : FiniteTreeList α β) : (leavesList ts).map f = (leavesList ts).map g -> mapLeavesList f ts = mapLeavesList g ts := by
+      cases ts with
       | nil => unfold mapLeavesList; unfold leavesList; simp [List.map]
-      | cons t ts => 
+      | cons t ts =>
         unfold mapLeavesList; unfold leavesList
         intro h
-        have h : t.leaves.map f = t.leaves.map g ∧ (leavesList ts).map f = (leavesList ts).map g := by 
+        have h : t.leaves.map f = t.leaves.map g ∧ (leavesList ts).map f = (leavesList ts).map g := by
           apply List.concatEqMeansPartsEqIfSameLength
           . simp [List.length_map]
           . rw [List.mapConcatEqMapParts] at h
             rw [List.mapConcatEqMapParts] at h
             exact h
-        have : t.mapLeaves f = t.mapLeaves g := by 
+        have : t.mapLeaves f = t.mapLeaves g := by
           apply mapLeavesEqIfMapEqOnLeaves
           apply h.left
         rw [this]
-        have : mapLeavesList f ts = mapLeavesList g ts := by 
+        have : mapLeavesList f ts = mapLeavesList g ts := by
           apply mapLeavesListEqIfMapEqOnLeavesList
           apply h.right
         rw [this]
@@ -246,25 +246,25 @@ namespace FiniteTree
 
   def nodesInDepthK (t : FiniteTree α β) (depth : Nat) : List (FiniteTree α β) := t.privateNodesInDepthK depth 0
 
-  mutual 
-    theorem tree_eq_while_contained_is_impossible [DecidableEq α] [DecidableEq β] (t : FiniteTree α β) (ts : FiniteTreeList α β) (a : α) (h_eq : FiniteTree.inner a ts = t) (h_contains : t ∈ ts.toList) : False := by 
-      cases t with 
+  mutual
+    theorem tree_eq_while_contained_is_impossible [DecidableEq α] [DecidableEq β] (t : FiniteTree α β) (ts : FiniteTreeList α β) (a : α) (h_eq : FiniteTree.inner a ts = t) (h_contains : t ∈ ts.toList) : False := by
+      cases t with
       | leaf _ => contradiction
       | inner label children =>
         injection h_eq with _ children_eq
         apply treelist_eq_while_contained_is_impossible children ts
         rw [← children_eq]
-        intros 
+        intros
         assumption
         apply h_contains
 
-    theorem treelist_eq_while_contained_is_impossible [DecidableEq α] [DecidableEq β] (children ts : FiniteTreeList α β) (label : α) (ts_subset_children : ∀ t, t ∈ ts.toList -> t ∈ children.toList) (h_contains : (FiniteTree.inner label children) ∈ ts.toList) : False := by 
-      cases ts with 
+    theorem treelist_eq_while_contained_is_impossible [DecidableEq α] [DecidableEq β] (children ts : FiniteTreeList α β) (label : α) (ts_subset_children : ∀ t, t ∈ ts.toList -> t ∈ children.toList) (h_contains : (FiniteTree.inner label children) ∈ ts.toList) : False := by
+      cases ts with
       | nil => simp [FiniteTreeList.toList] at h_contains
       | cons t ts =>
         simp [FiniteTreeList.toList] at h_contains
-        cases h_contains with 
-        | inl hl => 
+        cases h_contains with
+        | inl hl =>
           apply tree_eq_while_contained_is_impossible t children
           apply hl
           apply ts_subset_children

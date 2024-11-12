@@ -1,55 +1,56 @@
 import ProofLibrary.KnowledgeBaseBasics
 import ProofLibrary.SubstitutionAndHomomorphismBasics
 
-structure PreTrigger where
-  rule : Rule
-  subs : GroundSubstitution
+structure PreTrigger (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
+  rule : Rule sig
+  subs : GroundSubstitution sig
 
 namespace PreTrigger
-  def skolemize_var_or_const (trg : PreTrigger) (disjunctIndex : Nat) (var_or_const : VarOrConst) : SkolemTerm :=
+  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+
+  def skolemize_var_or_const (trg : PreTrigger sig) (disjunctIndex : Nat) (var_or_const : VarOrConst sig) : SkolemTerm sig :=
     var_or_const.skolemize trg.rule.id disjunctIndex trg.rule.frontier
 
-  def apply_to_skolemized_term (trg : PreTrigger) (skolem_term : SkolemTerm) : GroundTerm :=
+  def apply_to_skolemized_term (trg : PreTrigger sig) (skolem_term : SkolemTerm sig) : GroundTerm sig :=
     trg.subs.apply_skolem_term skolem_term
 
-  def apply_to_var_or_const (trg : PreTrigger) (disjunctIndex : Nat) : VarOrConst -> GroundTerm :=
+  def apply_to_var_or_const (trg : PreTrigger sig) (disjunctIndex : Nat) : VarOrConst sig -> GroundTerm sig :=
     (trg.apply_to_skolemized_term ∘ (trg.skolemize_var_or_const disjunctIndex))
 
-  def apply_to_function_free_atom (trg : PreTrigger) (disjunctIndex : Nat) (atom : FunctionFreeAtom) : Fact :=
+  def apply_to_function_free_atom (trg : PreTrigger sig) (disjunctIndex : Nat) (atom : FunctionFreeAtom sig) : Fact sig :=
     {
       predicate := atom.predicate
       terms := atom.terms.map (trg.apply_to_var_or_const disjunctIndex)
     }
 
-  theorem apply_to_function_free_atom_terms_same_length (trg : PreTrigger) (disjunctIndex : Nat) (atom : FunctionFreeAtom) : atom.terms.length = (trg.apply_to_function_free_atom disjunctIndex atom).terms.length := by
+  theorem apply_to_function_free_atom_terms_same_length (trg : PreTrigger sig) (disjunctIndex : Nat) (atom : FunctionFreeAtom sig) : atom.terms.length = (trg.apply_to_function_free_atom disjunctIndex atom).terms.length := by
     unfold apply_to_function_free_atom
     simp
 
-  def mapped_body (trg : PreTrigger) : List Fact := SubsTarget.apply trg.subs trg.rule.body
-  def mapped_head (trg : PreTrigger) : List (List Fact) := trg.rule.head.enum.map (fun (i, h) => h.map (trg.apply_to_function_free_atom i))
+  def mapped_body (trg : PreTrigger sig) : List (Fact sig) := SubsTarget.apply trg.subs trg.rule.body
+  def mapped_head (trg : PreTrigger sig) : List (List (Fact sig)) := trg.rule.head.enum.map (fun (i, h) => h.map (trg.apply_to_function_free_atom i))
 
-  theorem head_length_eq_mapped_head_length (trg : PreTrigger) : trg.rule.head.length = trg.mapped_head.length := by
+  theorem head_length_eq_mapped_head_length (trg : PreTrigger sig) : trg.rule.head.length = trg.mapped_head.length := by
     unfold mapped_head
     rw [List.length_map, List.length_enum]
 
-  def result (trg : PreTrigger) : List FactSet :=
+  def result (trg : PreTrigger sig) : List (FactSet sig) :=
     trg.mapped_head.map List.toSet
 
-  theorem subs_application_is_injective_for_freshly_introduced_terms {t : Variable} (trg : PreTrigger) (disjunctIndex : Fin trg.rule.head.length) (t_not_in_frontier : ¬ t ∈ trg.rule.frontier) : ∀ s, (trg.apply_to_var_or_const disjunctIndex (VarOrConst.var t) = trg.apply_to_var_or_const disjunctIndex (VarOrConst.var s)) -> trg.skolemize_var_or_const disjunctIndex (VarOrConst.var t) = trg.skolemize_var_or_const disjunctIndex (VarOrConst.var s) := by
+  theorem subs_application_is_injective_for_freshly_introduced_terms {t : sig.V} (trg : PreTrigger sig) (disjunctIndex : Fin trg.rule.head.length) (t_not_in_frontier : ¬ t ∈ trg.rule.frontier) : ∀ s, (trg.apply_to_var_or_const disjunctIndex (VarOrConst.var t) = trg.apply_to_var_or_const disjunctIndex (VarOrConst.var s)) -> trg.skolemize_var_or_const disjunctIndex (VarOrConst.var t) = trg.skolemize_var_or_const disjunctIndex (VarOrConst.var s) := by
     intro s apply_eq_for_t_and_s
 
     cases Decidable.em (s ∈ trg.rule.frontier) with
     | inr hr =>
       simp [t_not_in_frontier, hr, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at apply_eq_for_t_and_s
       simp [t_not_in_frontier, hr, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]
-      injection apply_eq_for_t_and_s with tree_node_eq
-      injection tree_node_eq
+      exact apply_eq_for_t_and_s
     | inl hl =>
       simp [t_not_in_frontier, hl, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at apply_eq_for_t_and_s
       apply False.elim
       let tree_for_s := trg.apply_to_var_or_const disjunctIndex (VarOrConst.var s)
       let ts := trg.rule.frontier.map (fun fv => trg.subs fv)
-      let a : SkolemFS := { ruleId := trg.rule.id, disjunctIndex, var := t }
+      let a : SkolemFS sig := { ruleId := trg.rule.id, disjunctIndex, var := t }
       apply FiniteTree.tree_eq_while_contained_is_impossible tree_for_s (FiniteTreeList.fromList ts) a
       simp [tree_for_s, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
       apply apply_eq_for_t_and_s
@@ -60,20 +61,20 @@ namespace PreTrigger
       apply List.listElementAlsoToSetElement
       apply hl
 
-  def idx_of_fact_in_result (trg : PreTrigger) (f : Fact) (disj_index : Fin trg.result.length) (f_in_res : f ∈ trg.result.get disj_index) : Fin (trg.rule.head.get ⟨disj_index.val, (by rw [head_length_eq_mapped_head_length]; have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩).length :=
+  def idx_of_fact_in_result (trg : PreTrigger sig) (f : Fact sig) (disj_index : Fin trg.result.length) (f_in_res : f ∈ trg.result.get disj_index) : Fin (trg.rule.head.get ⟨disj_index.val, (by rw [head_length_eq_mapped_head_length]; have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩).length :=
     let disj_index_mapped_head : Fin trg.mapped_head.length := ⟨disj_index.val, (by have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩
     let fin_mapped := (trg.mapped_head.get disj_index_mapped_head).idx_of f ((trg.mapped_head.get disj_index_mapped_head).listToSetElementAlsoListElement f (by unfold result at f_in_res; simp at f_in_res; apply f_in_res))
     have fin_mapped_isLt := fin_mapped.isLt
     ⟨fin_mapped.val, by simp [mapped_head] at fin_mapped_isLt; exact fin_mapped_isLt⟩
 
-  theorem apply_subs_to_atom_at_idx_same_as_fact_at_idx (trg : PreTrigger) (disj_index : Fin trg.rule.head.length) (idx : Fin (trg.rule.head.get disj_index).length) : trg.apply_to_function_free_atom disj_index ((trg.rule.head.get disj_index).get idx) = (trg.mapped_head.get ⟨disj_index.val, (by rw [← head_length_eq_mapped_head_length]; exact disj_index.isLt)⟩).get ⟨idx.val, (by unfold mapped_head; simp)⟩ := by
+  theorem apply_subs_to_atom_at_idx_same_as_fact_at_idx (trg : PreTrigger sig) (disj_index : Fin trg.rule.head.length) (idx : Fin (trg.rule.head.get disj_index).length) : trg.apply_to_function_free_atom disj_index ((trg.rule.head.get disj_index).get idx) = (trg.mapped_head.get ⟨disj_index.val, (by rw [← head_length_eq_mapped_head_length]; exact disj_index.isLt)⟩).get ⟨idx.val, (by unfold mapped_head; simp)⟩ := by
     unfold mapped_head
     simp
 
-  def loaded (trg : PreTrigger) (F : FactSet) : Prop :=
+  def loaded (trg : PreTrigger sig) (F : FactSet sig) : Prop :=
     trg.mapped_body.toSet ⊆ F
 
-  theorem term_mapping_preserves_loadedness (trg : PreTrigger) (F : FactSet) (h : GroundTermMapping) (hh : isIdOnConstants h) : trg.loaded F -> { rule := trg.rule, subs := h ∘ trg.subs : PreTrigger }.loaded (applyFactSet h F) := by
+  theorem term_mapping_preserves_loadedness (trg : PreTrigger sig) (F : FactSet sig) (h : GroundTermMapping sig) (hh : h.isIdOnConstants) : trg.loaded F -> { rule := trg.rule, subs := h ∘ trg.subs : PreTrigger sig }.loaded (h.applyFactSet F) := by
     simp [loaded, mapped_body]
     induction trg.rule.body with
     | nil => intro _ _ _; contradiction
@@ -82,9 +83,9 @@ namespace PreTrigger
       simp [Set.element, Set.union, List.toSet] at hf
       cases hf with
       | inl hl =>
-        have := Set.element_mapping_preserves_membership (GroundSubstitution.apply_function_free_atom trg.subs head) F (applyFact h)
+        have := Set.element_mapping_preserves_membership (GroundSubstitution.apply_function_free_atom trg.subs head) F h.applyFact
         have := this (base (GroundSubstitution.apply_function_free_atom trg.subs head) (by apply Or.inl; simp [Set.element]))
-        simp [Set.element, applyFactSet]
+        simp [Set.element, GroundTermMapping.applyFactSet]
         simp [Set.element] at this
         cases this with | intro e he =>
           exists e
@@ -92,7 +93,7 @@ namespace PreTrigger
           constructor
           exact he.left
           rw [← he.right]
-          simp [applyFact, GroundSubstitution.apply_function_free_atom]
+          simp [GroundTermMapping.applyFact, GroundSubstitution.apply_function_free_atom]
           induction head.terms with
           | nil => simp [List.map]
           | cons t_head t_tail t_ih =>
@@ -107,9 +108,9 @@ namespace PreTrigger
         intro _ hf'; apply base; apply Or.inr; apply hf'
         exact hr
 
-  def equiv (trg1 trg2 : PreTrigger) : Prop := trg1.rule = trg2.rule ∧ ∀ v, v ∈ trg1.rule.frontier.toSet -> trg1.subs v = trg2.subs v
+  def equiv (trg1 trg2 : PreTrigger sig) : Prop := trg1.rule = trg2.rule ∧ ∀ v, v ∈ trg1.rule.frontier.toSet -> trg1.subs v = trg2.subs v
 
-  theorem result_eq_of_equiv (trg1 trg2 : PreTrigger) : trg1.equiv trg2 -> trg1.result = trg2.result := by
+  theorem result_eq_of_equiv (trg1 trg2 : PreTrigger sig) : trg1.equiv trg2 -> trg1.result = trg2.result := by
     unfold equiv
     intro h
 
@@ -137,7 +138,6 @@ namespace PreTrigger
           rw [← h.left]
           simp [VarOrConst.skolemize, v_not_in_frontier]
           apply congrArg
-          rw [← FiniteTreeList.eqIffFromListEq]
           apply List.map_eq_map_if_functions_eq
           intro w hw
           rw [← h.right w]
@@ -147,27 +147,18 @@ namespace PreTrigger
     rw [this]
 end PreTrigger
 
-structure ObsoletenessCondition where
-  cond : PreTrigger -> FactSet -> Prop
-  monotone : ∀ trg (A B : FactSet), A ⊆ B -> cond trg A -> cond trg B
+structure ObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
+  cond : PreTrigger sig -> FactSet sig -> Prop
+  monotone : ∀ trg (A B : FactSet sig), A ⊆ B -> cond trg A -> cond trg B
   cond_implies_trg_is_satisfied : cond trg F ->
-    ∃ (s : GroundSubstitution) (i : Fin trg.rule.head.length),
+    ∃ (s : GroundSubstitution sig) (i : Fin trg.rule.head.length),
       (∀ v, v ∈ (Rule.frontier trg.rule) → s v = trg.subs v) ∧
       ((s.apply_function_free_conj (trg.rule.head.get i)).toSet ⊆ F)
-  contains_trg_result_implies_cond : ∀ {trg : PreTrigger} {F} (disj_index : Fin trg.result.length), (trg.result.get disj_index) ⊆ F -> cond trg F
+  contains_trg_result_implies_cond : ∀ {trg : PreTrigger sig} {F} (disj_index : Fin trg.result.length), (trg.result.get disj_index) ⊆ F -> cond trg F
 
-structure Trigger (obsolete : ObsoletenessCondition) extends PreTrigger
 
-instance : CoeOut (Trigger obs) PreTrigger where
-  coe trigger := { rule := trigger.rule, subs := trigger.subs }
-
-namespace Trigger
-  def active (trg : Trigger obs) (F : FactSet) : Prop :=
-    trg.loaded F ∧ ¬ (obs.cond trg F)
-end Trigger
-
-def SkolemObsoleteness : ObsoletenessCondition := {
-  cond := fun (trg : PreTrigger) (F : FactSet) => ∃ i : Fin trg.mapped_head.length, (trg.mapped_head.get i).toSet ⊆ F
+def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
+  cond := fun (trg : PreTrigger sig) (F : FactSet sig) => ∃ i : Fin trg.mapped_head.length, (trg.mapped_head.get i).toSet ⊆ F
   monotone := by
     intro trg A B A_sub_B
     simp
@@ -213,11 +204,9 @@ def SkolemObsoleteness : ObsoletenessCondition := {
     exists ⟨i, by have isLt := i.isLt; unfold PreTrigger.result at isLt; simp [List.length_map] at isLt; exact isLt⟩
 }
 
-def SkolemTrigger := Trigger SkolemObsoleteness
-
-def RestrictedObsoleteness : ObsoletenessCondition := {
-  cond := fun (trg : PreTrigger) (F : FactSet) =>
-    ∃ (s : GroundSubstitution) (i : Fin trg.rule.head.length),
+def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
+  cond := fun (trg : PreTrigger sig) (F : FactSet sig) =>
+    ∃ (s : GroundSubstitution sig) (i : Fin trg.rule.head.length),
       (∀ v, v ∈ (Rule.frontier trg.rule) → s v = trg.subs v) ∧
       ((s.apply_function_free_conj (trg.rule.head.get i)).toSet ⊆ F)
   monotone := by
@@ -236,7 +225,7 @@ def RestrictedObsoleteness : ObsoletenessCondition := {
   contains_trg_result_implies_cond := by
     intro trg F i result_in_F
     let adjusted_i : Fin trg.rule.head.length := ⟨i, by rw [PreTrigger.head_length_eq_mapped_head_length]; have isLt := i.isLt; unfold PreTrigger.result at isLt; simp [List.length_map] at isLt; exact isLt⟩
-    let obs_subs := fun v : Variable => trg.apply_to_var_or_const adjusted_i (VarOrConst.var v)
+    let obs_subs := fun v : sig.V => trg.apply_to_var_or_const adjusted_i (VarOrConst.var v)
 
     exists obs_subs
     exists adjusted_i
@@ -251,7 +240,7 @@ def RestrictedObsoleteness : ObsoletenessCondition := {
       unfold PreTrigger.mapped_head
       unfold PreTrigger.apply_to_function_free_atom
 
-      have : ∀ a : FunctionFreeAtom, (List.map (GroundSubstitution.apply_var_or_const obs_subs) a.terms) = (List.map (trg.apply_to_var_or_const adjusted_i) a.terms) := by
+      have : ∀ (a : FunctionFreeAtom sig), (List.map (GroundSubstitution.apply_var_or_const obs_subs) a.terms) = (List.map (trg.apply_to_var_or_const adjusted_i) a.terms) := by
         intro a
         induction a.terms with
         | nil => simp [List.map]
@@ -268,40 +257,55 @@ def RestrictedObsoleteness : ObsoletenessCondition := {
       apply hf'
 }
 
-def RestrictedTrigger := Trigger RestrictedObsoleteness
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+
+structure Trigger (obsolete : ObsoletenessCondition sig) extends PreTrigger sig
+
+def SkolemTrigger := Trigger (SkolemObsoleteness sig)
+def RestrictedTrigger := Trigger (RestrictedObsoleteness sig)
+
+variable {obs : ObsoletenessCondition sig}
+
+instance : CoeOut (Trigger obs) (PreTrigger sig) where
+  coe trigger := { rule := trigger.rule, subs := trigger.subs }
+
+namespace Trigger
+  def active (trg : Trigger obs) (F : FactSet sig) : Prop :=
+    trg.loaded F ∧ ¬ (obs.cond trg F)
+end Trigger
 
 namespace FactSet
-  variable (obs : ObsoletenessCondition)
-  def modelsDb (fs : FactSet) (db : Database) : Prop :=
+  variable (obs : ObsoletenessCondition sig)
+  def modelsDb (fs : FactSet sig) (db : Database sig) : Prop :=
     db.toFactSet ⊆ fs
 
-  def modelsRule (fs : FactSet) (rule : Rule) : Prop :=
+  def modelsRule (fs : FactSet sig) (rule : Rule sig) : Prop :=
     ∀ (trg : Trigger obs),
       (trg.rule = rule ∧ trg.loaded fs)
       -> obs.cond trg fs
 
-  def modelsRules (fs : FactSet) (rules : RuleSet) : Prop :=
+  def modelsRules (fs : FactSet sig) (rules : RuleSet sig) : Prop :=
     ∀ r, r ∈ rules.rules -> fs.modelsRule obs r
 
-  def modelsKb (fs : FactSet) (kb : KnowledgeBase) : Prop :=
+  def modelsKb (fs : FactSet sig) (kb : KnowledgeBase sig) : Prop :=
     fs.modelsDb kb.db ∧ fs.modelsRules obs kb.rules
 
-  def universallyModelsKb (fs : FactSet) (kb : KnowledgeBase) : Prop :=
+  def universallyModelsKb (fs : FactSet sig) (kb : KnowledgeBase sig) : Prop :=
     fs.modelsKb obs kb ∧
-    (∀ m : FactSet, m.modelsKb obs kb -> ∃ (h : GroundTermMapping), isHomomorphism h fs m)
+    (∀ (m : FactSet sig), m.modelsKb obs kb -> ∃ (h : GroundTermMapping sig), h.isHomomorphism fs m)
 end FactSet
 
-def RTrigger (obs : ObsoletenessCondition)(r : RuleSet) := { trg : Trigger obs // trg.rule ∈ r.rules}
+def RTrigger (obs : ObsoletenessCondition sig) (r : RuleSet sig) := { trg : Trigger obs // trg.rule ∈ r.rules}
 
 namespace RTrigger
   def equiv (trg1 trg2 : RTrigger obs rs) : Prop := trg1.val.equiv trg2.val
 
   theorem funcTermForExisVarInMultipleTriggersMeansTheyAreTheSame
-    {rs : RuleSet}
+    {rs : RuleSet sig}
     (trg1 trg2 : RTrigger obs rs)
     (disjIndex1 : Fin trg1.val.rule.head.length)
     (disjIndex2 : Fin trg2.val.rule.head.length)
-    (var1 var2 : Variable)
+    (var1 var2 : sig.V)
     (var1_not_in_frontier : ¬ var1 ∈ trg1.val.rule.frontier)
     (var2_not_in_frontier : ¬ var2 ∈ trg2.val.rule.frontier)
     :
@@ -310,21 +314,19 @@ namespace RTrigger
     trg1.equiv trg2 ∧ disjIndex1.val = disjIndex2.val := by
     intro applications_eq
     simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var1_not_in_frontier, var2_not_in_frontier] at applications_eq
-    injection applications_eq with rule_ids_and_vars_eq arguments_eq
-    simp at rule_ids_and_vars_eq
     have rules_eq : trg1.val.rule = trg2.val.rule := by
       apply rs.id_unique
       constructor
       exact trg1.property
       constructor
       exact trg2.property
-      exact rule_ids_and_vars_eq.left
+      exact applications_eq.left.left
     constructor
     . unfold equiv
       unfold PreTrigger.equiv
       constructor
       . exact rules_eq
-      . let right := arguments_eq
+      . let right := applications_eq.right
         rw [← FiniteTreeList.eqIffFromListEq _ _] at right
         have : trg1.val.rule.frontier = trg2.val.rule.frontier := by rw [rules_eq]
         rw [← this] at right
@@ -332,6 +334,6 @@ namespace RTrigger
         intro v
         rw [← List.inIffInToSet]
         apply right
-    . exact rule_ids_and_vars_eq.right.left
+    . exact applications_eq.left.right.left
 end RTrigger
 

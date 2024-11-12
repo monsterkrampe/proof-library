@@ -1,6 +1,10 @@
 import ProofLibrary.ChaseSequence.Basic
+import ProofLibrary.ChaseSequence.Universality
 
-def ChaseTree.firstResult (ct : ChaseTree obs kb) : FactSet := fun f => ∃ n, (ct.tree.get (List.repeat 0 n)).is_some_and (fun node => f ∈ node.fact)
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+
+def ChaseTree.firstResult (ct : ChaseTree obs kb) : FactSet sig := fun f => ∃ n, (ct.tree.get (List.repeat 0 n)).is_some_and (fun node => f ∈ node.fact)
 
 theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstResult ∈ ct.result := by
   unfold firstResult

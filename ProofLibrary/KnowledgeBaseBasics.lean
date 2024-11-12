@@ -2,123 +2,144 @@ import ProofLibrary.List
 import ProofLibrary.Set
 import ProofLibrary.TermBasics
 
-structure FunctionFreeFact where
-  predicate : Predicate
-  terms : List Constant
+section StructuralDefs
 
-structure Fact where
-  predicate : Predicate
-  terms : List GroundTerm
-  deriving DecidableEq
+  @[ext]
+  structure FunctionFreeFact (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] where
+    predicate : sig.P
+    terms : List sig.C
+    deriving DecidableEq
 
-structure FunctionFreeAtom where
-  predicate : Predicate
-  terms : List VarOrConst
-  deriving DecidableEq
+  @[ext]
+  structure Fact (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
+    predicate : sig.P
+    terms : List (GroundTerm sig)
+    deriving DecidableEq
 
-structure Atom where
-  predicate : Predicate
-  terms : List SkolemTerm
+  structure FunctionFreeAtom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
+    predicate : sig.P
+    terms : List (VarOrConst sig)
+    deriving DecidableEq
 
--- TODO: remove duplicates here maybe
-def FunctionFreeAtom.variables (a : FunctionFreeAtom) : List Variable := VarOrConst.filterVars a.terms
+  structure Atom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
+    predicate : sig.P
+    terms : List (SkolemTerm sig)
+    deriving DecidableEq
 
-def FunctionFreeAtom.skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List Variable) (a : FunctionFreeAtom) : Atom := { predicate := a.predicate, terms := a.terms.map (VarOrConst.skolemize ruleId disjunctIndex frontier) }
+  variable (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
-theorem FunctionFreeAtom.skolemize_same_length (ruleId : Nat) (disjunctIndex : Nat) (frontier : List Variable) (a : FunctionFreeAtom) : a.terms.length = (a.skolemize ruleId disjunctIndex frontier).terms.length := by
-  unfold skolemize
-  rw [List.length_map]
+  abbrev FunctionFreeConjunction := List (FunctionFreeAtom sig)
 
-theorem FunctionFreeAtom.skolem_term_in_skolem_atom_if_term_in_atom (ruleId : Nat) (disjunctIndex : Nat) (frontier : List Variable) (a : FunctionFreeAtom) (t : VarOrConst) : t ∈ a.terms.toSet -> (↑(t.skolemize ruleId disjunctIndex frontier)) ∈ (a.skolemize ruleId disjunctIndex frontier).terms.toSet := by
-  unfold skolemize
-  induction a.terms with
-  | nil => intros; contradiction
-  | cons head tail ih =>
-    simp [Set.element, List.toSet]
-    intro h
-    cases h with
-    | inl hl => apply Or.inl; simp [Set.element] at hl; rw [hl]; simp [Set.element]
-    | inr hr => apply Or.inr; apply ih; apply hr
+  -- normally, we would only allow variables in atoms in rules... does this break later?
+  structure Rule where
+    id : Nat
+    body : FunctionFreeConjunction sig
+    head : List (FunctionFreeConjunction sig)
 
-def FunctionFreeConjunction := List FunctionFreeAtom
--- def Conjunction := List Atom
+  structure RuleSet where
+    rules : Set (Rule sig)
+    id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2
 
-def FunctionFreeConjunction.vars (conj : FunctionFreeConjunction) : List Variable :=
-  List.foldl (fun acc vs => acc ++ vs) (List.nil) (List.map FunctionFreeAtom.variables conj)
+  abbrev FactSet := Set (Fact sig)
 
-theorem FunctionFreeConjunction.v_in_vars_occurs_in_fact (conj : FunctionFreeConjunction) : ∀ v, v ∈ conj.vars -> ∃ f, f ∈ conj.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by
-  unfold vars
-  cases conj with
-  | nil => intros; contradiction
-  | cons head tail =>
-    intro v vInVars
-    have vInSomeMappedAtom := List.elemFlattenAlsoElemSomeList _ _ vInVars
-    cases vInSomeMappedAtom with | intro L' hL' =>
-      have vInSomeOriginalAtom := List.exElemInMappedListMeansOriginalElemExistsThatMapsToIt _ _ _ hL'.left
-      cases vInSomeOriginalAtom with | intro e' he' =>
-        exists e'
-        constructor
-        . apply List.listElementAlsoToSetElement
-          exact he'.left
-        . have : v ∈ (FunctionFreeAtom.variables e').toSet := by
-            apply List.listElementAlsoToSetElement
-            have hL'right := hL'.right
-            rw [he'.right] at hL'right
-            apply hL'right
+  abbrev Database := { X : Set (FunctionFreeFact sig) // X.finite }
 
-          apply VarOrConst.filterVars_occur_in_original_list
-          unfold FunctionFreeAtom.variables at this
-          apply this
+  structure KnowledgeBase where
+    db : Database sig
+    rules : RuleSet sig
 
--- normally, we would only allow variables in atoms in rules... does this break later?
-structure Rule where
-  id : Nat
-  body : FunctionFreeConjunction
-  head : List FunctionFreeConjunction
+end StructuralDefs
 
-def Rule.frontier (r : Rule) : List Variable :=
-  -- NOTE: using ∈ does not really work here because it produces a Prop which can not always be simply cast into Bool
-  List.filter (fun v => r.head.any (fun h => v ∈ h.vars)) (FunctionFreeConjunction.vars r.body)
 
-theorem Rule.frontier_var_occurs_in_fact_in_body (r : Rule) : ∀ v, v ∈ r.frontier -> ∃ f, f ∈ r.body.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by
-  unfold frontier
-  cases r.body with
-  | nil => intros; contradiction
-  | cons head tail =>
-    intro v vInFrontier
-    have vInBody := List.elemFilterAlsoElemList _ _ v vInFrontier
-    have exFactInBody := FunctionFreeConjunction.v_in_vars_occurs_in_fact _ v vInBody
-    exact exFactInBody
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
--- def Rule.skolemize (r : Rule) : Rule :=
---   { body := r.body, head :=
---     List.map (fun (i, a) => {
---       predicate := a.predicate,
---       terms := List.map (Term.skolemize i (Rule.frontier r)) a.terms
---     }) (List.enum r.head)
---   }
+namespace FunctionFreeAtom
 
-def Rule.isDatalog (r : Rule) : Bool :=
-  r.head.all (fun h => h.vars.all (fun v => v ∈ r.body.vars))
+  -- TODO: remove duplicates here maybe
+  def variables (a : FunctionFreeAtom sig) : List sig.V := VarOrConst.filterVars a.terms
 
-structure RuleSet where
-  rules : Set Rule
-  id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2
+  def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (a : FunctionFreeAtom sig) : Atom sig := { predicate := a.predicate, terms := a.terms.map (VarOrConst.skolemize ruleId disjunctIndex frontier) }
 
-def RuleSet.isDeterministic (rs : RuleSet) : Prop := ∀ (r : Rule), r ∈ rs.rules -> r.head.length = 1
+  theorem skolemize_same_length (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (a : FunctionFreeAtom sig) : a.terms.length = (a.skolemize ruleId disjunctIndex frontier).terms.length := by
+    unfold skolemize
+    rw [List.length_map]
 
-def FactSet := Set Fact
+  theorem skolem_term_in_skolem_atom_if_term_in_atom (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (a : FunctionFreeAtom sig) (t : VarOrConst sig) : t ∈ a.terms.toSet -> (↑(t.skolemize ruleId disjunctIndex frontier)) ∈ (a.skolemize ruleId disjunctIndex frontier).terms.toSet := by
+    unfold skolemize
+    induction a.terms with
+    | nil => intros; contradiction
+    | cons head tail ih =>
+      simp [Set.element, List.toSet]
+      intro h
+      cases h with
+      | inl hl => apply Or.inl; simp [Set.element] at hl; rw [hl]; simp [Set.element]
+      | inr hr => apply Or.inr; apply ih; apply hr
 
-def Database := Set FunctionFreeFact
+end FunctionFreeAtom
 
-structure KnowledgeBase where
-  db : Database
-  rules : RuleSet
+namespace FunctionFreeConjunction
 
-def KnowledgeBase.isDeterministic (kb : KnowledgeBase) : Prop := kb.rules.isDeterministic
+  def vars (conj : FunctionFreeConjunction sig) : List sig.V :=
+    List.foldl (fun acc vs => acc ++ vs) (List.nil) (List.map FunctionFreeAtom.variables conj)
 
-def Fact.toFunctionFreeFact (f : Fact) : Option FunctionFreeFact :=
-  ite
+  theorem v_in_vars_occurs_in_fact (conj : FunctionFreeConjunction sig) : ∀ v, v ∈ conj.vars -> ∃ f, f ∈ conj.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by
+    unfold vars
+    cases conj with
+    | nil => intros; contradiction
+    | cons head tail =>
+      intro v vInVars
+      have vInSomeMappedAtom := List.elemFlattenAlsoElemSomeList _ _ vInVars
+      cases vInSomeMappedAtom with | intro L' hL' =>
+        have vInSomeOriginalAtom := List.exElemInMappedListMeansOriginalElemExistsThatMapsToIt _ _ _ hL'.left
+        cases vInSomeOriginalAtom with | intro e' he' =>
+          exists e'
+          constructor
+          . apply List.listElementAlsoToSetElement
+            exact he'.left
+          . have : v ∈ (FunctionFreeAtom.variables e').toSet := by
+              apply List.listElementAlsoToSetElement
+              have hL'right := hL'.right
+              rw [he'.right] at hL'right
+              apply hL'right
+
+            apply VarOrConst.filterVars_occur_in_original_list
+            unfold FunctionFreeAtom.variables at this
+            apply this
+
+end FunctionFreeConjunction
+
+namespace Rule
+
+  def frontier (r : Rule sig) : List sig.V :=
+    -- NOTE: using ∈ does not really work here because it produces a Prop which can not always be simply cast into Bool
+    List.filter (fun v => r.head.any (fun h => v ∈ h.vars)) (FunctionFreeConjunction.vars r.body)
+
+  theorem frontier_var_occurs_in_fact_in_body (r : Rule sig) : ∀ v, v ∈ r.frontier -> ∃ f, f ∈ r.body.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by
+    unfold frontier
+    cases r.body with
+    | nil => intros; contradiction
+    | cons head tail =>
+      intro v vInFrontier
+      have vInBody := List.elemFilterAlsoElemList _ _ v vInFrontier
+      have exFactInBody := FunctionFreeConjunction.v_in_vars_occurs_in_fact _ v vInBody
+      exact exFactInBody
+
+  def Rule.isDatalog (r : Rule sig) : Bool :=
+    r.head.all (fun h => h.vars.all (fun v => v ∈ r.body.vars))
+
+end Rule
+
+def RuleSet.isDeterministic (rs : RuleSet sig) : Prop := ∀ (r : Rule sig), r ∈ rs.rules -> r.head.length = 1
+
+def KnowledgeBase.isDeterministic (kb : KnowledgeBase sig) : Prop := kb.rules.isDeterministic
+
+def FunctionFreeFact.toFact (f : FunctionFreeFact sig) : Fact sig := {
+  predicate := f.predicate,
+  terms := f.terms.map GroundTerm.const
+}
+
+def Fact.toFunctionFreeFact (f : Fact sig) : Option (FunctionFreeFact sig) :=
+  if h :
     (List.all
       f.terms
       (fun t => match t with
@@ -126,15 +147,92 @@ def Fact.toFunctionFreeFact (f : Fact) : Option FunctionFreeFact :=
         | _ => false
       )
     )
-    (Option.some ({ predicate := f.predicate, terms := (List.map (fun t => match t with
-      | GroundTerm.const c => c
-      | _ => { id := 0 } -- TODO: this cannot happen since we check before that everything is a constant
-    ) f.terms) }))
+  then
+    (Option.some ({ predicate := f.predicate, terms := (f.terms.attach.map (fun ⟨t, t_elem⟩ => match eq : t with
+      | .leaf c => c
+      | .inner _ _ => by
+        -- This cannot happen since we check before that everything is a constant
+        simp at h
+        specialize h t
+        rw [eq] at h
+        specialize h t_elem
+        simp at h
+    )) }))
+  else
     (Option.none)
 
-def Database.toFactSet (db : Database) : FactSet := fun x => match (Fact.toFunctionFreeFact x) with
-  | Option.none => False
-  | Option.some fff => fff ∈ db
+theorem FunctionFreeFact.toFunctionFreeFact_after_toFact_is_id : ∀ (f : FunctionFreeFact sig), f.toFact.toFunctionFreeFact = some f := by
+  intro f
+  unfold toFact
+  unfold Fact.toFunctionFreeFact
+  simp
+  apply FunctionFreeFact.ext
+  . simp
+  . simp
+    rw [List.map_attach, List.pmap_map]
+    simp
 
-instance : Coe Database FactSet where
-  coe := Database.toFactSet
+theorem Fact.toFact_after_toFunctionFreeFact_is_id : ∀ (f : Fact sig), f.toFunctionFreeFact.is_none_or (fun fff => fff.toFact = f) := by
+  intro f
+  cases eq : f.toFunctionFreeFact with
+  | none => simp [Option.is_none_or]
+  | some fff =>
+    simp [Option.is_none_or]
+    unfold FunctionFreeFact.toFact
+    unfold toFunctionFreeFact at eq
+    split at eq
+    case isTrue h =>
+      injection eq with eq
+      rw [← eq]
+      simp
+      apply Fact.ext
+      . simp
+      . simp
+        rw [List.map_attach]
+        simp
+        apply List.ext_get
+        . simp
+        intro n _ _
+        simp
+        split
+        case h_1 _ _ heq _ => rw [heq]; rfl
+        case h_2 _ _ heq _ =>
+          simp at h
+          specialize h f.terms[n] (by apply List.getElem_mem)
+          rw [heq] at h
+          simp at h
+    case isFalse _ => contradiction
+
+def Database.toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite } := ⟨
+  fun x => match (Fact.toFunctionFreeFact x) with
+    | Option.none => False
+    | Option.some fff => fff ∈ db.val,
+  by
+    cases db.property with | intro l property =>
+      exists l.map FunctionFreeFact.toFact
+      intro e
+      simp
+      constructor
+      . intro h; cases h with | intro e' h =>
+        simp [Set.element]
+        rw [← h.right]
+        rw [FunctionFreeFact.toFunctionFreeFact_after_toFact_is_id]
+        simp
+        simp [Set.element] at property
+        rw [← property e']
+        exact h.left
+      . intro h
+        simp [Set.element] at h
+        cases eq : e.toFunctionFreeFact with
+        | none => simp [eq] at h
+        | some e' =>
+          exists e'
+          simp [eq] at h
+          constructor
+          . rw [property e']; exact h
+          . have aux := Fact.toFact_after_toFunctionFreeFact_is_id e
+            rw [eq] at aux
+            simp [Option.is_none_or] at aux
+            exact aux
+⟩
+

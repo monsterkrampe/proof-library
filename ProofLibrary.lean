@@ -1,4 +1,5 @@
 import ProofLibrary.ChaseSequence.Basic
+import ProofLibrary.ChaseSequence.Universality
 import ProofLibrary.ChaseSequence.Deterministic
 import ProofLibrary.Fin
 import ProofLibrary.FiniteTree
