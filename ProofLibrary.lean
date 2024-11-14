@@ -1,6 +1,7 @@
 import ProofLibrary.ChaseSequence.Basic
 import ProofLibrary.ChaseSequence.Universality
 import ProofLibrary.ChaseSequence.Deterministic
+import ProofLibrary.ChaseSequence.Termination
 import ProofLibrary.Fin
 import ProofLibrary.FiniteTree
 import ProofLibrary.KnowledgeBaseBasics
