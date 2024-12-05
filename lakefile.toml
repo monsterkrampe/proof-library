@@ -1,0 +1,6 @@
+name = "ProofLibrary"
+version = "0.1.0"
+defaultTargets = ["ProofLibrary"]
+
+[[lean_lib]]
+name = "ProofLibrary"
