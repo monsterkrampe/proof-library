@@ -201,6 +201,34 @@ theorem Fact.toFact_after_toFunctionFreeFact_is_id : ∀ (f : Fact sig), f.toFun
           simp at h
     case isFalse _ => contradiction
 
+def FactSet.terms (fs : FactSet sig) : Set (GroundTerm sig) := fun t => ∃ f, f ∈ fs ∧ t ∈ f.terms
+
+theorem Factset.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) : fs.terms.finite := by
+  rcases finite with ⟨l, finite⟩
+  exists (l.map Fact.terms).flatten
+  intro e
+  constructor
+  . intro in_l
+    unfold FactSet.terms
+    simp [List.mem_flatten] at in_l
+    rcases in_l with ⟨terms, ex_f, e_in_terms⟩
+    rcases ex_f with ⟨f, f_in_l, terms_eq⟩
+    exists f
+    constructor
+    . rw [← finite]; exact f_in_l
+    . rw [terms_eq]; exact e_in_terms
+  . intro in_fs
+    unfold FactSet.terms at in_fs
+    simp [List.mem_flatten]
+    rcases in_fs with ⟨f, f_in_fs, e_in_f⟩
+    exists f.terms
+    constructor
+    . exists f
+      constructor
+      . rw [finite]; exact f_in_fs
+      . rfl
+    . exact e_in_f
+
 def Database.toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite } := ⟨
   fun x => match (Fact.toFunctionFreeFact x) with
     | Option.none => False

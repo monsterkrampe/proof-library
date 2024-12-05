@@ -334,6 +334,7 @@ namespace List
     cases l with
     | nil => contradiction
     | cons head tail => simp
+
 end List
 
 def List.repeat (val : α) : Nat -> List α

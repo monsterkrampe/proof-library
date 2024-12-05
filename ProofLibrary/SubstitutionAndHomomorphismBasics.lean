@@ -102,10 +102,10 @@ namespace GroundTermMapping
     { predicate := f.predicate, terms := List.map h f.terms }
 
   def applyFactSet (h : GroundTermMapping sig) (fs : FactSet sig) : FactSet sig :=
-    fun f' : Fact sig => ∃ (f : Fact sig), (f ∈ fs) ∧ ((applyFact h f) = f')
+    fun f' : Fact sig => ∃ (f : Fact sig), (f ∈ fs) ∧ ((h.applyFact f) = f')
 
   def isHomomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
-    isIdOnConstants h ∧ (applyFactSet h A ⊆ B)
+    isIdOnConstants h ∧ (h.applyFactSet A ⊆ B)
 
   theorem applyPreservesElement (h : GroundTermMapping sig) (f : Fact sig) (fs : FactSet sig) : f ∈ fs -> applyFact h f ∈ applyFactSet h fs := by
     intro hf
