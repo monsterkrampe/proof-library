@@ -6,6 +6,8 @@ import ProofLibrary.Fin
 import ProofLibrary.FiniteTree
 import ProofLibrary.KnowledgeBaseBasics
 import ProofLibrary.List
+import ProofLibrary.Models.Basic
+import ProofLibrary.Models.Cores
 import ProofLibrary.Option
 import ProofLibrary.PossiblyInfiniteList
 import ProofLibrary.PossiblyInfiniteTree

@@ -8,7 +8,7 @@ abbrev InductiveHomomorphismResult (ct : ChaseTree obs kb) (m : FactSet sig) (de
 -- TODO: split up the following definition (rather the proofs inside) to get rid of heartbeat increase
 set_option maxHeartbeats 1000000
 
-noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb obs kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) (trg_ex : exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst)) : InductiveHomomorphismResult ct m (prev_depth + 1) :=
+noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) (trg_ex : exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst)) : InductiveHomomorphismResult ct m (prev_depth + 1) :=
   let prev_path := prev_result.val.fst
   let prev_hom := prev_result.val.snd
   let prev_cond := prev_result.property
@@ -37,16 +37,14 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       . exact trg_active_for_current_step.left
     apply Set.subsetTransitive
     exact ⟨this, prev_hom_is_homomorphism.right⟩
-  have trg_variant_obsolete_on_m : obs.cond trg_variant_for_m.val m := by
-    have m_models_trg : m.modelsRule obs trg_variant_for_m.val.rule := by exact m_is_model.right trg.val.rule trg.property
-    unfold FactSet.modelsRule at m_models_trg
-    apply m_models_trg
-    constructor
-    rfl
+  have trg_variant_satisfied_on_m : trg_variant_for_m.val.satisfied m := by
+    have m_models_rule : m.modelsRule trg_variant_for_m.val.rule := by exact m_is_model.right trg.val.rule trg.property
+    unfold FactSet.modelsRule at m_models_rule
+    apply m_models_rule
     apply trg_variant_loaded_for_m
 
-  let obs_for_m_subs := Classical.choose (obs.cond_implies_trg_is_satisfied trg_variant_obsolete_on_m)
-  let h_obs_for_m_subs := Classical.choose_spec (obs.cond_implies_trg_is_satisfied trg_variant_obsolete_on_m)
+  let obs_for_m_subs := Classical.choose trg_variant_satisfied_on_m
+  let h_obs_for_m_subs := Classical.choose_spec trg_variant_satisfied_on_m
   let head_index_for_m_subs := Classical.choose h_obs_for_m_subs
   let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_obs_for_m_subs
 
@@ -335,7 +333,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
                   rw [this]
   ⟩
 
-noncomputable def inductive_homomorphism_with_prev_node (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb obs kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) : InductiveHomomorphismResult ct m (prev_depth + 1) :=
+noncomputable def inductive_homomorphism_with_prev_node (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) : InductiveHomomorphismResult ct m (prev_depth + 1) :=
   let trg_ex_dec := Classical.propDecidable (exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst))
   match trg_ex_dec with
   | .isFalse _ =>
@@ -358,7 +356,7 @@ noncomputable def inductive_homomorphism_with_prev_node (ct : ChaseTree obs kb) 
   | .isTrue trg_ex =>
     inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex
 
-noncomputable def inductive_homomorphism (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb obs kb) : (depth : Nat) ->
+noncomputable def inductive_homomorphism (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) : (depth : Nat) ->
   InductiveHomomorphismResult ct m depth
 | .zero => ⟨([], id), by
   simp [Option.is_none_or]; rw [ct.database_first]; simp
@@ -400,7 +398,7 @@ noncomputable def inductive_homomorphism (ct : ChaseTree obs kb) (m : FactSet si
     inductive_homomorphism_with_prev_node ct m m_is_model j ⟨⟨prev_path, prev_hom⟩, prev_cond⟩ prev_node_unwrapped prev_node_eq
 termination_by depth => depth
 
-theorem inductive_homomorphism_with_prev_node_and_trg_path_not_empty (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb obs kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) (trg_ex : exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst)) : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex).val.1 ≠ [] := by
+theorem inductive_homomorphism_with_prev_node_and_trg_path_not_empty (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) (trg_ex : exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst)) : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex).val.1 ≠ [] := by
   unfold inductive_homomorphism_with_prev_node_and_trg
   simp
 
@@ -417,7 +415,7 @@ theorem inductive_homomorphism_path_not_empty {ct : ChaseTree obs kb} : ∀ n, (
   . simp
   apply inductive_homomorphism_with_prev_node_and_trg_path_not_empty
 
-theorem inductive_homomorphism_with_prev_node_and_trg_path_extends_prev (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb obs kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) (trg_ex : exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst)) : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex).val.1 = ((inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex).val.1.head (by apply inductive_homomorphism_with_prev_node_and_trg_path_not_empty)) :: prev_result.val.fst := by
+theorem inductive_homomorphism_with_prev_node_and_trg_path_extends_prev (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) (trg_ex : exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst)) : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex).val.1 = ((inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex).val.1.head (by apply inductive_homomorphism_with_prev_node_and_trg_path_not_empty)) :: prev_result.val.fst := by
   conv => left; rw [List.head_cons_tail _ (inductive_homomorphism_with_prev_node_and_trg_path_not_empty ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex)]
   simp
   unfold inductive_homomorphism_with_prev_node_and_trg
@@ -486,15 +484,13 @@ theorem inductive_homomorphism_with_prev_node_and_trg_latest_index_lt_trg_result
         . exact trg_active_for_current_step.left
       apply Set.subsetTransitive
       exact ⟨this, prev_hom_is_homomorphism.right⟩
-    have trg_variant_obsolete_on_m : obs.cond trg_variant_for_m.val m := by
-      have m_models_trg : m.modelsRule obs trg_variant_for_m.val.rule := by exact m_is_model.right trg.val.rule trg.property
-      unfold FactSet.modelsRule at m_models_trg
-      apply m_models_trg
-      constructor
-      rfl
+    have trg_variant_satisfied_on_m : trg_variant_for_m.val.satisfied m := by
+      have m_models_rule : m.modelsRule trg_variant_for_m.val.rule := by exact m_is_model.right trg.val.rule trg.property
+      unfold FactSet.modelsRule at m_models_rule
+      apply m_models_rule
       apply trg_variant_loaded_for_m
 
-    let h_obs_for_m_subs := Classical.choose_spec (obs.cond_implies_trg_is_satisfied trg_variant_obsolete_on_m)
+    let h_obs_for_m_subs := Classical.choose_spec trg_variant_satisfied_on_m
     let head_index_for_m_subs := Classical.choose h_obs_for_m_subs
 
     have : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_step (inductive_homomorphism ct m m_is_model prev_step) prev_node (by rw [prev_ex]) trg_ex).val.fst = head_index_for_m_subs.val :: prev_result.val.fst := by
@@ -571,7 +567,7 @@ theorem inductive_homomorphism_tree_get_path_none_means_layer_empty {ct : ChaseT
       rw [← this] at succ_none
       contradiction
 
-theorem inductive_homomorphism_same_on_terms_in_next_step (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb obs kb) : ∀ i, (ct.tree.get (inductive_homomorphism ct m m_is_model i).val.fst).is_none_or (fun node => ∀ f t, f ∈ node.fact.val ∧ t ∈ f.terms.toSet -> (inductive_homomorphism ct m m_is_model i).val.snd t = (inductive_homomorphism ct m m_is_model i.succ).val.snd t) := by
+theorem inductive_homomorphism_same_on_terms_in_next_step (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) : ∀ i, (ct.tree.get (inductive_homomorphism ct m m_is_model i).val.fst).is_none_or (fun node => ∀ f t, f ∈ node.fact.val ∧ t ∈ f.terms.toSet -> (inductive_homomorphism ct m m_is_model i).val.snd t = (inductive_homomorphism ct m m_is_model i.succ).val.snd t) := by
   intro i
   cases eq : ct.tree.get (inductive_homomorphism ct m m_is_model i).val.fst with
   | none => simp [Option.is_none_or]
@@ -600,7 +596,7 @@ theorem inductive_homomorphism_same_on_terms_in_next_step (ct : ChaseTree obs kb
             . rw [heq] at eq; injection eq with eq; rw [eq]; exact precondition.left
             . exact precondition.right
 
-theorem inductive_homomorphism_same_on_all_following_terms (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb obs kb) : ∀ i, (ct.tree.get (inductive_homomorphism ct m m_is_model i).val.fst).is_none_or (fun node => ∀ j f t, f ∈ node.fact.val ∧ t ∈ f.terms.toSet -> (inductive_homomorphism ct m m_is_model i).val.snd t = (inductive_homomorphism ct m m_is_model (i+j)).val.snd t) := by
+theorem inductive_homomorphism_same_on_all_following_terms (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) : ∀ i, (ct.tree.get (inductive_homomorphism ct m m_is_model i).val.fst).is_none_or (fun node => ∀ j f t, f ∈ node.fact.val ∧ t ∈ f.terms.toSet -> (inductive_homomorphism ct m m_is_model i).val.snd t = (inductive_homomorphism ct m m_is_model (i+j)).val.snd t) := by
   intro i
   cases eq : ct.tree.get (inductive_homomorphism ct m m_is_model i).val.fst with
   | none => simp [Option.is_none_or]
@@ -633,7 +629,7 @@ theorem inductive_homomorphism_same_on_all_following_terms (ct : ChaseTree obs k
           exact precond.left
         . exact precond.right
 
-theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb obs kb -> ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
+theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb kb -> ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
   intro m m_is_model
 
   let inductive_homomorphism_shortcut := inductive_homomorphism ct m m_is_model

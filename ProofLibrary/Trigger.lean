@@ -74,6 +74,11 @@ namespace PreTrigger
   def loaded (trg : PreTrigger sig) (F : FactSet sig) : Prop :=
     trg.mapped_body.toSet ⊆ F
 
+  def satisfied (trg : PreTrigger sig) (F : FactSet sig) : Prop :=
+    ∃ (s : GroundSubstitution sig) (i : Fin trg.rule.head.length),
+      (∀ v, v ∈ (Rule.frontier trg.rule) → s v = trg.subs v) ∧
+      ((s.apply_function_free_conj (trg.rule.head.get i)).toSet ⊆ F)
+
   theorem term_mapping_preserves_loadedness (trg : PreTrigger sig) (F : FactSet sig) (h : GroundTermMapping sig) (hh : h.isIdOnConstants) : trg.loaded F -> { rule := trg.rule, subs := h ∘ trg.subs : PreTrigger sig }.loaded (h.applyFactSet F) := by
     simp [loaded, mapped_body]
     induction trg.rule.body with
@@ -150,12 +155,8 @@ end PreTrigger
 structure ObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
   cond : PreTrigger sig -> FactSet sig -> Prop
   monotone : ∀ trg (A B : FactSet sig), A ⊆ B -> cond trg A -> cond trg B
-  cond_implies_trg_is_satisfied : cond trg F ->
-    ∃ (s : GroundSubstitution sig) (i : Fin trg.rule.head.length),
-      (∀ v, v ∈ (Rule.frontier trg.rule) → s v = trg.subs v) ∧
-      ((s.apply_function_free_conj (trg.rule.head.get i)).toSet ⊆ F)
+  cond_implies_trg_is_satisfied : cond trg F -> trg.satisfied F
   contains_trg_result_implies_cond : ∀ {trg : PreTrigger sig} {F} (disj_index : Fin trg.result.length), (trg.result.get disj_index) ⊆ F -> cond trg F
-
 
 def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) (F : FactSet sig) => ∃ i : Fin trg.mapped_head.length, (trg.mapped_head.get i).toSet ⊆ F
@@ -173,11 +174,11 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
     simp
     intro i h
     exists (fun v => trg.apply_to_var_or_const i (VarOrConst.var v))
+    exists ⟨i, by rw [PreTrigger.head_length_eq_mapped_head_length]; exact i.isLt⟩
     constructor
     . intro v v_in_frontier
       simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, v_in_frontier]
-    . exists ⟨i, by rw [PreTrigger.head_length_eq_mapped_head_length]; exact i.isLt⟩
-      have : trg.mapped_head[i.val] = (trg.rule.head[i]'(by rw [PreTrigger.head_length_eq_mapped_head_length]; exact i.isLt)).map (fun a => { predicate := a.predicate, terms := a.terms.map (trg.apply_to_var_or_const i)}) := by
+    . have : trg.mapped_head[i.val] = (trg.rule.head[i]'(by rw [PreTrigger.head_length_eq_mapped_head_length]; exact i.isLt)).map (fun a => { predicate := a.predicate, terms := a.terms.map (trg.apply_to_var_or_const i)}) := by
         unfold PreTrigger.mapped_head
         unfold PreTrigger.apply_to_function_free_atom
         simp
@@ -205,13 +206,10 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
 }
 
 def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
-  cond := fun (trg : PreTrigger sig) (F : FactSet sig) =>
-    ∃ (s : GroundSubstitution sig) (i : Fin trg.rule.head.length),
-      (∀ v, v ∈ (Rule.frontier trg.rule) → s v = trg.subs v) ∧
-      ((s.apply_function_free_conj (trg.rule.head.get i)).toSet ⊆ F)
+  cond := fun (trg : PreTrigger sig) (F : FactSet sig) => trg.satisfied F
   monotone := by
     intro trg A B A_sub_B
-    simp
+    simp [PreTrigger.satisfied]
     intro subs frontier_same_under_subs i applied_head_sub_A
     exists subs
     constructor
@@ -273,27 +271,6 @@ namespace Trigger
   def active (trg : Trigger obs) (F : FactSet sig) : Prop :=
     trg.loaded F ∧ ¬ (obs.cond trg F)
 end Trigger
-
-namespace FactSet
-  variable (obs : ObsoletenessCondition sig)
-  def modelsDb (fs : FactSet sig) (db : Database sig) : Prop :=
-    db.toFactSet ⊆ fs
-
-  def modelsRule (fs : FactSet sig) (rule : Rule sig) : Prop :=
-    ∀ (trg : Trigger obs),
-      (trg.rule = rule ∧ trg.loaded fs)
-      -> obs.cond trg fs
-
-  def modelsRules (fs : FactSet sig) (rules : RuleSet sig) : Prop :=
-    ∀ r, r ∈ rules.rules -> fs.modelsRule obs r
-
-  def modelsKb (fs : FactSet sig) (kb : KnowledgeBase sig) : Prop :=
-    fs.modelsDb kb.db ∧ fs.modelsRules obs kb.rules
-
-  def universallyModelsKb (fs : FactSet sig) (kb : KnowledgeBase sig) : Prop :=
-    fs.modelsKb obs kb ∧
-    (∀ (m : FactSet sig), m.modelsKb obs kb -> ∃ (h : GroundTermMapping sig), h.isHomomorphism fs m)
-end FactSet
 
 def RTrigger (obs : ObsoletenessCondition sig) (r : RuleSet sig) := { trg : Trigger obs // trg.rule ∈ r.rules}
 

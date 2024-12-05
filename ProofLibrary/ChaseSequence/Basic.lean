@@ -1,4 +1,5 @@
 import ProofLibrary.KnowledgeBaseBasics
+import ProofLibrary.Models.Basic
 import ProofLibrary.Trigger
 import ProofLibrary.Logic
 import ProofLibrary.PossiblyInfiniteTree
@@ -652,7 +653,7 @@ theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (ct : ChaseTree obs kb
       simp [Option.is_none_or] at subsetAllFollowing
       exact subsetAllFollowing
 
-theorem chaseBranchResultModelsKb (cb : ChaseBranch obs kb) : cb.result.modelsKb obs kb := by
+theorem chaseBranchResultModelsKb (cb : ChaseBranch obs kb) : cb.result.modelsKb kb := by
   constructor
   . unfold FactSet.modelsDb
     unfold ChaseBranch.result
@@ -665,11 +666,24 @@ theorem chaseBranchResultModelsKb (cb : ChaseBranch obs kb) : cb.result.modelsKb
     intro r h
     unfold FactSet.modelsRule
     simp
-    intro trg trg_rule trg_loaded
+    intro subs subs_loaded
     apply Classical.byContradiction
-    intro trg_not_obsolete
+    intro subs_not_obsolete
+    let trg : Trigger obs := ⟨r, subs⟩
+    have trg_loaded : trg.loaded cb.result := by apply subs_loaded
+    have trg_not_obsolete : ¬ obs.cond trg cb.result := by
+      intro contra
+      have obs_impl_sat := obs.cond_implies_trg_is_satisfied contra
+      apply subs_not_obsolete
+      rcases obs_impl_sat with ⟨s', i, obs_impl_sat⟩
+      exists s'
+      constructor
+      . exact obs_impl_sat.left
+      . exists i
+        exact obs_impl_sat.right
+
     cases (trgActiveForChaseResultMeansActiveAtSomeIndex cb trg ⟨trg_loaded, trg_not_obsolete⟩) with | intro i active_i =>
-      have not_active_eventually := cb.fairness ⟨trg, by rw [← trg_rule] at h; apply h⟩
+      have not_active_eventually := cb.fairness ⟨trg, by apply h⟩
       cases not_active_eventually with | intro j not_active =>
         have not_active_j := not_active.left
         simp [Trigger.active] at not_active_j
@@ -711,7 +725,7 @@ theorem chaseBranchResultModelsKb (cb : ChaseBranch obs kb) : cb.result.modelsKb
           exact step_j_subs_result
           exact obsolete_j
 
-theorem chaseTreeResultModelsKb (ct : ChaseTree obs kb) : ∀ fs, fs ∈ ct.result -> fs.modelsKb obs kb := by
+theorem chaseTreeResultModelsKb (ct : ChaseTree obs kb) : ∀ fs, fs ∈ ct.result -> fs.modelsKb kb := by
   intro fs is_result
   unfold Set.element at is_result
   unfold ChaseTree.result at is_result
