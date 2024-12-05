@@ -79,8 +79,7 @@ end FunctionFreeAtom
 
 namespace FunctionFreeConjunction
 
-  def vars (conj : FunctionFreeConjunction sig) : List sig.V :=
-    List.foldl (fun acc vs => acc ++ vs) (List.nil) (List.map FunctionFreeAtom.variables conj)
+  def vars (conj : FunctionFreeConjunction sig) : List sig.V := (conj.map FunctionFreeAtom.variables).flatten
 
   theorem v_in_vars_occurs_in_fact (conj : FunctionFreeConjunction sig) : ∀ v, v ∈ conj.vars -> ∃ f, f ∈ conj.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by
     unfold vars
@@ -88,19 +87,18 @@ namespace FunctionFreeConjunction
     | nil => intros; contradiction
     | cons head tail =>
       intro v vInVars
-      have vInSomeMappedAtom := List.elemFlattenAlsoElemSomeList _ _ vInVars
-      cases vInSomeMappedAtom with | intro L' hL' =>
-        have vInSomeOriginalAtom := List.exElemInMappedListMeansOriginalElemExistsThatMapsToIt _ _ _ hL'.left
-        cases vInSomeOriginalAtom with | intro e' he' =>
+      rw [List.mem_flatten] at vInVars
+      cases vInVars with | intro L' hL' =>
+        simp only [List.mem_map] at hL'
+        cases hL'.left with | intro e' he' =>
           exists e'
           constructor
           . apply List.listElementAlsoToSetElement
             exact he'.left
           . have : v ∈ (FunctionFreeAtom.variables e').toSet := by
               apply List.listElementAlsoToSetElement
-              have hL'right := hL'.right
-              rw [he'.right] at hL'right
-              apply hL'right
+              rw [he'.right]
+              apply hL'.right
 
             apply VarOrConst.filterVars_occur_in_original_list
             unfold FunctionFreeAtom.variables at this

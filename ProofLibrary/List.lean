@@ -61,52 +61,10 @@ namespace List
           | inl eIsA => apply Or.inl; rw [eIsA]
           | inr eInAs => apply Or.inr; apply mappedElemInMappedList; exact eInAs
 
-  theorem exElemInMappedListMeansOriginalElemExistsThatMapsToIt (L : List α) (f : α -> β) (e : β): e ∈ (L.map f) -> (∃ e', e' ∈ L ∧ e = f e') := by
-    cases L with
-    | nil => intros; contradiction
-    | cons head tail =>
-      intro he
-      simp [map] at he
-      cases he with
-      | inl _ => exists head; constructor; simp; assumption
-      | inr hr =>
-        cases hr with | intro e' he' =>
-          exists e'
-          constructor
-          . simp; right; exact he'.left
-          . apply Eq.symm; exact he'.right
-
   theorem combine_nested_map (L : List α) (f : α -> β) (g : β -> γ) : List.map g (List.map f L) = List.map (g ∘ f) L := by
     induction L
     case nil => simp [map]
     case cons _ _ ih => simp [map, ih]
-
-  def sum : List Nat -> Nat
-    | nil => 0
-    | cons h tail => h + tail.sum
-
-  theorem headLeSum (L : List Nat) : L = List.cons h t -> h ≤ L.sum := by
-    intro e
-    rw [e]
-    simp [sum]
-
-  theorem tailSumLeSum (L : List Nat) : L = List.cons h t -> t.sum ≤ L.sum := by
-    intro e
-    rw [e]
-    simp [sum]
-
-  theorem everyElementLeSum (L : List Nat) : ∀ e, e ∈ L.toSet -> e ≤ L.sum := by
-    intros e h
-    cases L with
-      | nil => simp [List.toSet, Set.element, Set.emptyset] at h
-      | cons h tail =>
-        simp [List.toSet, Set.element, Set.union] at h
-        cases h with
-          | inl hl => rw [hl]; apply headLeSum; rfl
-          | inr hr =>
-            have eLeThisTailSum := everyElementLeSum tail e hr
-            have thisTailSumLeSum : tail.sum ≤ (h :: tail).sum := by apply tailSumLeSum; rfl
-            exact Nat.le_trans eLeThisTailSum thisTailSumLeSum
 
   def before_index : List α -> Nat -> List α
     | nil => fun _ => nil
@@ -351,37 +309,6 @@ namespace List
       . intros; right; apply ih; assumption
 
   theorem elemConcatIffElemOfOne (L L' : List α) : ∀ e, e ∈ (L ++ L') ↔ e ∈ L ∨ e ∈ L' := by simp
-
-  def flatten (L : List (List α)) : List α := L.foldl (fun acc L' => acc ++ L') (List.nil)
-
-  theorem elemFlattenAlsoElemSomeListHelper [BEq α] [LawfulBEq α] (L : List (List α)) : ∀ e (L' : List _), ¬e ∈ L' ∧ e ∈ (L.foldl (fun acc L'' => acc ++ L'') L') -> ∃ L'', L'' ∈ L ∧ e ∈ L'' := by
-    induction L with
-    | nil => intro _ _ ⟨not_elem, elem_flatten⟩; contradiction
-    | cons head tail ih =>
-      intro e L' he
-      simp only [foldl] at he
-
-      cases Decidable.em (e ∈ head) with
-      | inl e_in_head => exists head; constructor; simp [elem]; exact e_in_head
-      | inr not_e_in_head =>
-        have ex_l_in_tail := ih e (L' ++ head) (by
-          constructor
-          . rw [elemConcatIffElemOfOne]; intro hcontra; cases hcontra with | inl hl => apply he.left; exact hl | inr hr => contradiction
-          . exact he.right
-        )
-        cases ex_l_in_tail with | intro l hl =>
-          exists l
-          constructor
-          . right; exact hl.left
-          . exact hl.right
-
-  theorem elemFlattenAlsoElemSomeList [BEq α] [LawfulBEq α] (L : List (List α)) : ∀ e, e ∈ (L.foldl (fun acc L' => acc ++ L') (List.nil)) -> ∃ L', L' ∈ L ∧ e ∈ L' := by
-    intro e h_flatten
-    exact elemFlattenAlsoElemSomeListHelper L e List.nil (by
-      constructor
-      . simp
-      . exact h_flatten
-    )
 
   theorem concatEqMeansPartsEqIfSameLength (as bs cs ds : List α) (h : as.length = cs.length) : as ++ bs = cs ++ ds -> as = cs ∧ bs = ds := by
     induction as generalizing cs with
