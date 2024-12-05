@@ -11,6 +11,6 @@ and a proof that the result of such a sequence is a universal model. (This is a 
 
 Using [`elan`](https://github.com/leanprover/elan) / `lake`:
 
-- Install `elan`, e.g. via `nix-shell -p elan` if you are using nix.
+- Install `elan`, e.g. via `nix-shell -p elan` or simply `nix develop` if you are using nix.
 - Run `lake build` to build the project. If the build is successful, the proofs are correct :tada:
 
