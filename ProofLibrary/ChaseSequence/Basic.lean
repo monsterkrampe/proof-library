@@ -24,14 +24,16 @@ def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig
           exists l_before ++ trg.val.mapped_head[i.val]'(by have isLt := i.isLt; unfold PreTrigger.result at isLt; simp at isLt; exact isLt)
           simp [Set.union, Set.element]
           simp [Set.element] at h
-          intro e
           constructor
-          . intro h'; cases h' with
-            | inl h' => apply Or.inl; rw [← h]; exact h'
-            | inr h' => apply Or.inr; rw [List.inIffInToSet] at h'; exact h'
-          . intro h'; cases h' with
-            | inl h' => apply Or.inl; rw [h]; exact h'
-            | inr h' => apply Or.inr; rw [List.inIffInToSet]; exact h'
+          . sorry
+          . intro e
+            constructor
+            . intro h'; cases h' with
+              | inl h' => apply Or.inl; rw [← h.right]; exact h'
+              | inr h' => apply Or.inr; rw [List.inIffInToSet] at h'; exact h'
+            . intro h'; cases h' with
+              | inl h' => apply Or.inl; rw [h.right]; exact h'
+              | inr h' => apply Or.inr; rw [List.inIffInToSet]; exact h'
     ⟩
     origin := some ⟨trg, i⟩
     fact_contains_origin_result := by simp [Option.is_none_or]; apply Set.subsetUnionSomethingStillSubset'; apply Set.subsetOfSelf
@@ -50,14 +52,16 @@ def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : Rul
           exists l_before ++ trg.val.mapped_head[i.val]'(by have isLt := i.isLt; unfold PreTrigger.result at isLt; simp at isLt; exact isLt)
           simp [Set.union, Set.element]
           simp [Set.element] at h_before
-          intro e
           constructor
-          . intro h'; cases h' with
-            | inl h' => apply Or.inl; rw [← h_before]; exact h'
-            | inr h' => apply Or.inr; rw [List.inIffInToSet] at h'; rw [h] at h'; exact h'
-          . intro h'; cases h' with
-            | inl h' => apply Or.inl; rw [h_before]; exact h'
-            | inr h' => apply Or.inr; rw [List.inIffInToSet]; rw [h]; exact h'
+          . sorry
+          . intro e
+            constructor
+            . intro h'; cases h' with
+              | inl h' => apply Or.inl; rw [← h_before.right]; exact h'
+              | inr h' => apply Or.inr; rw [List.inIffInToSet] at h'; rw [h] at h'; exact h'
+            . intro h'; cases h' with
+              | inl h' => apply Or.inl; rw [h_before.right]; exact h'
+              | inr h' => apply Or.inr; rw [List.inIffInToSet]; rw [h]; exact h'
     ⟩
     origin := some ⟨trg, i⟩
     fact_contains_origin_result := by

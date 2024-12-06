@@ -204,30 +204,32 @@ theorem Fact.toFact_after_toFunctionFreeFact_is_id : ∀ (f : Fact sig), f.toFun
 def FactSet.terms (fs : FactSet sig) : Set (GroundTerm sig) := fun t => ∃ f, f ∈ fs ∧ t ∈ f.terms
 
 theorem Factset.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) : fs.terms.finite := by
-  rcases finite with ⟨l, finite⟩
+  rcases finite with ⟨l, nodup, finite⟩
   exists (l.map Fact.terms).flatten
-  intro e
   constructor
-  . intro in_l
-    unfold FactSet.terms
-    simp [List.mem_flatten] at in_l
-    rcases in_l with ⟨terms, ex_f, e_in_terms⟩
-    rcases ex_f with ⟨f, f_in_l, terms_eq⟩
-    exists f
+  . sorry
+  . intro e
     constructor
-    . rw [← finite]; exact f_in_l
-    . rw [terms_eq]; exact e_in_terms
-  . intro in_fs
-    unfold FactSet.terms at in_fs
-    simp [List.mem_flatten]
-    rcases in_fs with ⟨f, f_in_fs, e_in_f⟩
-    exists f.terms
-    constructor
-    . exists f
+    . intro in_l
+      unfold FactSet.terms
+      simp [List.mem_flatten] at in_l
+      rcases in_l with ⟨terms, ex_f, e_in_terms⟩
+      rcases ex_f with ⟨f, f_in_l, terms_eq⟩
+      exists f
       constructor
-      . rw [finite]; exact f_in_fs
-      . rfl
-    . exact e_in_f
+      . rw [← finite]; exact f_in_l
+      . rw [terms_eq]; exact e_in_terms
+    . intro in_fs
+      unfold FactSet.terms at in_fs
+      simp [List.mem_flatten]
+      rcases in_fs with ⟨f, f_in_fs, e_in_f⟩
+      exists f.terms
+      constructor
+      . exists f
+        constructor
+        . rw [finite]; exact f_in_fs
+        . rfl
+      . exact e_in_f
 
 def Database.toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite } := ⟨
   fun x => match (Fact.toFunctionFreeFact x) with
@@ -236,29 +238,31 @@ def Database.toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite } :
   by
     cases db.property with | intro l property =>
       exists l.map FunctionFreeFact.toFact
-      intro e
-      simp
       constructor
-      . intro h; cases h with | intro e' h =>
-        simp [Set.element]
-        rw [← h.right]
-        rw [FunctionFreeFact.toFunctionFreeFact_after_toFact_is_id]
+      . sorry
+      . intro e
         simp
-        simp [Set.element] at property
-        rw [← property e']
-        exact h.left
-      . intro h
-        simp [Set.element] at h
-        cases eq : e.toFunctionFreeFact with
-        | none => simp [eq] at h
-        | some e' =>
-          exists e'
-          simp [eq] at h
-          constructor
-          . rw [property e']; exact h
-          . have aux := Fact.toFact_after_toFunctionFreeFact_is_id e
-            rw [eq] at aux
-            simp [Option.is_none_or] at aux
-            exact aux
+        constructor
+        . intro h; cases h with | intro e' h =>
+          simp [Set.element]
+          rw [← h.right]
+          rw [FunctionFreeFact.toFunctionFreeFact_after_toFact_is_id]
+          simp
+          simp [Set.element] at property
+          rw [← property.right e']
+          exact h.left
+        . intro h
+          simp [Set.element] at h
+          cases eq : e.toFunctionFreeFact with
+          | none => simp [eq] at h
+          | some e' =>
+            exists e'
+            simp [eq] at h
+            constructor
+            . rw [property.right e']; exact h
+            . have aux := Fact.toFact_after_toFunctionFreeFact_is_id e
+              rw [eq] at aux
+              simp [Option.is_none_or] at aux
+              exact aux
 ⟩
 

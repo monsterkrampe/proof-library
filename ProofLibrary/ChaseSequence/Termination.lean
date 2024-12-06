@@ -64,38 +64,40 @@ section GeneralResults
             cases node.fact.property with | intro l hl =>
               exists l
               unfold ChaseBranch.result
-              intro e
-              rw [hl e]
-              simp [Set.element]
               constructor
-              . intro e_in_node
-                exists n
-                rw [eq]
-                simp [Option.is_some_and]
-                exact e_in_node
-              . intro ex_n'
-                cases ex_n' with | intro n' hn' =>
-                  have : n' ≤ n := by
-                    apply Decidable.byContradiction
-                    intro contra
-                    simp at contra
-                    have contra := h.right n' contra
-                    rw [contra] at hn'
-                    simp [Option.is_some_and] at hn'
-                  have subset := chaseBranchSetIsSubsetOfAllFollowing branch n' (n-n')
-                  cases eq' : branch.branch.infinite_list n' with
-                  | none => rw [eq'] at hn'; simp [Option.is_some_and] at hn'
-                  | some node' =>
-                    rw [eq'] at hn'
-                    simp [Option.is_some_and] at hn'
-                    rw [eq'] at subset
-                    simp at subset
-                    have : n' + (n - n') = n := by apply Nat.add_sub_of_le; exact this
-                    rw [this] at subset
-                    rw [eq] at subset
-                    simp [Option.is_none_or] at subset
-                    apply subset
-                    exact hn'
+              . exact hl.left
+              . intro e
+                rw [hl.right e]
+                simp [Set.element]
+                constructor
+                . intro e_in_node
+                  exists n
+                  rw [eq]
+                  simp [Option.is_some_and]
+                  exact e_in_node
+                . intro ex_n'
+                  cases ex_n' with | intro n' hn' =>
+                    have : n' ≤ n := by
+                      apply Decidable.byContradiction
+                      intro contra
+                      simp at contra
+                      have contra := h.right n' contra
+                      rw [contra] at hn'
+                      simp [Option.is_some_and] at hn'
+                    have subset := chaseBranchSetIsSubsetOfAllFollowing branch n' (n-n')
+                    cases eq' : branch.branch.infinite_list n' with
+                    | none => rw [eq'] at hn'; simp [Option.is_some_and] at hn'
+                    | some node' =>
+                      rw [eq'] at hn'
+                      simp [Option.is_some_and] at hn'
+                      rw [eq'] at subset
+                      simp at subset
+                      have : n' + (n - n') = n := by apply Nat.add_sub_of_le; exact this
+                      rw [this] at subset
+                      rw [eq] at subset
+                      simp [Option.is_none_or] at subset
+                      apply subset
+                      exact hn'
       . intro h
         rcases h with ⟨l, h⟩
         unfold ChaseBranch.result at h
@@ -157,7 +159,7 @@ section GeneralResults
               . rw [eq_n_ih] at ih; simp [Option.is_some_and] at ih
                 exact ih
 
-        specialize this l (by intro e; exact (h e).mp)
+        specialize this l (by intro e; exact (h.right e).mp)
         rcases this with ⟨n, this⟩
 
         have trg_ex := branch.triggers_exist
@@ -186,7 +188,7 @@ section GeneralResults
             rw [eq] at this
             simp [Option.is_some_and] at this
             apply this
-            apply (h e).mpr
+            apply (h.right e).mpr
             exists n+1
             rw [← eq_fs]
             simp [Option.is_some_and]
