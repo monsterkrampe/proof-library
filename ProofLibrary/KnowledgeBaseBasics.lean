@@ -55,7 +55,6 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 
 namespace FunctionFreeAtom
 
-  -- TODO: remove duplicates here maybe
   def variables (a : FunctionFreeAtom sig) : List sig.V := VarOrConst.filterVars a.terms
 
   def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (a : FunctionFreeAtom sig) : Atom sig := { predicate := a.predicate, terms := a.terms.map (VarOrConst.skolemize ruleId disjunctIndex frontier) }
@@ -205,14 +204,14 @@ def FactSet.terms (fs : FactSet sig) : Set (GroundTerm sig) := fun t => ∃ f, f
 
 theorem Factset.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) : fs.terms.finite := by
   rcases finite with ⟨l, nodup, finite⟩
-  exists (l.map Fact.terms).flatten
+  exists (l.map Fact.terms).flatten.eraseDupsKeepRight
   constructor
-  . sorry
+  . apply List.nodup_eraseDupsKeepRight
   . intro e
     constructor
     . intro in_l
       unfold FactSet.terms
-      simp [List.mem_flatten] at in_l
+      simp [List.mem_eraseDupsKeepRight_iff, List.mem_flatten] at in_l
       rcases in_l with ⟨terms, ex_f, e_in_terms⟩
       rcases ex_f with ⟨f, f_in_l, terms_eq⟩
       exists f
@@ -221,7 +220,7 @@ theorem Factset.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) :
       . rw [terms_eq]; exact e_in_terms
     . intro in_fs
       unfold FactSet.terms at in_fs
-      simp [List.mem_flatten]
+      simp [List.mem_eraseDupsKeepRight_iff, List.mem_flatten]
       rcases in_fs with ⟨f, f_in_fs, e_in_f⟩
       exists f.terms
       constructor
@@ -237,10 +236,11 @@ def Database.toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite } :
     | Option.some fff => fff ∈ db.val,
   by
     cases db.property with | intro l property =>
-      exists l.map FunctionFreeFact.toFact
+      exists (l.map FunctionFreeFact.toFact).eraseDupsKeepRight
       constructor
-      . sorry
+      . apply List.nodup_eraseDupsKeepRight
       . intro e
+        rw [List.mem_eraseDupsKeepRight_iff]
         simp
         constructor
         . intro h; cases h with | intro e' h =>

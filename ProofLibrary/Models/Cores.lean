@@ -252,6 +252,63 @@ namespace FactSet
   def isStrongCore (fs : FactSet sig) : Prop :=
     ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs fs ∧ h.injective_for_domain_set fs.terms ∧ h.surjective_for_domain_and_image_set fs.terms fs.terms
 
+  theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) : ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injective_for_domain_set fs.terms -> h.surjective_for_domain_and_image_set fs.terms fs.terms := by
+    rcases finite with ⟨l, finite⟩
+    intro h isHom inj
+
+    let terms_list := (l.map Fact.terms).flatten.eraseDupsKeepRight
+    have nodup_terms_list : terms_list.Nodup := by apply List.nodup_eraseDupsKeepRight
+    have mem_terms_list : ∀ e, e ∈ terms_list ↔ e ∈ fs.terms := by
+      simp only [terms_list]
+      intro e
+      rw [List.mem_eraseDupsKeepRight_iff]
+      unfold FactSet.terms
+      simp
+      constructor
+      . intro h
+        rcases h with ⟨ts, h, ts_mem⟩
+        rcases h with ⟨f, f_mem, eq⟩
+        exists f
+        rw [eq]
+        rw [← finite.right f]
+        constructor <;> assumption
+      . intro h
+        rcases h with ⟨f, f_mem, e_mem⟩
+        exists f.terms
+        constructor
+        . exists f; rw [finite.right f]; constructor; exact f_mem; rfl
+        . exact e_mem
+    have closed : ∀ e, e ∈ terms_list -> h e ∈ terms_list := by
+      simp only [terms_list]
+      intro e
+      rw [List.mem_eraseDupsKeepRight_iff]
+      rw [List.mem_eraseDupsKeepRight_iff]
+      simp
+      intro f f_mem e_in_f
+      let f' := h.applyFact f
+      have f'_mem : f' ∈ fs := by
+        apply isHom.right
+        unfold GroundTermMapping.applyFactSet
+        exists f
+        rw [← finite.right]
+        constructor
+        . exact f_mem
+        . rfl
+      exists f'.terms
+      constructor
+      . exists f'
+        constructor
+        . rw [finite.right]; exact f'_mem
+        . rfl
+      . simp only [f', GroundTermMapping.applyFact]
+        simp
+        exists e
+
+    rw [Function.surjective_set_list_equiv h fs.terms terms_list mem_terms_list fs.terms terms_list mem_terms_list]
+    rw [← Function.injective_iff_surjective_of_nodup_of_closed h terms_list nodup_terms_list closed]
+    rw [← Function.injective_set_list_equiv h fs.terms terms_list mem_terms_list]
+    exact inj
+
   theorem isStrongCore_of_isWeakCore_of_finite (fs : FactSet sig) (weakCore : fs.isWeakCore) (finite : fs.finite) : fs.isStrongCore := by
     rcases finite with ⟨l, finite⟩
     unfold isStrongCore
@@ -262,11 +319,10 @@ namespace FactSet
     . exact strong
     constructor
     . exact injective
-    . let terms_list := (l.map Fact.terms).flatten -- TODO: maybe dedup needed...
-      rw [Function.surjective_set_list_equiv h fs.terms terms_list sorry fs.terms terms_list sorry]
-      rw [← Function.injective_iff_surjective_of_nodup_of_closed h terms_list sorry sorry]
-      rw [← Function.injective_set_list_equiv h fs.terms terms_list sorry]
-      exact injective
+    . apply hom_surjective_of_finite_of_injective
+      . unfold Set.finite; exists l
+      . exact isHom
+      . exact injective
 
 end FactSet
 

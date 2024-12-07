@@ -21,12 +21,14 @@ def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig
         unfold PreTrigger.result
         simp
         cases before.fact.property with | intro l_before h =>
-          exists l_before ++ trg.val.mapped_head[i.val]'(by have isLt := i.isLt; unfold PreTrigger.result at isLt; simp at isLt; exact isLt)
+          let new_list := (l_before ++ trg.val.mapped_head[i.val]'(by have isLt := i.isLt; unfold PreTrigger.result at isLt; simp at isLt; exact isLt)).eraseDupsKeepRight
+          exists new_list
           simp [Set.union, Set.element]
           simp [Set.element] at h
           constructor
-          . sorry
+          . apply List.nodup_eraseDupsKeepRight
           . intro e
+            simp [new_list, List.mem_eraseDupsKeepRight_iff]
             constructor
             . intro h'; cases h' with
               | inl h' => apply Or.inl; rw [← h.right]; exact h'
@@ -49,12 +51,14 @@ def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : Rul
         simp at h
         unfold Set.finite
         cases before.fact.property with | intro l_before h_before =>
-          exists l_before ++ trg.val.mapped_head[i.val]'(by have isLt := i.isLt; unfold PreTrigger.result at isLt; simp at isLt; exact isLt)
+          let new_terms := (l_before ++ trg.val.mapped_head[i.val]'(by have isLt := i.isLt; unfold PreTrigger.result at isLt; simp at isLt; exact isLt)).eraseDupsKeepRight
+          exists new_terms
           simp [Set.union, Set.element]
           simp [Set.element] at h_before
           constructor
-          . sorry
+          . apply List.nodup_eraseDupsKeepRight
           . intro e
+            simp [new_terms, List.mem_eraseDupsKeepRight_iff]
             constructor
             . intro h'; cases h' with
               | inl h' => apply Or.inl; rw [← h_before.right]; exact h'
