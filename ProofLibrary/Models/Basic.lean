@@ -10,7 +10,7 @@ namespace FactSet
   def modelsRule (fs : FactSet sig) (rule : Rule sig) : Prop :=
     ∀ (s : GroundSubstitution sig),
       ((s.apply_function_free_conj rule.body).toSet ⊆ fs) ->
-        ∃ (s' : GroundSubstitution sig) (i : Fin rule.head.length),
+        ∃ (i : Fin rule.head.length) (s' : GroundSubstitution sig),
           (∀ v, v ∈ rule.frontier → s' v = s v) ∧
           ((s'.apply_function_free_conj (rule.head.get i)).toSet ⊆ fs)
 

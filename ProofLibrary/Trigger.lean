@@ -74,10 +74,13 @@ namespace PreTrigger
   def loaded (trg : PreTrigger sig) (F : FactSet sig) : Prop :=
     trg.mapped_body.toSet ⊆ F
 
-  def satisfied (trg : PreTrigger sig) (F : FactSet sig) : Prop :=
-    ∃ (s : GroundSubstitution sig) (i : Fin trg.rule.head.length),
+  def satisfied_for_disj (trg : PreTrigger sig) (F : FactSet sig) (disj_index : Fin trg.rule.head.length) : Prop :=
+    ∃ (s : GroundSubstitution sig),
       (∀ v, v ∈ (Rule.frontier trg.rule) → s v = trg.subs v) ∧
-      ((s.apply_function_free_conj (trg.rule.head.get i)).toSet ⊆ F)
+      ((s.apply_function_free_conj (trg.rule.head.get disj_index)).toSet ⊆ F)
+
+  def satisfied (trg : PreTrigger sig) (F : FactSet sig) : Prop :=
+    ∃ disj_index, trg.satisfied_for_disj F disj_index
 
   theorem term_mapping_preserves_loadedness (trg : PreTrigger sig) (F : FactSet sig) (h : GroundTermMapping sig) (hh : h.isIdOnConstants) : trg.loaded F -> { rule := trg.rule, subs := h ∘ trg.subs : PreTrigger sig }.loaded (h.applyFactSet F) := by
     simp [loaded, mapped_body]
@@ -150,6 +153,22 @@ namespace PreTrigger
 
     unfold result
     rw [this]
+
+  theorem result_term_not_in_frontier_image_of_var_not_in_frontier (trg : PreTrigger sig) (disj_index : Fin trg.result.length) (v : sig.V) (v_not_in_frontier : ¬ v ∈ trg.rule.frontier) :
+      ¬ trg.apply_to_var_or_const disj_index.val (VarOrConst.var v) ∈ trg.rule.frontier.map trg.subs := by
+    intro contra
+    apply v_not_in_frontier
+    simp at contra
+    rcases contra with ⟨u, u_in_frontier, u_eq⟩
+
+    have := subs_application_is_injective_for_freshly_introduced_terms trg ⟨disj_index, by rw [head_length_eq_mapped_head_length]; have isLt := disj_index.isLt; unfold result at isLt; simp at isLt; exact isLt⟩ v_not_in_frontier u (by
+      rw [← u_eq]
+      simp [apply_to_var_or_const, skolemize_var_or_const, apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, u_in_frontier]
+    )
+    have : VarOrConst.var v = VarOrConst.var u := by apply VarOrConst.skolemize_injective; apply this
+    injection this with this
+    rw [this]
+    exact u_in_frontier
 end PreTrigger
 
 structure ObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
@@ -173,8 +192,8 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
     intro trg F
     simp
     intro i h
-    exists (fun v => trg.apply_to_var_or_const i (VarOrConst.var v))
     exists ⟨i, by rw [PreTrigger.head_length_eq_mapped_head_length]; exact i.isLt⟩
+    exists (fun v => trg.apply_to_var_or_const i (VarOrConst.var v))
     constructor
     . intro v v_in_frontier
       simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, v_in_frontier]
@@ -209,13 +228,13 @@ def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq si
   cond := fun (trg : PreTrigger sig) (F : FactSet sig) => trg.satisfied F
   monotone := by
     intro trg A B A_sub_B
-    simp [PreTrigger.satisfied]
-    intro subs frontier_same_under_subs i applied_head_sub_A
+    simp [PreTrigger.satisfied, PreTrigger.satisfied_for_disj]
+    intro i subs frontier_same_under_subs applied_head_sub_A
+    exists i
     exists subs
     constructor
     . apply frontier_same_under_subs
-    . exists i
-      apply Set.subsetTransitive
+    . apply Set.subsetTransitive
       constructor
       . apply applied_head_sub_A
       . apply A_sub_B
@@ -225,8 +244,8 @@ def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq si
     let adjusted_i : Fin trg.rule.head.length := ⟨i, by rw [PreTrigger.head_length_eq_mapped_head_length]; have isLt := i.isLt; unfold PreTrigger.result at isLt; simp [List.length_map] at isLt; exact isLt⟩
     let obs_subs := fun v : sig.V => trg.apply_to_var_or_const adjusted_i (VarOrConst.var v)
 
-    exists obs_subs
     exists adjusted_i
+    exists obs_subs
     constructor
     . intro _ v'_in_frontier
       simp [obs_subs, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v'_in_frontier]
