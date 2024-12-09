@@ -1,4 +1,5 @@
 import ProofLibrary.SubstitutionAndHomomorphismBasics
+import ProofLibrary.Models.Basic
 
 namespace List
 
@@ -44,8 +45,36 @@ end List
 
 namespace Function
 
+  def image_set (f : α -> β) (A : Set α) : Set β := fun b => ∃ a, a ∈ A ∧ f a = b
+
   def injective_for_domain_set (f : α -> β) (domain : Set α) : Prop := ∀ a a', a ∈ domain -> a' ∈ domain -> f a = f a' -> a = a'
   def surjective_for_domain_and_image_set (f : α -> β) (domain : Set α) (image : Set β) : Prop := ∀ b, b ∈ image -> ∃ a, a ∈ domain ∧ f a = b
+
+  theorem injective_of_injective_compose (f : α -> β) (g : β -> γ) (domain : Set α) :
+      injective_for_domain_set (g ∘ f) domain -> injective_for_domain_set f domain := by
+    intro inj a a' a_dom a'_dom image_eq
+    apply inj a a' a_dom a'_dom
+    simp [image_eq]
+
+  theorem surjective_of_surjective_from_subset (f : α -> β) (domain : Set α) (image : Set β) :
+      f.surjective_for_domain_and_image_set domain image ->
+      ∀ domain', domain ⊆ domain' -> f.surjective_for_domain_and_image_set domain' image := by
+    intro surj dom' dom'_sub b b_mem
+    rcases surj b b_mem with ⟨a, a_mem, a_eq⟩
+    exists a
+    constructor
+    . apply dom'_sub; exact a_mem
+    . exact a_eq
+
+  theorem surjective_of_surjective_compose (f : α -> β) (g : β -> γ) (domain : Set α) (image : Set γ) :
+      surjective_for_domain_and_image_set (g ∘ f) domain image ->
+      surjective_for_domain_and_image_set g (f.image_set domain) image := by
+    intro surj b b_mem
+    rcases surj b b_mem with ⟨a, a_mem, a_eq⟩
+    exists f a
+    constructor
+    . exists a
+    . exact a_eq
 
   def injective_for_domain_list (f : α -> β) (domain : List α) : Prop := ∀ a a', a ∈ domain -> a' ∈ domain -> f a = f a' -> a = a'
   def surjective_for_domain_and_image_list (f : α -> β) (domain : List α) (image : List β) : Prop := ∀ b, b ∈ image -> ∃ a, a ∈ domain ∧ f a = b
@@ -240,6 +269,19 @@ namespace GroundTermMapping
   def strong (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
     ∀ e, ¬ e ∈ A -> ¬ (h.applyFact e) ∈ B
 
+  theorem strong_of_compose_strong (g h : GroundTermMapping sig) (A B C : FactSet sig) :
+      h.isHomomorphism B C -> GroundTermMapping.strong (h ∘ g) A C -> g.strong A B := by
+    intro h_hom compose_strong
+    intro e e_not_mem_a e_mem_b
+    apply compose_strong e
+    . exact e_not_mem_a
+    . apply h_hom.right (GroundTermMapping.applyFact (h ∘ g) e)
+      exists (g.applyFact e)
+      constructor
+      . exact e_mem_b
+      . rw [applyFact_compose]
+        simp
+
 end GroundTermMapping
 
 namespace FactSet
@@ -323,6 +365,53 @@ namespace FactSet
       . unfold Set.finite; exists l
       . exact isHom
       . exact injective
+
+  theorem every_universal_weakCore_isomorphic_to_universal_strongCore
+      {kb : KnowledgeBase sig}
+      (sc : FactSet sig) (sc_universal : sc.universallyModelsKb kb) (sc_strong : sc.isStrongCore)
+      (wc : FactSet sig) (wc_universal : wc.universallyModelsKb kb) (wc_weak : wc.isWeakCore) :
+      ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc sc ∧ iso.injective_for_domain_set wc.terms ∧ iso.surjective_for_domain_and_image_set wc.terms sc.terms := by
+
+    rcases sc_universal.right wc wc_universal.left with ⟨h_sc_wc, h_sc_wc_hom⟩
+    rcases wc_universal.right sc sc_universal.left with ⟨h_wc_sc, h_wc_sc_hom⟩
+
+    specialize wc_weak (h_sc_wc ∘ h_wc_sc) (by
+      apply GroundTermMapping.isHomomorphism_compose
+      . exact h_wc_sc_hom
+      . exact h_sc_wc_hom
+    )
+
+    specialize sc_strong (h_wc_sc ∘ h_sc_wc) (by
+      apply GroundTermMapping.isHomomorphism_compose
+      . exact h_sc_wc_hom
+      . exact h_wc_sc_hom
+    )
+
+    exists h_wc_sc
+    constructor
+    . exact h_wc_sc_hom
+    constructor
+    -- strong since h_sc_wc ∘ h_wc_sc is strong
+    . apply GroundTermMapping.strong_of_compose_strong h_wc_sc h_sc_wc wc sc wc h_sc_wc_hom
+      exact wc_weak.left
+    constructor
+    -- injective since h_sc_wc ∘ h_wc_sc is injetive
+    . apply Function.injective_of_injective_compose h_wc_sc h_sc_wc
+      exact wc_weak.right
+    -- surjective since h_wc_sc ∘ h_sc_wc is surjetive
+    . apply Function.surjective_of_surjective_from_subset
+      . apply Function.surjective_of_surjective_compose h_sc_wc h_wc_sc sc.terms
+        exact sc_strong.right.right
+      . intro t t_mem_image
+        rcases t_mem_image with ⟨arg, arg_mem, arg_eq⟩
+        rcases arg_mem with ⟨f, f_mem, f_eq⟩
+        exists (h_sc_wc.applyFact f)
+        constructor
+        . apply h_sc_wc_hom.right
+          exists f
+        . unfold GroundTermMapping.applyFact
+          simp
+          exists arg
 
 end FactSet
 

@@ -101,8 +101,34 @@ namespace GroundTermMapping
   def applyFact (h : GroundTermMapping sig) (f : Fact sig) : Fact sig :=
     { predicate := f.predicate, terms := List.map h f.terms }
 
+  theorem applyFact_compose (g h : GroundTermMapping sig) : applyFact (h ∘ g) = (applyFact h) ∘ (applyFact g) := by
+    apply funext
+    intro t
+    simp [applyFact]
+
   def applyFactSet (h : GroundTermMapping sig) (fs : FactSet sig) : FactSet sig :=
     fun f' : Fact sig => ∃ (f : Fact sig), (f ∈ fs) ∧ ((h.applyFact f) = f')
+
+  theorem applyFactSet_compose (g h : GroundTermMapping sig) : applyFactSet (h ∘ g) = (applyFactSet h) ∘ (applyFactSet g) := by
+    apply funext
+    intro fs
+    apply funext
+    intro f
+    simp [applyFactSet, applyFact_compose]
+    constructor
+    . intro pre
+      rcases pre with ⟨f', f'_mem, f'_eq⟩
+      exists g.applyFact f'
+      constructor
+      . exists f'
+      . exact f'_eq
+    . intro pre
+      rcases pre with ⟨f', f'_mem, f'_eq⟩
+      rcases f'_mem with ⟨f'', f''_mem, f''_eq⟩
+      exists f''
+      constructor
+      . exact f''_mem
+      . rw [f''_eq, f'_eq]
 
   def isHomomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
     isIdOnConstants h ∧ (h.applyFactSet A ⊆ B)
@@ -112,6 +138,31 @@ namespace GroundTermMapping
     simp [Set.element] at *
     unfold applyFactSet
     exists f
+
+  theorem isHomomorphism_compose (g h : GroundTermMapping sig) (A B C : FactSet sig) :
+      g.isHomomorphism A B -> h.isHomomorphism B C -> isHomomorphism (h ∘ g) A C := by
+    intro g_hom h_hom
+    constructor
+    . intro t
+      cases t with
+      | inner _ _ => simp
+      | leaf c =>
+        simp
+        have g_const := g_hom.left (FiniteTree.leaf c)
+        simp at g_const
+        rw [g_const]
+        have g_const := h_hom.left (FiniteTree.leaf c)
+        simp at g_const
+        rw [g_const]
+    . rw [applyFactSet_compose]
+      intro f f_mem_compose
+      rcases f_mem_compose with ⟨f', f'_mem, f'_eq⟩
+      apply h_hom.right
+      exists f'
+      constructor
+      . apply g_hom.right
+        exact f'_mem
+      . exact f'_eq
 
 end GroundTermMapping
 
