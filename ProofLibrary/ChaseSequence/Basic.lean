@@ -683,12 +683,9 @@ theorem chaseBranchResultModelsKb (cb : ChaseBranch obs kb) : cb.result.modelsKb
       intro contra
       have obs_impl_sat := obs.cond_implies_trg_is_satisfied contra
       apply subs_not_obsolete
-      rcases obs_impl_sat with ⟨s', i, obs_impl_sat⟩
+      rcases obs_impl_sat with ⟨i, s', obs_impl_sat⟩
+      exists i
       exists s'
-      constructor
-      . exact obs_impl_sat.left
-      . exists i
-        exact obs_impl_sat.right
 
     cases (trgActiveForChaseResultMeansActiveAtSomeIndex cb trg ⟨trg_loaded, trg_not_obsolete⟩) with | intro i active_i =>
       have not_active_eventually := cb.fairness ⟨trg, by apply h⟩

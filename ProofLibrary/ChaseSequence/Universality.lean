@@ -43,10 +43,10 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
     apply m_models_rule
     apply trg_variant_loaded_for_m
 
-  let obs_for_m_subs := Classical.choose trg_variant_satisfied_on_m
-  let h_obs_for_m_subs := Classical.choose_spec trg_variant_satisfied_on_m
-  let head_index_for_m_subs := Classical.choose h_obs_for_m_subs
-  let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_obs_for_m_subs
+  let head_index_for_m_subs := Classical.choose trg_variant_satisfied_on_m
+  let h_head_index_for_m_subs := Classical.choose_spec trg_variant_satisfied_on_m
+  let obs_for_m_subs := Classical.choose h_head_index_for_m_subs
+  let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
 
   let result_index_for_trg : Fin trg.val.result.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.result; unfold PreTrigger.mapped_head; simp [List.enum_with_lt_length_eq]⟩
 
@@ -490,8 +490,7 @@ theorem inductive_homomorphism_with_prev_node_and_trg_latest_index_lt_trg_result
       apply m_models_rule
       apply trg_variant_loaded_for_m
 
-    let h_obs_for_m_subs := Classical.choose_spec trg_variant_satisfied_on_m
-    let head_index_for_m_subs := Classical.choose h_obs_for_m_subs
+    let head_index_for_m_subs := Classical.choose trg_variant_satisfied_on_m
 
     have : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_step (inductive_homomorphism ct m m_is_model prev_step) prev_node (by rw [prev_ex]) trg_ex).val.fst = head_index_for_m_subs.val :: prev_result.val.fst := by
       unfold inductive_homomorphism_with_prev_node_and_trg
