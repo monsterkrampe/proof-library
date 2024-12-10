@@ -370,6 +370,15 @@ theorem List.length_repeat (val : α) : ∀ n, (List.repeat val n).length = n :=
   | zero => simp [List.repeat]
   | succ n ih => simp [List.repeat]; exact ih
 
+theorem List.all_eq_val_repeat [DecidableEq α] (val : α) : ∀ n, (List.repeat val n).all (fun e => e = val) = true := by
+  intro n
+  induction n with
+  | zero => simp [List.repeat]
+  | succ n ih =>
+    unfold List.repeat
+    rw [List.all_cons, ih]
+    simp
+
 theorem List.repeat_split : ∀ (n k l : Nat), n = k + l -> List.repeat val n = List.repeat val k ++ List.repeat val l := by
   intro n k l h
   induction k generalizing n with
