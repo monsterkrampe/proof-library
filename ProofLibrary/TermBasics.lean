@@ -47,22 +47,32 @@ namespace VarOrConst
     | .var v => List.cons v (filterVars vocs)
     | .const _ => (filterVars vocs)
 
-  theorem filterVars_occur_in_original_list (l : List (VarOrConst sig)) (v : sig.V) : v ∈ (filterVars l).toSet -> VarOrConst.var v ∈ l.toSet := by
+  theorem filterVars_occur_in_original_list (l : List (VarOrConst sig)) (v : sig.V) : v ∈ filterVars l -> VarOrConst.var v ∈ l := by
     induction l with
     | nil => intros; contradiction
     | cons head tail ih =>
       intro h
       unfold filterVars at h
       split at h
-      . simp [Set.element, List.toSet] at h
-        simp [Set.element, List.toSet]
+      . simp at h
+        simp
         cases h with
-        | inl hl => apply Or.inl; simp [Set.element] at hl; rw [hl]; simp [Set.element]
-        | inr hr => apply Or.inr; apply ih; apply hr
-      . simp [Set.element]
-        apply Or.inr
+        | inl h => apply Or.inl; exact h
+        | inr h => apply Or.inr; apply ih; exact h
+      . simp
         apply ih
-        apply h
+        exact h
+
+  theorem mem_filterVars_of_var (l : List (VarOrConst sig)) (v : sig.V) : VarOrConst.var v ∈ l -> v ∈ filterVars l := by
+    induction l with
+    | nil => intros; contradiction
+    | cons head tail ih =>
+      intro h
+      simp at h
+      unfold filterVars
+      cases h with
+      | inl h => rw [← h]; simp
+      | inr h => split; simp; apply Or.inr; apply ih; exact h; apply ih; exact h
 
   def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (voc : VarOrConst sig) : SkolemTerm sig :=
     match voc with

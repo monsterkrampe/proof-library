@@ -1,5 +1,7 @@
 import ProofLibrary.SubstitutionAndHomomorphismBasics
 import ProofLibrary.Trigger
+import ProofLibrary.ChaseSequence.Basic
+import ProofLibrary.ChaseSequence.Deterministic
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 

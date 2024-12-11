@@ -431,7 +431,7 @@ theorem trgActiveForChaseResultMeansActiveAtSomeIndex (cb : ChaseBranch obs kb) 
           apply subsetOfResult
         . apply contra
 
-theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : some node = ct.tree.get node_path ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms.toSet) -> ∃ drop_number : Fin node_path.length, (ct.tree.get (node_path.drop drop_number.val)).is_some_and (fun prev_node => prev_node.origin.is_some_and (fun origin => trg.equiv origin.fst ∧ result_index.val = origin.snd.val)) := by
+theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : some node = ct.tree.get node_path ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> ∃ drop_number : Fin node_path.length, (ct.tree.get (node_path.drop drop_number.val)).is_some_and (fun prev_node => prev_node.origin.is_some_and (fun origin => trg.equiv origin.fst ∧ result_index.val = origin.snd.val)) := by
   intro ⟨node_is_at_path, var_not_in_frontier, exis_f⟩
   induction node_path generalizing node with
   | nil =>
@@ -479,7 +479,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg
       simp
     | some tail_node =>
       -- TODO: this should actually be decidable but we need to change the implementation for this
-      cases Classical.em (∃ f: Fact sig, f ∈ tail_node.fact ∧ (trg.val.subs.apply_skolem_term (VarOrConst.skolemize trg.val.rule.id result_index.val trg.val.rule.frontier (VarOrConst.var var))) ∈ f.terms.toSet) with
+      cases Classical.em (∃ f: Fact sig, f ∈ tail_node.fact ∧ (trg.val.subs.apply_skolem_term (VarOrConst.skolemize trg.val.rule.id result_index.val trg.val.rule.frontier (VarOrConst.var var))) ∈ f.terms) with
       | inl f_in_j =>
         cases ih tail_node (Eq.symm eq) f_in_j with | intro k _ =>
           exists ⟨k+1, by simp⟩
@@ -522,7 +522,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg
             rw [← ct.tree.getElem_children_eq_get_tree tail ⟨head, head_lt_tail_children_length⟩] at node_is_at_path
             injection node_is_at_path with node_is_at_path
 
-            have : ∃ f, f ∈ trg'.val.result[head] ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ List.toSet f.terms := by
+            have : ∃ f, f ∈ trg'.val.result[head] ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms := by
               cases exis_f with | intro f hf =>
                 exists f
                 constructor
@@ -548,7 +548,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg
                 let i := trg'.val.idx_of_fact_in_result f ⟨head, head_lt_aux_1⟩ f_in_res
                 let atom_for_f := trg'.val.rule.head[head].get i
 
-                cases List.inToSetMeansExistsIndex _ _ apply_var_in_f_terms with | intro k hk =>
+                cases List.mem_iff_get.mp apply_var_in_f_terms with | intro k hk =>
                   have f_is_at_its_idx : f = (trg'.val.mapped_head.get ⟨head, head_lt_aux_3⟩).get ⟨i.val, by unfold PreTrigger.mapped_head; simp⟩ := by simp [i, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
 
                   have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_for_f) := by
@@ -572,7 +572,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg
 
                   have : (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const head term_for_f) := by
                     rw [← this] at hk
-                    exact hk
+                    rw [hk]
 
                   cases eq_term_for_f : term_for_f with
                   | const c =>
@@ -598,18 +598,16 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg
                           simp [SubsTarget.apply]
                           unfold GroundSubstitution.apply_function_free_conj
                           apply List.mappedElemInMappedList
+                          rw [← List.inIffInToSet]
                           apply h_body_atom_for_f.left
                         . simp [SubsTarget.apply, GroundSubstitution.apply_function_free_atom]
                           simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const] at this
                           rw [this]
                           simp [GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, h]
-                          apply List.existsIndexMeansInToSet
-                          cases (List.inToSetMeansExistsIndex _ _ h_body_atom_for_f.right) with | intro l h_l =>
-                            exists ⟨l, (by rw [List.length_map]; exact l.isLt)⟩
-                            simp
-                            simp at h_l
-                            rw [← h_l]
-                            simp [GroundSubstitution.apply_var_or_const]
+                          exists VarOrConst.var var_for_f
+                          constructor
+                          . exact h_body_atom_for_f.right
+                          . simp [GroundSubstitution.apply_var_or_const]
 
                     constructor
                     . exact var_for_f_not_in_frontier
@@ -629,7 +627,7 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg
             rw [List.enum_with_lt_getElem_fst_eq_index _ _ head_lt_aux_1]
             exact this
 
-theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : (some node = ct.tree.get node_path) ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms.toSet) -> trg.val.result.get result_index ⊆ node.fact := by
+theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : (some node = ct.tree.get node_path) ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> trg.val.result.get result_index ⊆ node.fact := by
   intro h
   have node_is_at_path := h.left
   cases funcTermForExisVarInChaseMeansTriggerIsUsed ct trg result_index var node node_path h with | intro drop_number h =>

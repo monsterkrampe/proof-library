@@ -43,4 +43,7 @@ namespace Option
 
   theorem someInj : (some a = some b) ↔ a = b := by simp
 
+  theorem is_none_or_of_eq_some {o : Option α} {a : α} {f : α -> Prop} (eq : o = some a) : o.is_none_or f = f a := by
+    rw [eq]; simp [is_none_or]
+
 end Option

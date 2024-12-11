@@ -51,19 +51,18 @@ namespace GroundSubstitution
   -- TODO: is the extra assumption with injectivity reasonable?
   theorem eq_under_subs_means_elements_are_preserved (σ : GroundSubstitution sig) (a : Atom sig) (f : Fact sig) (h : σ.apply_atom a = f) : ∀ t, (∀ s, s ∈ a.terms.toSet ∧ σ.apply_skolem_term t = σ.apply_skolem_term s -> t = s) -> ((σ.apply_skolem_term t) ∈ f.terms ↔ t ∈ a.terms) := by
     intro t ht
-    rw [List.listElementIffToSetElement]
-    rw [List.listElementIffToSetElement]
-    rw [← List.existsIndexIffInToSet]
-    rw [← List.existsIndexIffInToSet]
+    rw [List.mem_iff_get]
+    rw [List.mem_iff_get]
     constructor
     . intro ⟨i, hi⟩
       let j : Fin a.terms.length := ⟨i.val, (by rw [eq_under_subs_means_same_length σ a f h]; exact i.isLt)⟩
       exists j
       rw [← eq_under_subs_means_term_is_eq σ a f j h] at hi
+      apply Eq.symm
       apply ht
       constructor
       . apply List.listGetInToSet
-      . apply hi
+      . rw [hi]
     . intro ⟨i, hi⟩
       let j : Fin f.terms.length := ⟨i.val, (by rw [← eq_under_subs_means_same_length σ a f h]; exact i.isLt)⟩
       exists j
@@ -130,14 +129,24 @@ namespace GroundTermMapping
       . exact f''_mem
       . rw [f''_eq, f'_eq]
 
-  def isHomomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
-    isIdOnConstants h ∧ (h.applyFactSet A ⊆ B)
-
   theorem applyPreservesElement (h : GroundTermMapping sig) (f : Fact sig) (fs : FactSet sig) : f ∈ fs -> applyFact h f ∈ applyFactSet h fs := by
     intro hf
     simp [Set.element] at *
     unfold applyFactSet
     exists f
+
+  theorem applyFactSet_subset_of_subset (h : GroundTermMapping sig) (as bs : FactSet sig) : as ⊆ bs -> h.applyFactSet as ⊆ h.applyFactSet bs := by
+    intro subset
+    unfold GroundTermMapping.applyFactSet
+    intro f f_mem
+    rcases f_mem with ⟨f', f'_mem, f'_eq⟩
+    exists f'
+    constructor
+    . apply subset; exact f'_mem
+    . exact f'_eq
+
+  def isHomomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
+    isIdOnConstants h ∧ (h.applyFactSet A ⊆ B)
 
   theorem isHomomorphism_compose (g h : GroundTermMapping sig) (A B C : FactSet sig) :
       g.isHomomorphism A B -> h.isHomomorphism B C -> isHomomorphism (h ∘ g) A C := by

@@ -277,27 +277,8 @@ namespace List
 
   theorem neg_all_of_any_neg (l : List α) (p : α -> Bool) : l.any (fun a => ¬p a) -> ¬l.all p := by simp
 
-  theorem any_of_exists (l : List α) (p : α -> Bool) : (∃ a, a ∈ l.toSet ∧ p a) -> l.any p = true := by
+  theorem any_of_exists (l : List α) (p : α -> Bool) : (∃ a, a ∈ l ∧ p a) -> l.any p = true := by
     simp
-    intro x _ _
-    exists x
-    constructor
-    . rw [inIffInToSet]
-      assumption
-    . assumption
-
-  theorem inToSetMeansExistsIndex [DecidableEq α] (L : List α) (e : α) : e ∈ L.toSet -> ∃ i, e = L.get i := by
-    intro h
-    exists L.idx_of e (listToSetElementAlsoListElement L e h)
-    rw [← idx_of_get]
-
-  theorem existsIndexMeansInToSet (L : List α) (e : α) : (∃ i, e = L.get i) -> e ∈ L.toSet := by
-    intro ⟨i, hi⟩
-    rw [hi]
-    apply listGetInToSet
-
-  theorem existsIndexIffInToSet [DecidableEq α] (L : List α) (e : α) : (∃ i, e = L.get i) ↔ e ∈ L.toSet := by
-    constructor; apply existsIndexMeansInToSet; apply inToSetMeansExistsIndex
 
   theorem elemFilterAlsoElemList (L : List α) (f : α -> Bool) : ∀ e, e ∈ (L.filter f) -> e ∈ L := by
     induction L with
@@ -357,6 +338,27 @@ namespace List
       cases Decidable.em (hd ∈ tl) with
       | inl mem => simp [mem, ih]
       | inr not_mem => simp [not_mem, ih]; rw [mem_eraseDupsKeepRight_iff]; exact not_mem
+
+  theorem mem_iff_append_and_not_in_first [DecidableEq α] (l : List α) (e : α) : e ∈ l ↔ ∃ as bs, l = as ++ (e :: bs) ∧ ¬ e ∈ as := by
+    induction l with
+    | nil => simp
+    | cons hd tl ih =>
+      constructor
+      . intro h
+        cases Decidable.em (e = hd) with
+        | inl eq =>
+          exists []
+          exists tl
+          simp [eq]
+        | inr neq =>
+          simp [neq] at h
+          rcases ih.mp h with ⟨as, bs, eq, n_mem⟩
+          exists hd :: as
+          exists bs
+          simp [eq, neq, n_mem]
+      . intro h
+        rcases h with ⟨as, bs, eq, _⟩
+        simp [eq]
 
 end List
 

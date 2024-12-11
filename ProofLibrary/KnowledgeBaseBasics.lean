@@ -80,7 +80,7 @@ namespace FunctionFreeConjunction
 
   def vars (conj : FunctionFreeConjunction sig) : List sig.V := (conj.map FunctionFreeAtom.variables).flatten
 
-  theorem v_in_vars_occurs_in_fact (conj : FunctionFreeConjunction sig) : ∀ v, v ∈ conj.vars -> ∃ f, f ∈ conj.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by
+  theorem v_in_vars_occurs_in_fact (conj : FunctionFreeConjunction sig) : ∀ v, v ∈ conj.vars -> ∃ f, f ∈ conj ∧ (VarOrConst.var v) ∈ f.terms := by
     unfold vars
     cases conj with
     | nil => intros; contradiction
@@ -92,10 +92,8 @@ namespace FunctionFreeConjunction
         cases hL'.left with | intro e' he' =>
           exists e'
           constructor
-          . apply List.listElementAlsoToSetElement
-            exact he'.left
-          . have : v ∈ (FunctionFreeAtom.variables e').toSet := by
-              apply List.listElementAlsoToSetElement
+          . exact he'.left
+          . have : v ∈ e'.variables := by
               rw [he'.right]
               apply hL'.right
 
@@ -111,7 +109,7 @@ namespace Rule
     -- NOTE: using ∈ does not really work here because it produces a Prop which can not always be simply cast into Bool
     List.filter (fun v => r.head.any (fun h => v ∈ h.vars)) (FunctionFreeConjunction.vars r.body)
 
-  theorem frontier_var_occurs_in_fact_in_body (r : Rule sig) : ∀ v, v ∈ r.frontier -> ∃ f, f ∈ r.body.toSet ∧ (VarOrConst.var v) ∈ f.terms.toSet := by
+  theorem frontier_var_occurs_in_fact_in_body (r : Rule sig) : ∀ v, v ∈ r.frontier -> ∃ f, f ∈ r.body ∧ (VarOrConst.var v) ∈ f.terms := by
     unfold frontier
     cases r.body with
     | nil => intros; contradiction
