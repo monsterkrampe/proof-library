@@ -264,7 +264,7 @@ end Function
 
 namespace GroundTermMapping
 
-  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
   def strong (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
     ∀ e, ¬ e ∈ A -> ¬ (h.applyFact e) ∈ B

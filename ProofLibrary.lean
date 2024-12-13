@@ -1,4 +1,5 @@
 import ProofLibrary.AlternativeMatches.Basic
+import ProofLibrary.AlternativeMatches.Chase
 import ProofLibrary.AlternativeMatches.HomomorphismExtension
 import ProofLibrary.ChaseSequence.Basic
 import ProofLibrary.ChaseSequence.Universality

@@ -100,6 +100,76 @@ namespace ChaseBranch
 
   def result (branch : ChaseBranch obs kb) : FactSet sig :=
     fun f => ∃ n : Nat, (branch.branch.infinite_list n).is_some_and (fun fs => f ∈ fs.fact)
+
+  theorem origin_is_some (cb : ChaseBranch obs kb) : ∀ i, (cb.branch.infinite_list (i + 1)).is_none_or (fun node => node.origin.isSome) := by
+    intro i
+    cases eq : cb.branch.infinite_list (i + 1) with
+    | none => simp [Option.is_none_or]
+    | some node =>
+      simp only [Option.is_none_or]
+      have trg_ex := cb.triggers_exist i
+      cases eq2 : cb.branch.infinite_list i with
+      | none =>
+        have no_holes := cb.branch.no_holes (i + 1)
+        simp [eq] at no_holes
+        specialize no_holes ⟨i, by simp⟩
+        apply False.elim
+        apply no_holes
+        exact eq2
+      | some prev_node =>
+        rw [eq2, Option.is_none_or] at trg_ex
+        cases trg_ex with
+        | inl trg_ex =>
+          unfold exists_trigger_opt_fs at trg_ex
+          rcases trg_ex with ⟨trg, _, disj, trg_eq⟩
+          rw [eq] at trg_eq
+          injection trg_eq with trg_eq
+          rw [← trg_eq]
+          simp
+        | inr trg_ex =>
+          unfold not_exists_trigger_opt_fs at trg_ex
+          rw [eq] at trg_ex
+          simp at trg_ex
+
+  -- TODO: check if this simplifies code where we used cb.triggers_exist before
+  theorem origin_trg_is_active (cb : ChaseBranch obs kb) (i : Nat) (node prev_node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) (eq2 : cb.branch.infinite_list i = some prev_node) :
+      (node.origin.get (by
+        have is_some := cb.origin_is_some i
+        rw [eq, Option.is_none_or] at is_some
+        exact is_some
+      )).fst.val.active prev_node.fact.val := by
+    have trg_ex := cb.triggers_exist i
+    rw [eq2, Option.is_none_or] at trg_ex
+    cases trg_ex with
+    | inr trg_ex => unfold not_exists_trigger_opt_fs at trg_ex; rw [trg_ex.right] at eq; simp at eq
+    | inl trg_ex =>
+      unfold exists_trigger_opt_fs at trg_ex
+      rcases trg_ex with ⟨trg, trg_active, disj, trg_eq⟩
+      rw [eq] at trg_eq
+      injection trg_eq with trg_eq
+      simp [← trg_eq]
+      exact trg_active
+
+  -- TODO: check if this simplifies code where we used cb.triggers_exist before
+  theorem origin_trg_result_yields_next_node_fact (cb : ChaseBranch obs kb) (i : Nat) (node prev_node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) (eq2 : cb.branch.infinite_list i = some prev_node) (origin : ((trg : RTrigger obs kb.rules) × Fin trg.val.result.length)) (eq_origin : node.origin = some origin) :
+      node.fact.val = prev_node.fact.val ∪ (origin.fst.val.result.get origin.snd) := by
+    have trg_ex := cb.triggers_exist i
+    rw [eq2, Option.is_none_or] at trg_ex
+    cases trg_ex with
+    | inr trg_ex => unfold not_exists_trigger_opt_fs at trg_ex; rw [trg_ex.right] at eq; simp at eq
+    | inl trg_ex =>
+      unfold exists_trigger_opt_fs at trg_ex
+      rcases trg_ex with ⟨trg, trg_active, disj, trg_eq⟩
+      rw [eq] at trg_eq
+      injection trg_eq with trg_eq
+      simp [← trg_eq]
+      have : trg = origin.fst ∧ disj.val = origin.snd.val := by
+        have : node.origin = some ⟨trg, disj⟩ := by rw [← trg_eq]
+        rw [eq_origin] at this
+        injection this with this
+        rw [this]
+        simp
+      simp [this]
 end ChaseBranch
 
 structure ChaseTree (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig) where
