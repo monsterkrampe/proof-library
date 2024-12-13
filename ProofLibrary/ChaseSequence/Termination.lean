@@ -11,7 +11,7 @@ section Definitions
   end ChaseBranch
 
   namespace ChaseTree
-    def terminates (ct : ChaseTree obs kb) : Prop := ∀ branch, branch ∈ ct.branches -> branch.terminates
+    def terminates (ct : ChaseTree obs kb) : Prop := ct.branches.finite ∧ ∀ branch, branch ∈ ct.branches -> branch.terminates
   end ChaseTree
 
 end Definitions
@@ -196,6 +196,54 @@ section GeneralResults
             exact e_mem_res
 
   end ChaseBranch
+
+  namespace ChaseTree
+
+    theorem terminates_iff_result_finite (ct : ChaseTree obs kb) : ct.terminates ↔ (ct.result.finite ∧ ∀ fs, fs ∈ ct.result -> fs.finite) := by
+      unfold terminates
+      unfold result
+      constructor
+      . intro ⟨bs_finite, each_b_term⟩
+        constructor
+        . unfold Set.finite at bs_finite
+          rcases bs_finite with ⟨l, _, iff⟩
+          have : DecidableEq (FactSet sig) := Classical.typeDecidableEq (FactSet sig)
+          exists (l.map ChaseBranch.result).eraseDupsKeepRight
+          constructor
+          . apply List.nodup_eraseDupsKeepRight
+          . intro fs
+            rw [List.mem_eraseDupsKeepRight_iff]
+            simp
+            constructor
+            . intro h
+              rcases h with ⟨b, mem, eq⟩
+              exists b
+              constructor
+              . rw [← iff]; exact mem
+              . exact eq
+            . intro h
+              rcases h with ⟨b, mem, eq⟩
+              exists b
+              constructor
+              . rw [iff]; exact mem
+              . exact eq
+        . intro res res_mem
+          rcases res_mem with ⟨b, mem, eq⟩
+          rw [← eq]
+          rw [← ChaseBranch.terminates_iff_result_finite]
+          apply each_b_term
+          exact mem
+      . intro ⟨bs_finite, each_b_term⟩
+        constructor
+        . rcases bs_finite with ⟨l, _, iff⟩
+          -- this is not trivial I think...
+          sorry
+        . intro b mem
+          rw [ChaseBranch.terminates_iff_result_finite]
+          apply each_b_term
+          exists b
+
+  end ChaseTree
 
 end GeneralResults
 
