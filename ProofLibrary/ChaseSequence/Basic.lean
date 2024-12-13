@@ -378,8 +378,8 @@ theorem chaseTreeSetIsSubsetOfResult (ct : ChaseTree obs kb) : ∀ node : List N
       unfold PossiblyInfiniteTree.branches_through at branch_through_node
       unfold InfiniteTreeSkeleton.branches_through at branch_through_node
       simp [Set.element] at branch_through_node
-      rw [branch_through_node.right ⟨node.length, by simp⟩]
-      simp
+      rcases branch_through_node with ⟨nodes, eq, eq2⟩
+      rw [eq node.length, eq2]
       rfl
 
     have branch_subs_result := chaseBranchSetIsSubsetOfResult branch node.length

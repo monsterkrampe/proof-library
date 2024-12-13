@@ -197,5 +197,59 @@ section GeneralResults
 
   end ChaseBranch
 
+  namespace ChaseTree
+
+    theorem finitely_many_branch_of_terminates (ct : ChaseTree obs kb) : ct.terminates -> ct.branches.finite := by
+      unfold terminates
+      unfold ChaseBranch.terminates
+      intro each_b_term
+
+      -- aim: show general result on FiniteDegreeTree (König's Lemma)
+      sorry
+
+    theorem result_finite_of_branches_finite (ct : ChaseTree obs kb) : ct.branches.finite -> ct.result.finite := by
+      intro bs_finite
+      unfold Set.finite at bs_finite
+      rcases bs_finite with ⟨l, _, iff⟩
+      have : DecidableEq (FactSet sig) := Classical.typeDecidableEq (FactSet sig)
+      exists (l.map ChaseBranch.result).eraseDupsKeepRight
+      constructor
+      . apply List.nodup_eraseDupsKeepRight
+      . intro fs
+        rw [List.mem_eraseDupsKeepRight_iff]
+        simp
+        constructor
+        . intro h
+          rcases h with ⟨b, mem, eq⟩
+          exists b
+          constructor
+          . rw [← iff]; exact mem
+          . exact eq
+        . intro h
+          rcases h with ⟨b, mem, eq⟩
+          exists b
+          constructor
+          . rw [iff]; exact mem
+          . exact eq
+
+    theorem terminates_iff_result_finite (ct : ChaseTree obs kb) : ct.terminates ↔ ∀ fs, fs ∈ ct.result -> fs.finite := by
+      unfold terminates
+      unfold result
+      constructor
+      . intro each_b_term
+        intro res res_mem
+        rcases res_mem with ⟨b, mem, eq⟩
+        rw [← eq]
+        rw [← ChaseBranch.terminates_iff_result_finite]
+        apply each_b_term
+        exact mem
+      . intro each_b_term
+        intro b mem
+        rw [ChaseBranch.terminates_iff_result_finite]
+        apply each_b_term
+        exists b
+
+  end ChaseTree
+
 end GeneralResults
 

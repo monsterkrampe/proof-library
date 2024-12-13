@@ -8,13 +8,43 @@ import ProofLibrary.PossiblyInfiniteList
 def InfiniteTreeSkeleton (α : Type u) := (List Nat) -> α
 
 namespace InfiniteTreeSkeleton
+
   def children (tree : InfiniteTreeSkeleton α) (node : List Nat) : InfiniteList α := fun n => tree (n :: node)
 
-  def branches (tree : InfiniteTreeSkeleton α) : Set (InfiniteList α) := fun branch =>
-    ∃ nodes : InfiniteList Nat, ∀ n : Nat, branch n = tree (nodes.take n).reverse
-
   def branches_through (tree : InfiniteTreeSkeleton α) (node : List Nat) : Set (InfiniteList α) := fun branch =>
-    branch ∈ tree.branches ∧ ∀ (i : Fin (node.length + 1)), branch i = tree (node.drop (node.length-i))
+    ∃ nodes : InfiniteList Nat, (∀ n : Nat, branch n = tree (nodes.take n).reverse) ∧ (nodes.take node.length).reverse = node
+
+  def branches (tree : InfiniteTreeSkeleton α) : Set (InfiniteList α) := tree.branches_through []
+
+  theorem branches_through_eq_union_children (tree : InfiniteTreeSkeleton α) (node : List Nat) : tree.branches_through node = fun b => ∃ (i : Nat), b ∈ tree.branches_through (i :: node) := by
+    unfold branches_through
+    apply funext
+    simp
+    intro b
+    constructor
+    . intro ⟨nodes, h⟩
+      exists nodes node.length
+      simp [Set.element]
+      exists nodes
+      constructor
+      . exact h.left
+      . unfold InfiniteList.take
+        simp
+        rw [← List.reverse_eq_iff]
+        exact h.right
+    . intro h
+      rcases h with ⟨i, nodes, h⟩
+      exists nodes
+      constructor
+      . exact h.left
+      . have hr := h.right
+        unfold InfiniteList.take at hr
+        rw [← List.reverse_inj] at hr
+        rw [List.reverse_append] at hr
+        rw [List.reverse_append] at hr
+        simp at hr
+        exact hr.right
+
 end InfiniteTreeSkeleton
 
 structure PossiblyInfiniteTree (α : Type u) where
@@ -82,11 +112,25 @@ namespace PossiblyInfiniteTree
     unfold InfiniteTreeSkeleton.children
     simp
 
+  def branches_through (tree : PossiblyInfiniteTree α) (node : List Nat) : Set (PossiblyInfiniteList α) := fun pil =>
+    pil.infinite_list ∈ tree.infinite_tree.branches_through node
+
   def branches (tree : PossiblyInfiniteTree α) : Set (PossiblyInfiniteList α) := fun pil =>
     pil.infinite_list ∈ tree.infinite_tree.branches
 
-  def branches_through (tree : PossiblyInfiniteTree α) (node : List Nat) : Set (PossiblyInfiniteList α) := fun pil =>
-    pil.infinite_list ∈ tree.infinite_tree.branches_through node
+  theorem branches_through_eq_union_children (tree : PossiblyInfiniteTree α) (node : List Nat) : tree.branches_through node = fun b => ∃ (i : Nat), b ∈ tree.branches_through (i :: node) := by
+    unfold branches_through
+    apply funext
+    simp
+    intro pil
+    rw [tree.infinite_tree.branches_through_eq_union_children]
+    constructor
+    . intro h
+      rcases h with ⟨i, h⟩
+      exists i
+    . intro h
+      rcases h with ⟨i, h⟩
+      exists i
 
   def leaves (tree : PossiblyInfiniteTree α) : Set α := fun a => ∃ node : List Nat, tree.get node = some a ∧ tree.children node = PossiblyInfiniteList.empty
 end PossiblyInfiniteTree
@@ -389,10 +433,160 @@ namespace FiniteDegreeTree
     rw [PossiblyInfiniteList.get_fromList_eq_list_getElem]
     apply getElem_children_eq_getElem_tree_children
 
-  def branches (tree : FiniteDegreeTree α) : Set (PossiblyInfiniteList α) := tree.tree.branches
-
   def branches_through (tree : FiniteDegreeTree α) (node : List Nat) : Set (PossiblyInfiniteList α) := tree.tree.branches_through node
 
+  def branches (tree : FiniteDegreeTree α) : Set (PossiblyInfiniteList α) := tree.tree.branches
+
+  theorem branches_through_eq_union_children (tree : FiniteDegreeTree α) (node : List Nat) : tree.branches_through node = fun b => ∃ (i : Nat), b ∈ tree.branches_through (i :: node) := by
+    unfold branches_through
+    rw [tree.tree.branches_through_eq_union_children]
+
   def leaves (tree : FiniteDegreeTree α) : Set α := tree.tree.leaves
+
+  -- TODO: formalize something like König's Lemma
+  theorem branches_through_finite_of_branches_through_children_finite (tree : FiniteDegreeTree α) (node : List Nat) : (∀ i, (tree.branches_through (i :: node)).finite) -> (tree.branches_through node).finite := by
+    intro h
+    have dec := Classical.typeDecidableEq (PossiblyInfiniteList α)
+    let branch_for_node : PossiblyInfiniteList α := ⟨fun n => if n ≤ node.length then tree.get (node.drop (node.length - n)) else none, by
+      sorry
+    ⟩
+    let branches_for_i (i : Nat) := Classical.choose (h i)
+    let target_list : List (PossiblyInfiniteList α) := (branch_for_node :: ((tree.children node).enum_with_lt.map (fun (i, _) => branches_for_i i.val)).flatten).eraseDupsKeepRight
+    exists target_list
+    constructor
+    . apply List.nodup_eraseDupsKeepRight
+    . intro branch
+      unfold target_list
+      rw [List.mem_eraseDupsKeepRight_iff]
+      simp
+      constructor
+      . intro pre
+        cases pre with
+        | inl eq =>
+          let nodes : InfiniteList Nat := fun n => if lt : n < node.length then node[n] else (tree.children node).length
+          exists nodes
+          constructor
+          . sorry
+          . sorry
+        | inr pre =>
+          rcases pre with ⟨branches, ex_i, branch_mem⟩
+          rcases ex_i with ⟨i, _, eq⟩
+          rw [branches_through_eq_union_children]
+          exists i.val
+          have spec := Classical.choose_spec (h i.val)
+          rw [← spec.right]
+          unfold branches_for_i at eq
+          rw [eq]
+          exact branch_mem
+      . intro pre
+        rw [branches_through_eq_union_children] at pre
+        rcases pre with ⟨i, pre⟩
+        cases Decidable.em (i < (tree.children node).length) with
+        | inl lt =>
+          apply Or.inr
+          exists branches_for_i i
+          constructor
+          . let i_fin : Fin (tree.children node).length := ⟨i, lt⟩
+            exists i_fin
+            constructor
+            . exists (tree.children node)[i_fin]
+              rw [List.mem_enum_with_lt_iff_mem_enum]
+              rw [List.mem_enum_iff_getElem?]
+              simp
+            . rfl
+          . have spec := Classical.choose_spec (h i)
+            unfold branches_for_i
+            rw [spec.right]
+            exact pre
+        | inr not_lt =>
+          apply Or.inl
+          rcases pre with ⟨nodes, pre⟩
+          unfold branch_for_node
+          rw [PossiblyInfiniteList.eq_iff_same_on_all_indices]
+          intro n
+          rw [pre.left n]
+          have pre_r := pre.right
+          simp [InfiniteList.take] at pre_r
+          simp
+          cases Decidable.em (n ≤ node.length) with
+          | inl le =>
+            simp [le]
+            have : (nodes.take n).reverse = node.drop (node.length - n) := by
+              conv => right; right; rw [← pre_r.right]
+              rw [List.drop_reverse]
+              rw [InfiniteList.length_take]
+              rw [InfiniteList.take_after_take]
+              rw [Nat.sub_sub_self le]
+              simp [Nat.min_eq_right le]
+            rw [this]
+            rfl
+          | inr lt =>
+            simp [lt]
+            have : tree.tree.infinite_tree (nodes.take (node.length + 1)).reverse = none := by
+              have : (tree.children node)[nodes node.length]? = none := by
+                apply List.getElem?_eq_none
+                rw [pre_r.left]
+                apply Nat.le_of_not_gt
+                exact not_lt
+              rw [getElem_children_eq_getElem_tree_children, PossiblyInfiniteTree.getElem_children_eq_get_tree] at this
+              unfold PossiblyInfiniteTree.get at this
+              unfold InfiniteList.take
+              simp
+              rw [pre_r.right]
+              exact this
+            have le : node.length + 1 ≤ n := by apply Nat.succ_le_of_lt; apply Nat.lt_of_not_ge; exact lt
+            cases Nat.eq_or_lt_of_le le with
+            | inl eq => rw [← eq]; exact this
+            | inr lt =>
+              have no_orphans := tree.tree.no_orphans (nodes.take n).reverse
+              apply Option.decidable_eq_none.byContradiction
+              intro contra
+              specialize no_orphans contra ⟨(nodes.take (node.length + 1)).reverse, by
+                exists ((nodes.skip (node.length + 1)).take (n - (node.length + 1))).reverse
+                rw [← List.reverse_append]
+                rw [InfiniteList.combine_skip_take nodes n ⟨node.length + 1, lt⟩]
+              ⟩
+              apply no_orphans
+              exact this
+
+  -- TODO: maybe remove, not sure if this is useful...
+  theorem branches_finite_of_eventually_all_finite (tree : FiniteDegreeTree α) : (∃ (depth : Nat), ∀ node, node.length = depth -> (tree.branches_through node).finite) -> tree.branches.finite := by
+    intro h
+    rcases h with ⟨depth, h⟩
+    induction depth with
+    | zero => apply h; simp
+    | succ depth ih =>
+      apply ih
+      intro node node_length_eq
+      apply branches_through_finite_of_branches_through_children_finite
+      intro i
+      apply h
+      simp [node_length_eq]
+
+  theorem branches_finite_of_each_finite (tree : FiniteDegreeTree α) : (∀ branch, branch ∈ tree.branches -> ∃ i, branch.infinite_list i = none) -> tree.branches.finite := by
+    intro h
+
+    -- NOT SURE HOW TO DO THIS YET...
+
+    apply branches_finite_of_eventually_all_finite
+
+    apply Classical.byContradiction
+    intro contra
+    simp at contra
+
+    have : ∃ (nodes : InfiniteList Nat), ∀ (i : Nat), ¬ (tree.branches_through (nodes.take i)).finite := by
+      sorry
+
+    have : ∀ (nodes : InfiniteList Nat), ∃ (i : Nat), tree.get (nodes.take i) = none := by sorry
+
+    have : ∀ (nodes : InfiniteList Nat), ∃ (i : Nat), (tree.branches_through (nodes.take i)).finite := by
+      intro nodes
+      sorry
+
+    have : ∀ (nodes : InfiniteList Nat), ∀ (i : Nat), (tree.branches_through (nodes.take i)).finite := by sorry
+
+
+
+    sorry
 end FiniteDegreeTree
 

@@ -175,22 +175,25 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
     unfold FiniteDegreeTree.branches
     unfold PossiblyInfiniteTree.branches
     unfold InfiniteTreeSkeleton.branches
+    unfold InfiniteTreeSkeleton.branches_through
     simp [firstBranch, Set.element]
     let nodes : InfiniteList Nat := fun _ => 0
     exists nodes
-    intro n
-    unfold FiniteDegreeTree.get
-    unfold PossiblyInfiniteTree.get
-    have : List.repeat 0 n = (nodes.take n).reverse := by
-      simp only [nodes]
-      induction n with
-      | zero => simp [List.repeat, InfiniteList.take]
-      | succ n ih =>
-        unfold List.repeat
-        unfold InfiniteList.take
-        simp
-        exact ih
-    rw [this]
+    constructor
+    . intro n
+      unfold FiniteDegreeTree.get
+      unfold PossiblyInfiniteTree.get
+      have : List.repeat 0 n = (nodes.take n).reverse := by
+        simp only [nodes]
+        induction n with
+        | zero => simp [List.repeat, InfiniteList.take]
+        | succ n ih =>
+          unfold List.repeat
+          unfold InfiniteList.take
+          simp
+          exact ih
+      rw [this]
+    . rfl
   . unfold ChaseBranch.result
     rfl
 
@@ -218,11 +221,11 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
           | some node =>
             have trg_ex := ct.triggers_exist (nodes.take n).reverse
             simp [Option.is_none_or]
-            have n_succ_in_ct := branch_in_ct (n+1)
+            have n_succ_in_ct := branch_in_ct.left (n+1)
             rw [eq] at n_succ_in_ct
             unfold FiniteDegreeTree.get at trg_ex
             unfold PossiblyInfiniteTree.get at trg_ex
-            rw [← branch_in_ct] at trg_ex
+            rw [← branch_in_ct.left] at trg_ex
             cases eq_prev : branch.branch.infinite_list n with
             | none =>
               have no_holes := branch.branch.no_holes (n+1) (by rw [eq]; simp) ⟨n, by simp⟩
@@ -260,7 +263,7 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
               | inr trg_ex =>
                 unfold not_exists_trigger_list at trg_ex
                 have contra := ct.tree.children_empty_means_all_following_none (nodes.take n).reverse trg_ex.right (nodes n)
-                specialize branch_in_ct (n+1)
+                have branch_in_ct := branch_in_ct.left (n+1)
                 unfold InfiniteList.take at branch_in_ct
                 simp at branch_in_ct
                 unfold FiniteDegreeTree.get at contra
@@ -310,7 +313,7 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
               have eq' := eq
               unfold FiniteDegreeTree.get at eq
               unfold PossiblyInfiniteTree.get at eq
-              rw [← branch_in_ct] at eq
+              rw [← branch_in_ct.left] at eq
               specialize this n
               rw [eq] at this; simp [Option.is_none_or] at this
               rw [this] at eq'
@@ -322,7 +325,7 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
                 cases trg_ex with | intro _ trg_ex => cases trg_ex.right with | intro _ trg_ex =>
                   unfold FiniteDegreeTree.get at h
                   unfold PossiblyInfiniteTree.get at h
-                  rw [← branch_in_ct] at h
+                  rw [← branch_in_ct.left] at h
                   rw [h] at trg_ex
                   contradiction
               | inr trg_ex =>
@@ -357,16 +360,16 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
             rw [eq] at this
             simp [Option.is_none_or] at this
             rw [← this]
-            unfold FiniteDegreeTree.get; unfold PossiblyInfiniteTree.get; rw [← branch_in_ct]; exact h
+            unfold FiniteDegreeTree.get; unfold PossiblyInfiniteTree.get; rw [← branch_in_ct.left]; exact h
         . intro h; cases h with | intro n h =>
           exists n
-          rw [branch_in_ct]
+          rw [branch_in_ct.left]
           cases eq : branch.branch.infinite_list n with
           | none =>
             rw [nodes_none_means_first_branch_none n (by
               unfold FiniteDegreeTree.get
               unfold PossiblyInfiniteTree.get
-              rw [← branch_in_ct]
+              rw [← branch_in_ct.left]
               exact eq
             )] at h
             simp [Option.is_some_and] at h

@@ -868,15 +868,18 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
     unfold FiniteDegreeTree.branches
     unfold PossiblyInfiniteTree.branches
     unfold InfiniteTreeSkeleton.branches
+    unfold InfiniteTreeSkeleton.branches_through
     unfold Set.element
     simp
     exists indices
-    intro n
-    simp only [path]
-    rw [indices_aux_result]
-    unfold FiniteDegreeTree.get
-    unfold PossiblyInfiniteTree.get
-    rfl
+    constructor
+    . intro n
+      simp only [path]
+      rw [indices_aux_result]
+      unfold FiniteDegreeTree.get
+      unfold PossiblyInfiniteTree.get
+      rfl
+    . rfl
   . constructor
     . intro gt
       split
