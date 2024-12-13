@@ -85,6 +85,7 @@ def not_exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet
 def not_exists_trigger_list (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) : Prop :=
   ¬(∃ trg : (RTrigger obs rules), trg.val.active before.fact) ∧ after = []
 
+@[ext]
 structure ChaseBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig) where
   branch : PossiblyInfiniteList (ChaseNode obs kb.rules)
   database_first : branch.infinite_list 0 = some { fact := kb.db.toFactSet, origin := none, fact_contains_origin_result := by simp [Option.is_none_or] }
@@ -378,8 +379,8 @@ theorem chaseTreeSetIsSubsetOfResult (ct : ChaseTree obs kb) : ∀ node : List N
       unfold PossiblyInfiniteTree.branches_through at branch_through_node
       unfold InfiniteTreeSkeleton.branches_through at branch_through_node
       simp [Set.element] at branch_through_node
-      rw [branch_through_node.right ⟨node.length, by simp⟩]
-      simp
+      rcases branch_through_node with ⟨nodes, eq, eq2⟩
+      rw [eq node.length, eq2]
       rfl
 
     have branch_subs_result := chaseBranchSetIsSubsetOfResult branch node.length

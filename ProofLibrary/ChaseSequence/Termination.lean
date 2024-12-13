@@ -197,5 +197,222 @@ section GeneralResults
 
   end ChaseBranch
 
+  namespace ChaseTree
+
+    theorem finitely_many_branch_of_terminates (ct : ChaseTree obs kb) : ct.terminates -> ct.branches.finite := by
+      unfold terminates
+      unfold ChaseBranch.terminates
+      intro each_b_term
+
+      have : ∀ b, b ∈ ct.tree.branches -> ∃ i, b.infinite_list i = none := by
+        intro b b_mem
+        rcases b_mem with ⟨nodes, b_mem, _⟩
+
+        -- It might seem like byContradiction is not needed but we need the contra hypothesis to show that cb is a proper chase branch
+        apply Classical.byContradiction
+        intro contra
+
+        let cb : ChaseBranch obs kb := {
+          branch := b
+          database_first := by rw [← ct.database_first]; rw [b_mem]; simp [InfiniteList.take]; rfl
+          triggers_exist := by
+            intro n
+            cases eq : b.infinite_list n with
+            | none => simp [Option.is_none_or]
+            | some node =>
+              simp [Option.is_none_or]
+              have trgs_ex := ct.triggers_exist (nodes.take n).reverse
+              unfold FiniteDegreeTree.get at trgs_ex
+              unfold PossiblyInfiniteTree.get at trgs_ex
+              rw [← b_mem, eq] at trgs_ex
+              simp [Option.is_none_or] at trgs_ex
+              cases trgs_ex with
+              | inr trgs_ex =>
+                unfold not_exists_trigger_list at trgs_ex
+                have all_none := ct.tree.children_empty_means_all_following_none _ trgs_ex.right
+                specialize all_none (nodes n)
+                apply False.elim
+                apply contra
+                exists (n+1)
+                rw [b_mem]
+                unfold InfiniteList.take
+                simp
+                exact all_none
+              | inl trgs_ex =>
+                apply Or.inl
+                unfold exists_trigger_list at trgs_ex
+                unfold exists_trigger_list_condition at trgs_ex
+                unfold exists_trigger_opt_fs
+                rcases trgs_ex with ⟨trg, trg_active, trg_eq⟩
+                exists trg
+                constructor
+                . exact trg_active
+                . have length_eq : trg.val.result.length = (ct.tree.children (nodes.take n).reverse).length := by
+                    rw [← trg_eq]
+                    simp [List.enum_with_lt_length_eq]
+
+                  have get_node_eq : (ct.tree.children (nodes.take n).reverse)[nodes n]? = b.infinite_list (n+1) := by
+                    rw [FiniteDegreeTree.getElem_children_eq_getElem_tree_children]
+                    rw [PossiblyInfiniteTree.getElem_children_eq_get_tree]
+                    rw [b_mem]
+                    conv => right; unfold InfiniteList.take
+                    simp
+                    rfl
+
+                  have nodes_n_le : nodes n < trg.val.result.length := by
+                    rw [length_eq]
+                    apply Decidable.byContradiction
+                    intro contra'
+                    simp at contra'
+                    rw [List.getElem?_eq_none contra'] at get_node_eq
+                    apply contra
+                    exists (n+1)
+                    rw [get_node_eq]
+
+                  exists ⟨nodes n, nodes_n_le⟩
+
+
+                  rw [List.map_eq_iff] at trg_eq
+                  specialize trg_eq (nodes n)
+
+                  simp only [← get_node_eq, trg_eq]
+                  rw [List.getElem?_eq_getElem]
+                  rw [List.getElem_attach]
+                  . simp
+                    constructor
+                    . rw [List.enum_with_lt_getElem_snd_eq_getElem]
+                    . rw [List.enum_with_lt_getElem_fst_eq_index]
+                  . simp [List.enum_with_lt_length_eq]
+                    exact nodes_n_le
+          fairness := by
+            intro trg
+            have fair := ct.fairness_infinite_branches trg
+            rcases fair with ⟨i, fair⟩
+            exists i
+            cases eq : b.infinite_list i with
+            | none => apply False.elim; apply contra; exists i
+            | some node =>
+              simp [Option.is_some_and]
+              constructor
+              . specialize fair (nodes.take i).reverse (by simp [InfiniteList.length_take])
+                unfold FiniteDegreeTree.get at fair
+                unfold PossiblyInfiniteTree.get at fair
+                rw [← b_mem, eq, Option.is_none_or] at fair
+                exact fair
+              . intro j lt
+                cases eq2 : b.infinite_list j with
+                | none => apply False.elim; apply contra; exists j
+                | some node2 =>
+                  rw [Option.is_none_or]
+                  specialize fair (nodes.take j).reverse (by simp [InfiniteList.length_take]; exact Nat.le_of_lt lt)
+                  unfold FiniteDegreeTree.get at fair
+                  unfold PossiblyInfiniteTree.get at fair
+                  rw [← b_mem, eq2, Option.is_none_or] at fair
+                  exact fair
+        }
+
+        apply contra
+        specialize each_b_term cb (by exists nodes)
+        exact each_b_term
+
+      -- Koenig's Lemma
+      have : ct.tree.branches.finite := by
+        apply ct.tree.branches_finite_of_each_finite
+        apply this
+
+      rcases this with ⟨l, l_nodup, l_eq⟩
+
+      let cb_for_b (b : PossiblyInfiniteList (ChaseNode obs kb.rules)) : Option (ChaseBranch obs kb) :=
+        match (Classical.propDecidable (∃ (cb : ChaseBranch obs kb), cb.branch = b)) with
+        | .isTrue p => some (Classical.choose p)
+        | .isFalse _ => none
+
+      have := Classical.typeDecidableEq (ChaseBranch obs kb)
+      let filtered := (l.filterMap (fun b => cb_for_b b)).eraseDupsKeepRight
+
+      exists filtered
+      constructor
+      . apply List.nodup_eraseDupsKeepRight
+      . intro e
+        unfold filtered
+        rw [List.mem_eraseDupsKeepRight_iff]
+        unfold branches
+        simp
+        constructor
+        . intro h
+          rcases h with ⟨b, b_mem, b_eq⟩
+          unfold cb_for_b at b_eq
+          split at b_eq
+          case h_1 _ p _ =>
+            have spec := Classical.choose_spec p
+            injection b_eq with b_eq
+            rw [← b_eq]
+            simp [Set.element]
+            rw [spec]
+            apply (l_eq b).mp
+            exact b_mem
+          case h_2 _ p _ =>
+            simp at b_eq
+        . intro h
+          exists e.branch
+          rw [l_eq]
+          constructor
+          . exact h
+          . unfold cb_for_b
+            split
+            case h_1 _ p _ =>
+              have spec := Classical.choose_spec p
+              simp
+              apply ChaseBranch.ext
+              exact spec
+            case h_2 _ p _ =>
+              apply False.elim
+              apply p
+              exists e
+
+    theorem result_finite_of_branches_finite (ct : ChaseTree obs kb) : ct.branches.finite -> ct.result.finite := by
+      intro bs_finite
+      unfold Set.finite at bs_finite
+      rcases bs_finite with ⟨l, _, iff⟩
+      have : DecidableEq (FactSet sig) := Classical.typeDecidableEq (FactSet sig)
+      exists (l.map ChaseBranch.result).eraseDupsKeepRight
+      constructor
+      . apply List.nodup_eraseDupsKeepRight
+      . intro fs
+        rw [List.mem_eraseDupsKeepRight_iff]
+        simp
+        constructor
+        . intro h
+          rcases h with ⟨b, mem, eq⟩
+          exists b
+          constructor
+          . rw [← iff]; exact mem
+          . exact eq
+        . intro h
+          rcases h with ⟨b, mem, eq⟩
+          exists b
+          constructor
+          . rw [iff]; exact mem
+          . exact eq
+
+    theorem terminates_iff_result_finite (ct : ChaseTree obs kb) : ct.terminates ↔ ∀ fs, fs ∈ ct.result -> fs.finite := by
+      unfold terminates
+      unfold result
+      constructor
+      . intro each_b_term
+        intro res res_mem
+        rcases res_mem with ⟨b, mem, eq⟩
+        rw [← eq]
+        rw [← ChaseBranch.terminates_iff_result_finite]
+        apply each_b_term
+        exact mem
+      . intro each_b_term
+        intro b mem
+        rw [ChaseBranch.terminates_iff_result_finite]
+        apply each_b_term
+        exists b
+
+  end ChaseTree
+
 end GeneralResults
 
