@@ -200,7 +200,7 @@ theorem Fact.toFact_after_toFunctionFreeFact_is_id : ∀ (f : Fact sig), f.toFun
 
 def FactSet.terms (fs : FactSet sig) : Set (GroundTerm sig) := fun t => ∃ f, f ∈ fs ∧ t ∈ f.terms
 
-theorem Factset.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) : fs.terms.finite := by
+theorem FactSet.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) : fs.terms.finite := by
   rcases finite with ⟨l, nodup, finite⟩
   exists (l.map Fact.terms).flatten.eraseDupsKeepRight
   constructor

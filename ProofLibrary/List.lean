@@ -360,6 +360,18 @@ namespace List
         rcases h with ⟨as, bs, eq, _⟩
         simp [eq]
 
+  theorem map_id_of_id_on_all_mem (l : List α) (f : α -> α) (id_on_all_mem : ∀ e, e ∈ l -> f e = e) : l.map f = l := by
+    induction l with
+    | nil => simp
+    | cons hd tl ih =>
+      unfold map
+      rw [id_on_all_mem hd]
+      . rw [ih]
+        intro e e_mem
+        apply id_on_all_mem
+        simp [e_mem]
+      . simp
+
 end List
 
 def List.repeat (val : α) : Nat -> List α

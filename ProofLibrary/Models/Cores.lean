@@ -232,6 +232,15 @@ namespace Function
       apply h
       exact b_mem
 
+  theorem injective_of_surjective_of_nodup [DecidableEq α] (f : α -> α) (l : List α) (nodup : l.Nodup) : f.surjective_for_domain_and_image_list l l -> f.injective_for_domain_list l := by
+    intro surj
+    rw [surjective_on_target_iff_all_in_image] at surj
+    rw [injective_iff_length_image_eq_of_nodup _ _ nodup]
+    rw [Nat.eq_iff_le_and_ge]
+    constructor
+    . exact length_image f l
+    . exact List.length_le_of_nodup_of_all_mem l (image f l) nodup surj
+
   theorem injective_iff_surjective_of_nodup_of_closed [DecidableEq α] (f : α -> α) (l : List α) (nodup : l.Nodup) (closed : ∀ e, e ∈ l -> f e ∈ l) : f.injective_for_domain_list l ↔ f.surjective_for_domain_and_image_list l l := by
     constructor
     . intro inj
@@ -250,13 +259,15 @@ namespace Function
       rw [surjective_on_target_iff_all_in_image]
       intro b
       apply (this b).mpr
-    . intro surj
-      rw [surjective_on_target_iff_all_in_image] at surj
-      rw [injective_iff_length_image_eq_of_nodup _ _ nodup]
-      rw [Nat.eq_iff_le_and_ge]
-      constructor
-      . exact length_image f l
-      . exact List.length_le_of_nodup_of_all_mem l (image f l) nodup surj
+    . apply injective_of_surjective_of_nodup; exact nodup
+
+  theorem closed_of_injective_of_surjective_of_nodup [DecidableEq α] (f : α -> α) (l : List α) (nodup : l.Nodup) : f.injective_for_domain_list l -> f.surjective_for_domain_and_image_list l l -> ∀ e, e ∈ l -> f e ∈ l := by
+    intro inj surj
+    intro e e_mem
+    rw [List.equiv_of_nodup_of_length_eq_of_all_mem l (image f l) nodup]
+    . apply mapping_mem_image_of_mem; exact e_mem
+    . rw [(injective_iff_length_image_eq_of_nodup f l nodup).mp inj]
+    . exact (surjective_on_target_iff_all_in_image f l l).mp surj
 
 end Function
 
@@ -266,14 +277,15 @@ namespace GroundTermMapping
 
   variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
-  def strong (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
-    ∀ e, ¬ e ∈ A -> ¬ (h.applyFact e) ∈ B
+  def strong (h : GroundTermMapping sig) (domain : Set (GroundTerm sig)) (A B : FactSet sig) : Prop :=
+    ∀ (e : Fact sig), (∀ t, t ∈ e.terms -> t ∈ domain) -> ¬ e ∈ A -> ¬ (h.applyFact e) ∈ B
 
-  theorem strong_of_compose_strong (g h : GroundTermMapping sig) (A B C : FactSet sig) :
-      h.isHomomorphism B C -> GroundTermMapping.strong (h ∘ g) A C -> g.strong A B := by
+  theorem strong_of_compose_strong (g h : GroundTermMapping sig) (domain : Set (GroundTerm sig)) (A B C : FactSet sig) :
+      h.isHomomorphism B C -> GroundTermMapping.strong (h ∘ g) domain A C -> g.strong domain A B := by
     intro h_hom compose_strong
-    intro e e_not_mem_a e_mem_b
+    intro e e_dom e_not_mem_a e_mem_b
     apply compose_strong e
+    . exact e_dom
     . exact e_not_mem_a
     . apply h_hom.right (GroundTermMapping.applyFact (h ∘ g) e)
       exists (g.applyFact e)
@@ -289,10 +301,10 @@ namespace FactSet
   variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
   def isWeakCore (fs : FactSet sig) : Prop :=
-    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs fs ∧ h.injective_for_domain_set fs.terms
+    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ h.injective_for_domain_set fs.terms
 
   def isStrongCore (fs : FactSet sig) : Prop :=
-    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs fs ∧ h.injective_for_domain_set fs.terms ∧ h.surjective_for_domain_and_image_set fs.terms fs.terms
+    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ h.injective_for_domain_set fs.terms ∧ h.surjective_for_domain_and_image_set fs.terms fs.terms
 
   theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) : ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injective_for_domain_set fs.terms -> h.surjective_for_domain_and_image_set fs.terms fs.terms := by
     rcases finite with ⟨l, finite⟩
@@ -370,7 +382,7 @@ namespace FactSet
       {kb : KnowledgeBase sig}
       (sc : FactSet sig) (sc_universal : sc.universallyModelsKb kb) (sc_strong : sc.isStrongCore)
       (wc : FactSet sig) (wc_universal : wc.universallyModelsKb kb) (wc_weak : wc.isWeakCore) :
-      ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc sc ∧ iso.injective_for_domain_set wc.terms ∧ iso.surjective_for_domain_and_image_set wc.terms sc.terms := by
+      ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injective_for_domain_set wc.terms ∧ iso.surjective_for_domain_and_image_set wc.terms sc.terms := by
 
     rcases sc_universal.right wc wc_universal.left with ⟨h_sc_wc, h_sc_wc_hom⟩
     rcases wc_universal.right sc sc_universal.left with ⟨h_wc_sc, h_wc_sc_hom⟩
@@ -392,7 +404,7 @@ namespace FactSet
     . exact h_wc_sc_hom
     constructor
     -- strong since h_sc_wc ∘ h_wc_sc is strong
-    . apply GroundTermMapping.strong_of_compose_strong h_wc_sc h_sc_wc wc sc wc h_sc_wc_hom
+    . apply GroundTermMapping.strong_of_compose_strong h_wc_sc h_sc_wc wc.terms wc sc wc h_sc_wc_hom
       exact wc_weak.left
     constructor
     -- injective since h_sc_wc ∘ h_wc_sc is injetive
