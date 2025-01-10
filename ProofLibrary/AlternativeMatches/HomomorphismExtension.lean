@@ -90,7 +90,7 @@ namespace ChaseBranch
         exists v
       | inr v_frontier =>
         unfold h'
-        rw [List.find?_eq_some.mpr]
+        rw [List.find?_eq_some_iff_append.mpr]
         simp
         constructor
         . exact v_frontier

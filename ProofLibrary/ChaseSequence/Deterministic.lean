@@ -248,7 +248,7 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
                   rw [← h_trg.right] at n_succ_in_ct
                   rw [PossiblyInfiniteList.get_fromList_eq_list_getElem] at n_succ_in_ct
                   have n_succ_in_ct := Eq.symm n_succ_in_ct
-                  rw [List.getElem?_eq_some] at n_succ_in_ct
+                  rw [List.getElem?_eq_some_iff] at n_succ_in_ct
                   cases n_succ_in_ct with | intro isLt n_succ_in_ct =>
                     simp [List.enum_with_lt_length_eq] at isLt
                     unfold PreTrigger.result at isLt
