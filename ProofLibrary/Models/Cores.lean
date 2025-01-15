@@ -271,8 +271,6 @@ namespace Function
 
 end Function
 
-
-
 namespace GroundTermMapping
 
   variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
@@ -295,6 +293,208 @@ namespace GroundTermMapping
         simp
 
 end GroundTermMapping
+
+
+section HomomorphismRepetition
+
+-- TODO: I think a lot of this can be generalized to arbitrary Functions
+
+namespace GroundTermMapping
+
+  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+
+  def repeat_hom (h : GroundTermMapping sig) : Nat -> GroundTermMapping sig
+  | .zero => id
+  | .succ j => h ∘ (h.repeat_hom j)
+
+  theorem repeat_hom_swap (h : GroundTermMapping sig) (i : Nat) : ∀ t, h (h.repeat_hom i t) = (h.repeat_hom i) (h t) := by
+    intro t
+    induction i with
+    | zero => unfold repeat_hom; simp
+    | succ i ih =>
+      unfold repeat_hom
+      simp
+      rw [ih]
+
+  theorem repeat_hom_add (h : GroundTermMapping sig) (n m : Nat) : ∀ t, h.repeat_hom (n + m) t = h.repeat_hom n (h.repeat_hom m t) := by
+    intro t
+    induction m with
+    | zero => simp [repeat_hom]
+    | succ m ih =>
+      conv => left; unfold repeat_hom
+      conv => right; right; unfold repeat_hom
+      simp
+      rw [ih]
+      rw [h.repeat_hom_swap]
+
+  theorem repeat_hom_cycle_mul (h : GroundTermMapping sig) (t : GroundTerm sig) (n : Nat) : h.repeat_hom n t = t -> ∀ m, h.repeat_hom (n * m) t = t := by
+    intro cycle m
+    induction m with
+    | zero => simp [repeat_hom]
+    | succ m ih =>
+      rw [Nat.mul_add]
+      rw [repeat_hom_add]
+      simp
+      rw [cycle, ih]
+
+  theorem repeat_hom_move_cycle (h : GroundTermMapping sig) (t : GroundTerm sig) (n : Nat) : h.repeat_hom n t = t -> ∀ s m, h.repeat_hom m t = s -> h.repeat_hom n s = s := by
+    intro cycle s m reaches_s
+    induction m generalizing t with
+    | zero => simp [repeat_hom] at reaches_s; rw [← reaches_s]; exact cycle
+    | succ m ih =>
+      apply ih (h t)
+      . rw [← h.repeat_hom_swap]
+        rw [cycle]
+      . simp [repeat_hom] at reaches_s
+        rw [h.repeat_hom_swap] at reaches_s
+        exact reaches_s
+
+  theorem repeat_each_reaches_self_of_each_reachable (h : GroundTermMapping sig) (ts : List (GroundTerm sig)) (each_reachable : ∀ t, t ∈ ts -> ∃ k, 1 ≤ k ∧ ∃ s, s ∈ ts ∧ (h.repeat_hom k) s = t) : (∀ s, s ∈ ts -> ∃ l, 1 ≤ l ∧ (h.repeat_hom l) s = s) := by
+    induction ts with
+    | nil => simp
+    | cons hd tl ih =>
+      specialize ih (by
+        intro t t_mem
+        have each_reachable_for_t := each_reachable t (by simp [t_mem])
+        rcases each_reachable_for_t with ⟨k, k_le, s, s_mem, s_eq⟩
+        simp at s_mem
+        cases s_mem with
+        | inr s_mem => exists k; constructor; exact k_le; exists s
+        | inl s_mem =>
+          have each_reachable_for_s := each_reachable s (by simp [s_mem])
+          rcases each_reachable_for_s with ⟨l, l_le, u, u_mem, u_eq⟩
+          simp at u_mem
+          cases u_mem with
+          | inl u_mem =>
+            exists (((k / l) + 1) * l)
+            constructor
+            .
+              rw [Nat.add_mul]
+              apply Nat.le_trans
+              . exact k_le
+              . apply Nat.le_of_lt
+                simp
+                -- NOTE: taken from https://github.com/leanprover-community/mathlib4/blob/3f813de52d8cffaa73e27edd62364eec90eac633/Mathlib/Data/Nat/Defs.lean#L473-L474
+                rw [← Nat.succ_mul, ← Nat.div_lt_iff_lt_mul (by apply Nat.lt_of_succ_le; exact l_le)]; exact Nat.lt_succ_self _
+            . exists t
+              constructor
+              . exact t_mem
+              . apply h.repeat_hom_move_cycle s
+                . rw [Nat.mul_comm]
+                  apply h.repeat_hom_cycle_mul
+                  rw [u_mem, ← s_mem] at u_eq
+                  exact u_eq
+                . exact s_eq
+          | inr u_mem =>
+            exists (k + l)
+            constructor
+            . apply Nat.le_add_right_of_le; exact k_le
+            . exists u
+              constructor
+              . exact u_mem
+              . rw [GroundTermMapping.repeat_hom_add]
+                rw [u_eq, s_eq]
+      )
+
+      intro s s_mem
+      simp at s_mem
+      cases s_mem with
+      | inl s_mem =>
+        specialize each_reachable s (by rw [s_mem]; simp)
+        rcases each_reachable with ⟨k, k_le, t, t_mem, t_eq⟩
+        simp at t_mem
+        cases t_mem with
+        | inl t_mem => exists k; constructor; exact k_le; rw [t_mem, ← s_mem] at t_eq; exact t_eq
+        | inr t_mem =>
+          specialize ih t t_mem
+          rcases ih with ⟨l, l_le, ih⟩
+          exists l
+          constructor
+          . exact l_le
+          . apply h.repeat_hom_move_cycle t
+            . exact ih
+            . exact t_eq
+      | inr s_mem =>
+        apply ih
+        exact s_mem
+
+  theorem repeat_globally_of_each_repeats (h : GroundTermMapping sig) (ts : List (GroundTerm sig)) (each_repeats : ∀ s, s ∈ ts -> ∃ l, 1 ≤ l ∧ (h.repeat_hom l) s = s) :
+      ∃ l, 1 ≤ l ∧ ∀ s, s ∈ ts -> (h.repeat_hom l) s = s := by
+    induction ts with
+    | nil => exists 1; simp
+    | cons hd tl ih =>
+      specialize ih (by intro s s_mem; apply each_repeats; simp [s_mem])
+      rcases ih with ⟨l_ih, l_ih_le, ih⟩
+      rcases each_repeats hd (by simp) with ⟨l_hd, l_hd_le, each_repeats⟩
+      exists l_hd * l_ih
+      constructor
+      . apply Nat.le_trans; exact l_hd_le; apply Nat.le_mul_of_pos_right; apply Nat.lt_of_succ_le; exact l_ih_le
+      . intro s s_mem
+        simp at s_mem
+        cases s_mem with
+        | inl s_mem => rw [s_mem, h.repeat_hom_cycle_mul]; exact each_repeats
+        | inr s_mem => specialize ih s s_mem; rw [Nat.mul_comm, h.repeat_hom_cycle_mul]; exact ih
+
+  theorem exists_repetition_that_is_inverse_of_surj (h : GroundTermMapping sig) (ts : List (GroundTerm sig)) (surj : h.surjective_for_domain_and_image_list ts ts) : ∃ k, ∀ t, t ∈ ts -> (h.repeat_hom k) (h t) = t := by
+    have each_repeats := h.repeat_each_reaches_self_of_each_reachable ts (by intro t t_mem; exists 1; constructor; simp; simp [repeat_hom]; apply surj t t_mem)
+    have repeats_globally := h.repeat_globally_of_each_repeats ts each_repeats
+
+    rcases repeats_globally with ⟨k, le, repeats_globally⟩
+
+    exists k-1
+    intro t t_mem
+    have repeat_add := h.repeat_hom_add (k-1) 1 t
+    conv at repeat_add => right; right; simp [repeat_hom]
+    rw [← repeat_add]
+    rw [Nat.sub_one_add_one]
+    . apply repeats_globally; exact t_mem
+    . apply Nat.not_eq_zero_of_lt; apply Nat.lt_of_succ_le; exact le
+
+  theorem repeat_hom_id_on_const (h : GroundTermMapping sig) (idOnConst : h.isIdOnConstants) : ∀ i, (h.repeat_hom i).isIdOnConstants := by
+    intro i
+    induction i with
+    | zero => unfold repeat_hom; unfold isIdOnConstants; intro t; split <;> simp
+    | succ i ih =>
+      intro t
+      cases t with
+      | inner _ _ => simp
+      | leaf c =>
+        simp
+        unfold repeat_hom
+        simp
+        rw [ih (FiniteTree.leaf c)]
+        rw [idOnConst (FiniteTree.leaf c)]
+
+  variable [DecidableEq sig.P]
+
+  theorem repeat_hom_isHomomorphism (h : GroundTermMapping sig) (fs : FactSet sig) (hom : h.isHomomorphism fs fs) : ∀ i, (h.repeat_hom i).isHomomorphism fs fs := by
+    intro i
+    constructor
+    . apply repeat_hom_id_on_const; exact hom.left
+    . induction i with
+      | zero =>
+        simp [repeat_hom]
+        intro f f_mem
+        rcases f_mem with ⟨f', f'_mem, f_eq⟩
+        have : f = f' := by
+          unfold applyFact at f_eq
+          . rw [← f_eq]; simp
+        rw [this]
+        exact f'_mem
+      | succ i ih =>
+        unfold repeat_hom
+        rw [applyFactSet_compose]
+        simp
+        intro f f_mem
+        apply hom.right
+        have lifted_ih := h.applyFactSet_subset_of_subset _ _ ih
+        apply lifted_ih
+        exact f_mem
+
+end GroundTermMapping
+
+end HomomorphismRepetition
+
 
 namespace FactSet
 
@@ -362,6 +562,43 @@ namespace FactSet
     rw [← Function.injective_iff_surjective_of_nodup_of_closed h terms_list nodup_terms_list closed]
     rw [← Function.injective_set_list_equiv h fs.terms terms_list mem_terms_list]
     exact inj
+
+  theorem hom_strong_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) : ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injective_for_domain_set fs.terms -> h.strong fs.terms fs fs := by
+    intro h isHom inj
+
+    intro f ts_mem f_not_mem apply_mem
+    apply f_not_mem
+
+    have surj := fs.hom_surjective_of_finite_of_injective finite h isHom inj
+
+    have terms_finite := fs.terms_finite_of_finite finite
+    rcases terms_finite with ⟨terms, nodup, equiv⟩
+
+    rw [h.surjective_set_list_equiv fs.terms terms equiv fs.terms terms equiv] at surj
+    have ex_inv := h.exists_repetition_that_is_inverse_of_surj terms surj
+    rcases ex_inv with ⟨k, inv⟩
+    have inv_hom : (h.repeat_hom k).isHomomorphism fs fs := h.repeat_hom_isHomomorphism fs isHom k
+
+    have : f = (h.repeat_hom k).applyFact (h.applyFact f) := by
+      rw [← Function.comp_apply (f := (h.repeat_hom k).applyFact)]
+      rw [← GroundTermMapping.applyFact_compose]
+      unfold GroundTermMapping.applyFact
+      rw [Fact.ext_iff]
+      constructor
+      . rfl
+      . simp only
+        rw [List.map_id_of_id_on_all_mem]
+        intro t t_mem
+        rw [Function.comp_apply]
+        apply inv
+        rw [equiv]
+        apply ts_mem
+        exact t_mem
+    rw [this]
+
+    apply inv_hom.right
+    apply GroundTermMapping.applyPreservesElement
+    exact apply_mem
 
   theorem isStrongCore_of_isWeakCore_of_finite (fs : FactSet sig) (weakCore : fs.isWeakCore) (finite : fs.finite) : fs.isStrongCore := by
     rcases finite with ⟨l, finite⟩
