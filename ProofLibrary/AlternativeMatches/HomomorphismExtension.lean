@@ -42,9 +42,11 @@ namespace ChaseBranch
         have : i = disj_index' := by
           have isLt := i.isLt
           have := det trg'.rule trg.property
+          unfold Rule.isDeterministic at this
           simp [this] at isLt
           have isLt' := disj_index'.isLt
           have := det trg.val.rule trg.property
+          unfold Rule.isDeterministic at this
           simp [this] at isLt'
           rw [Fin.ext_iff]
           rw [isLt, isLt']

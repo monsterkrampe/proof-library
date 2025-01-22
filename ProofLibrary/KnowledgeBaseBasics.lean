@@ -8,22 +8,26 @@ section StructuralDefs
   structure FunctionFreeFact (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] where
     predicate : sig.P
     terms : List sig.C
+    arity_ok : terms.length = sig.arity predicate
     deriving DecidableEq
 
   @[ext]
   structure Fact (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
     predicate : sig.P
     terms : List (GroundTerm sig)
+    arity_ok : terms.length = sig.arity predicate
     deriving DecidableEq
 
   structure FunctionFreeAtom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
     predicate : sig.P
     terms : List (VarOrConst sig)
+    arity_ok : terms.length = sig.arity predicate
     deriving DecidableEq
 
   structure Atom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
     predicate : sig.P
     terms : List (SkolemTerm sig)
+    arity_ok : terms.length = sig.arity predicate
     deriving DecidableEq
 
   variable (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
@@ -57,7 +61,7 @@ namespace FunctionFreeAtom
 
   def variables (a : FunctionFreeAtom sig) : List sig.V := VarOrConst.filterVars a.terms
 
-  def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (a : FunctionFreeAtom sig) : Atom sig := { predicate := a.predicate, terms := a.terms.map (VarOrConst.skolemize ruleId disjunctIndex frontier) }
+  def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (a : FunctionFreeAtom sig) : Atom sig := { predicate := a.predicate, terms := a.terms.map (VarOrConst.skolemize ruleId disjunctIndex frontier), arity_ok := by rw [List.length_map, a.arity_ok] }
 
   theorem skolemize_same_length (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (a : FunctionFreeAtom sig) : a.terms.length = (a.skolemize ruleId disjunctIndex frontier).terms.length := by
     unfold skolemize
@@ -65,14 +69,24 @@ namespace FunctionFreeAtom
 
   theorem skolem_term_in_skolem_atom_if_term_in_atom (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (a : FunctionFreeAtom sig) (t : VarOrConst sig) : t ∈ a.terms.toSet -> (↑(t.skolemize ruleId disjunctIndex frontier)) ∈ (a.skolemize ruleId disjunctIndex frontier).terms.toSet := by
     unfold skolemize
-    induction a.terms with
-    | nil => intros; contradiction
-    | cons head tail ih =>
-      simp [Set.element, List.toSet]
-      intro h
-      cases h with
-      | inl hl => apply Or.inl; simp [Set.element] at hl; rw [hl]; simp [Set.element]
-      | inr hr => apply Or.inr; apply ih; apply hr
+
+    have : ∀ (ts : List (VarOrConst sig)), t ∈ ts -> (t.skolemize ruleId disjunctIndex frontier) ∈ ts.map (VarOrConst.skolemize ruleId disjunctIndex frontier) := by
+      intro ts
+      induction ts with
+      | nil => intros; contradiction
+      | cons head tail ih =>
+        intro h
+        rw [List.mem_cons] at h
+        rw [List.map_cons, List.mem_cons]
+        cases h with
+        | inl hl => apply Or.inl; simp [Set.element] at hl; rw [hl]
+        | inr hr => apply Or.inr; apply ih; apply hr
+
+    intro mem
+    rw [← List.inIffInToSet] at mem
+    rw [← List.inIffInToSet]
+    apply this a.terms
+    exact mem
 
 end FunctionFreeAtom
 
@@ -101,6 +115,8 @@ namespace FunctionFreeConjunction
             unfold FunctionFreeAtom.variables at this
             apply this
 
+  def predicates (conj : FunctionFreeConjunction sig) : List sig.P := conj.map FunctionFreeAtom.predicate
+
 end FunctionFreeConjunction
 
 namespace Rule
@@ -119,18 +135,43 @@ namespace Rule
       have exFactInBody := FunctionFreeConjunction.v_in_vars_occurs_in_fact _ v vInBody
       exact exFactInBody
 
-  def Rule.isDatalog (r : Rule sig) : Bool :=
+  def isDatalog (r : Rule sig) : Bool :=
     r.head.all (fun h => h.vars.all (fun v => v ∈ r.body.vars))
+
+  def isDeterministic (r : Rule sig) : Prop := r.head.length = 1
+
+  def predicates (r : Rule sig) : List sig.P := r.body.predicates ++ (r.head.flatMap FunctionFreeConjunction.predicates)
 
 end Rule
 
-def RuleSet.isDeterministic (rs : RuleSet sig) : Prop := ∀ (r : Rule sig), r ∈ rs.rules -> r.head.length = 1
+namespace RuleSet
+
+  def isDeterministic (rs : RuleSet sig) : Prop := ∀ (r : Rule sig), r ∈ rs.rules -> r.isDeterministic
+
+  def predicates (rs : RuleSet sig) : Set sig.P := fun p => ∃ r, r ∈ rs.rules ∧ p ∈ r.predicates
+
+  theorem predicates_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.predicates.finite := by
+    intro finite
+    rcases finite with ⟨l, nodup, eq⟩
+    exists (l.flatMap Rule.predicates).eraseDupsKeepRight
+    constructor
+    . apply List.nodup_eraseDupsKeepRight
+    . intro p
+      rw [List.mem_eraseDupsKeepRight_iff]
+      unfold predicates
+      simp only [List.mem_flatMap]
+      constructor <;> (intro h; rcases h with ⟨r, h⟩; exists r)
+      . rw [← eq]; assumption
+      . rw [eq]; assumption
+
+end RuleSet
 
 def KnowledgeBase.isDeterministic (kb : KnowledgeBase sig) : Prop := kb.rules.isDeterministic
 
 def FunctionFreeFact.toFact (f : FunctionFreeFact sig) : Fact sig := {
   predicate := f.predicate,
-  terms := f.terms.map GroundTerm.const
+  terms := f.terms.map GroundTerm.const,
+  arity_ok := by rw [List.length_map, f.arity_ok]
 }
 
 def Fact.toFunctionFreeFact (f : Fact sig) : Option (FunctionFreeFact sig) :=
@@ -143,16 +184,19 @@ def Fact.toFunctionFreeFact (f : Fact sig) : Option (FunctionFreeFact sig) :=
       )
     )
   then
-    (Option.some ({ predicate := f.predicate, terms := (f.terms.attach.map (fun ⟨t, t_elem⟩ => match eq : t with
-      | .leaf c => c
-      | .inner _ _ => by
-        -- This cannot happen since we check before that everything is a constant
-        simp at h
-        specialize h t
-        rw [eq] at h
-        specialize h t_elem
-        simp at h
-    )) }))
+    (Option.some ({
+      predicate := f.predicate,
+      terms := (f.terms.attach.map (fun ⟨t, t_elem⟩ => match eq : t with
+        | .leaf c => c
+        | .inner _ _ => by
+          -- This cannot happen since we check before that everything is a constant
+          simp at h
+          specialize h t
+          rw [eq] at h
+          specialize h t_elem
+          simp at h
+      )),
+      arity_ok := by rw [List.length_map, List.length_attach, f.arity_ok] }))
   else
     (Option.none)
 

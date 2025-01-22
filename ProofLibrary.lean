@@ -4,7 +4,8 @@ import ProofLibrary.AlternativeMatches.HomomorphismExtension
 import ProofLibrary.ChaseSequence.Basic
 import ProofLibrary.ChaseSequence.Universality
 import ProofLibrary.ChaseSequence.Deterministic
-import ProofLibrary.ChaseSequence.Termination
+import ProofLibrary.ChaseSequence.Termination.Basic
+import ProofLibrary.ChaseSequence.Termination.MfaLike
 import ProofLibrary.Fin
 import ProofLibrary.FiniteTree
 import ProofLibrary.KnowledgeBaseBasics

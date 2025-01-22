@@ -29,10 +29,10 @@ namespace GroundSubstitution
     | .func fs frontier => FiniteTree.inner fs (FiniteTreeList.fromList (frontier.map (fun fv => σ fv)))
 
   def apply_atom (σ : GroundSubstitution sig) (ϕ : Atom sig) : Fact sig :=
-    { predicate := ϕ.predicate, terms := List.map (apply_skolem_term σ) ϕ.terms }
+    { predicate := ϕ.predicate, terms := List.map (apply_skolem_term σ) ϕ.terms, arity_ok := by rw [List.length_map, ϕ.arity_ok] }
 
   def apply_function_free_atom (σ : GroundSubstitution sig) (ϕ : FunctionFreeAtom sig) : Fact sig :=
-    { predicate := ϕ.predicate, terms := List.map (apply_var_or_const σ) ϕ.terms }
+    { predicate := ϕ.predicate, terms := List.map (apply_var_or_const σ) ϕ.terms, arity_ok := by rw [List.length_map, ϕ.arity_ok] }
 
   def apply_function_free_conj (σ : GroundSubstitution sig) (conj : FunctionFreeConjunction sig) : List (Fact sig) :=
     (List.map (apply_function_free_atom σ)) conj
@@ -98,7 +98,7 @@ namespace GroundTermMapping
       | _ => True
 
   def applyFact (h : GroundTermMapping sig) (f : Fact sig) : Fact sig :=
-    { predicate := f.predicate, terms := List.map h f.terms }
+    { predicate := f.predicate, terms := List.map h f.terms, arity_ok := by rw [List.length_map, f.arity_ok] }
 
   theorem applyFact_compose (g h : GroundTermMapping sig) : applyFact (h ∘ g) = (applyFact h) ∘ (applyFact g) := by
     apply funext
