@@ -5,6 +5,7 @@ structure Signature where
   P : Type u
   V : Type v
   C : Type w
+  arity : P -> Nat
 
 structure SkolemFS (sig : Signature) [DecidableEq sig.V] where
   ruleId : Nat

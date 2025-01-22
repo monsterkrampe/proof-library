@@ -969,7 +969,7 @@ namespace ChaseBranch
             intro t t_mem
             apply each_repeats
             exists f
-          rw [this]
+          simp only [this]
         rw [← this]
         have : (h.repeat_hom j).isHomomorphism fs sub_fs := by
           have : h.repeat_hom j = h.repeat_hom (j-1) ∘ h := by
