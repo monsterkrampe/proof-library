@@ -213,7 +213,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
               intro v_not_in_frontier
 
               have : (trg.val.result.get result_index_for_trg) ⊆ prev_node_unwrapped.fact := by
-                apply funcTermForExisVarInChaseMeansTriggerResultOccurs ct trg result_index_for_trg v_from_head_atom prev_node_unwrapped prev_path
+                apply funcTermForExisVarInChaseTreeMeansTriggerResultOccurs ct trg result_index_for_trg v_from_head_atom prev_node_unwrapped prev_path
                 constructor
                 . rw [prev_node_eq]
                 constructor

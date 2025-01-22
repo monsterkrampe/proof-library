@@ -502,7 +502,7 @@ theorem trgActiveForChaseResultMeansActiveAtSomeIndex (cb : ChaseBranch obs kb) 
           apply subsetOfResult
         . apply contra
 
-theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : some node = ct.tree.get node_path ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> ∃ drop_number : Fin node_path.length, (ct.tree.get (node_path.drop drop_number.val)).is_some_and (fun prev_node => prev_node.origin.is_some_and (fun origin => trg.equiv origin.fst ∧ result_index.val = origin.snd.val)) := by
+theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : some node = ct.tree.get node_path ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> ∃ drop_number : Fin node_path.length, (ct.tree.get (node_path.drop drop_number.val)).is_some_and (fun prev_node => prev_node.origin.is_some_and (fun origin => trg.equiv origin.fst ∧ result_index.val = origin.snd.val)) := by
   intro ⟨node_is_at_path, var_not_in_frontier, exis_f⟩
   induction node_path generalizing node with
   | nil =>
@@ -698,10 +698,10 @@ theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg
             rw [List.enum_with_lt_getElem_fst_eq_index _ _ head_lt_aux_1]
             exact this
 
-theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : (some node = ct.tree.get node_path) ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> trg.val.result.get result_index ⊆ node.fact := by
+theorem funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : (some node = ct.tree.get node_path) ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> trg.val.result.get result_index ⊆ node.fact := by
   intro h
   have node_is_at_path := h.left
-  cases funcTermForExisVarInChaseMeansTriggerIsUsed ct trg result_index var node node_path h with | intro drop_number h =>
+  cases funcTermForExisVarInChaseTreeMeansTriggerIsUsed ct trg result_index var node node_path h with | intro drop_number h =>
     cases eq : ct.tree.get (node_path.drop drop_number) with
     | none => rw [eq] at h; simp [Option.is_some_and] at h
     | some prev_node =>

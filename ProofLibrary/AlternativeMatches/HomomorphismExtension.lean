@@ -116,8 +116,8 @@ namespace ChaseBranch
       simp
       intro v v_head v_not_frontier contra
       have : trg.val.result.get disj_index ⊆ node.fact := by
-        -- kb.isDeterministic is required here
-        apply funcTermForExisVarInChaseMeansTriggerResultOccurs (cb.intoTree det) trg disj_index v node (List.repeat 0 k)
+        -- kb.isDeterministic is used here but likely we could show a similar theorem used here also for branches
+        apply funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (cb.intoTree det) trg disj_index v node (List.repeat 0 k)
         constructor
         . unfold ChaseBranch.intoTree
           unfold FiniteDegreeTree.get
