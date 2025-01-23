@@ -1,6 +1,30 @@
 import ProofLibrary.ChaseSequence.Termination.Basic
 
+section Defs
+
+  variable (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+
+  -- This is essentially the same as a GroundSubstitution only that it maps constants instead of variables
+  abbrev ConstantMapping := sig.C -> GroundTerm sig
+
+end Defs
+
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+
+namespace ConstantMapping
+
+  def apply_ground_term (g : ConstantMapping sig) (t : GroundTerm sig) : GroundTerm sig := t.mapLeaves g
+
+  def apply_fact (g : ConstantMapping sig) (f : Fact sig) : Fact sig := {
+    predicate := f.predicate
+    terms := f.terms.map g.apply_ground_term
+    arity_ok := by rw [List.length_map]; exact f.arity_ok
+  }
+
+  def apply_fact_set (g : ConstantMapping sig) (fs : FactSet sig) : FactSet sig := fun f => ∃ f', f' ∈ fs ∧ f = g.apply_fact f'
+
+end ConstantMapping
 
 namespace KnowledgeBase
 
@@ -350,6 +374,59 @@ namespace RuleSet
       db := criticalInstance rs finite special_const
     }
     kb.skolemChaseResult det
+
+  theorem mfaSet_contains_every_chase_step_for_every_kb_expect_for_facts_with_predicates_not_from_rs (rs : RuleSet sig) (finite : rs.rules.finite) (det : rs.isDeterministic) (special_const : sig.C) : ∀ {db : Database sig} (cb : ChaseBranch (SkolemObsoleteness sig) { rules := rs, db := db }) (n : Nat), (cb.branch.infinite_list n).is_none_or (fun node => ∀ f, f.predicate ∈ rs.predicates -> f ∈ (ConstantMapping.apply_fact_set (fun _ => GroundTerm.const special_const) node.fact.val) -> f ∈ (rs.mfaSet finite det special_const)) := by
+    intro db cb n
+    induction n with
+    | zero =>
+      rw [cb.database_first, Option.is_none_or]
+      simp only
+      intro f f_predicate f_mem
+      exists 0
+      unfold KnowledgeBase.parallelSkolemChase
+      unfold Database.toFactSet
+      unfold criticalInstance
+      simp only
+
+      unfold ConstantMapping.apply_fact_set at f_mem
+      rcases f_mem with ⟨f', f'_mem, f_eq⟩
+
+      have every_t_special_const : ∀ t, t ∈ f.terms -> t = GroundTerm.const special_const := by
+        intro t t_mem
+        rw [f_eq] at t_mem
+        unfold ConstantMapping.apply_fact at t_mem
+        simp only [List.mem_map] at t_mem
+        rcases t_mem with ⟨s, s_mem, t_eq⟩
+
+        have isFunctionFree := db.toFactSet.property.right
+        specialize isFunctionFree _ f'_mem
+        specialize isFunctionFree _ s_mem
+        rcases isFunctionFree with ⟨c, s_eq⟩
+        rw [← t_eq, s_eq]
+        simp [ConstantMapping.apply_ground_term, FiniteTree.mapLeaves]
+      have f_func_free : f.isFunctionFree := by
+        intro t t_mem
+        exists special_const
+        apply every_t_special_const
+        exact t_mem
+
+      exists f.toFunctionFreeFact f_func_free
+      constructor
+      . unfold Fact.toFunctionFreeFact
+        constructor
+        . exact f_predicate
+        . simp
+          intro c t t_mem c_eq
+          specialize every_t_special_const t t_mem
+          rw [← c_eq]
+          simp only [every_t_special_const]
+          simp [GroundTerm.toConst]
+      . rw [Fact.toFact_after_toFunctionFreeFact_is_id]
+    | succ n ih =>
+      cases cb.branch.infinite_list (n+1) with
+      | none => simp [Option.is_none_or]
+      | some node =>
+        sorry
 
 end RuleSet
 

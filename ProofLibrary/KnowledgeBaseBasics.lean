@@ -168,79 +168,55 @@ end RuleSet
 
 def KnowledgeBase.isDeterministic (kb : KnowledgeBase sig) : Prop := kb.rules.isDeterministic
 
+def Fact.isFunctionFree (f : Fact sig) : Prop := ∀ t, t ∈ f.terms -> ∃ c, t = GroundTerm.const c
+def FactSet.isFunctionFree (fs : FactSet sig) : Prop := ∀ f, f ∈ fs -> f.isFunctionFree
+
 def FunctionFreeFact.toFact (f : FunctionFreeFact sig) : Fact sig := {
   predicate := f.predicate,
   terms := f.terms.map GroundTerm.const,
   arity_ok := by rw [List.length_map, f.arity_ok]
 }
 
-def Fact.toFunctionFreeFact (f : Fact sig) : Option (FunctionFreeFact sig) :=
-  if h :
-    (List.all
-      f.terms
-      (fun t => match t with
-        | GroundTerm.const _ => true
-        | _ => false
-      )
-    )
-  then
-    (Option.some ({
-      predicate := f.predicate,
-      terms := (f.terms.attach.map (fun ⟨t, t_elem⟩ => match eq : t with
-        | .leaf c => c
-        | .inner _ _ => by
-          -- This cannot happen since we check before that everything is a constant
-          simp at h
-          specialize h t
-          rw [eq] at h
-          specialize h t_elem
-          simp at h
-      )),
-      arity_ok := by rw [List.length_map, List.length_attach, f.arity_ok] }))
-  else
-    (Option.none)
+theorem FunctionFreeFact.toFact_isFunctionFree (f : FunctionFreeFact sig) : f.toFact.isFunctionFree := by
+  intro t t_mem
+  unfold toFact at t_mem
+  simp at t_mem
+  rcases t_mem with ⟨c, _, t_eq⟩
+  exists c
+  rw [t_eq]
 
-theorem FunctionFreeFact.toFunctionFreeFact_after_toFact_is_id : ∀ (f : FunctionFreeFact sig), f.toFact.toFunctionFreeFact = some f := by
-  intro f
+def Fact.toFunctionFreeFact (f : Fact sig) (isFunctionFree : f.isFunctionFree) : FunctionFreeFact sig :={
+  predicate := f.predicate
+  terms := f.terms.attach.map (fun t => t.val.toConst (isFunctionFree t.val t.property))
+  arity_ok := by rw [List.length_map, List.length_attach, f.arity_ok]
+}
+
+theorem FunctionFreeFact.toFunctionFreeFact_after_toFact_is_id (f : FunctionFreeFact sig) : f.toFact.toFunctionFreeFact (f.toFact_isFunctionFree) = f := by
   unfold toFact
   unfold Fact.toFunctionFreeFact
   simp
   apply FunctionFreeFact.ext
   . simp
-  . simp
+  . simp only [GroundTerm.toConst]
     rw [List.map_attach, List.pmap_map]
     simp
 
-theorem Fact.toFact_after_toFunctionFreeFact_is_id : ∀ (f : Fact sig), f.toFunctionFreeFact.is_none_or (fun fff => fff.toFact = f) := by
-  intro f
-  cases eq : f.toFunctionFreeFact with
-  | none => simp [Option.is_none_or]
-  | some fff =>
-    simp [Option.is_none_or]
-    unfold FunctionFreeFact.toFact
-    unfold toFunctionFreeFact at eq
-    split at eq
-    case isTrue h =>
-      injection eq with eq
-      rw [← eq]
-      simp
-      apply Fact.ext
-      . simp
-      . simp
-        rw [List.map_attach]
-        simp
-        apply List.ext_get
-        . simp
-        intro n _ _
-        simp
-        split
-        case h_1 _ _ heq _ => rw [heq]; rfl
-        case h_2 _ _ heq _ =>
-          simp at h
-          specialize h f.terms[n] (by apply List.getElem_mem)
-          rw [heq] at h
-          simp at h
-    case isFalse _ => contradiction
+theorem Fact.toFact_after_toFunctionFreeFact_is_id (f : Fact sig) (isFunctionFree : f.isFunctionFree) : (f.toFunctionFreeFact isFunctionFree).toFact = f := by
+  unfold toFunctionFreeFact
+  unfold FunctionFreeFact.toFact
+  simp
+  apply Fact.ext
+  . simp
+  . simp only [List.map_attach]
+    apply List.ext_get
+    . simp
+    intro n _ _
+    simp
+    specialize isFunctionFree f.terms[n] (by simp)
+    rcases isFunctionFree with ⟨c, isFunctionFree⟩
+    simp only [isFunctionFree]
+    unfold GroundTerm.toConst
+    simp
 
 def FactSet.terms (fs : FactSet sig) : Set (GroundTerm sig) := fun t => ∃ f, f ∈ fs ∧ t ∈ f.terms
 
@@ -272,39 +248,24 @@ theorem FactSet.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) :
         . rfl
       . exact e_in_f
 
-def Database.toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite } := ⟨
-  fun x => match (Fact.toFunctionFreeFact x) with
-    | Option.none => False
-    | Option.some fff => fff ∈ db.val,
-  by
-    cases db.property with | intro l property =>
-      exists (l.map FunctionFreeFact.toFact).eraseDupsKeepRight
-      constructor
-      . apply List.nodup_eraseDupsKeepRight
-      . intro e
-        rw [List.mem_eraseDupsKeepRight_iff]
-        simp
-        constructor
-        . intro h; cases h with | intro e' h =>
-          simp [Set.element]
-          rw [← h.right]
-          rw [FunctionFreeFact.toFunctionFreeFact_after_toFact_is_id]
-          simp
-          simp [Set.element] at property
-          rw [← property.right e']
-          exact h.left
-        . intro h
-          simp [Set.element] at h
-          cases eq : e.toFunctionFreeFact with
-          | none => simp [eq] at h
-          | some e' =>
-            exists e'
-            simp [eq] at h
-            constructor
-            . rw [property.right e']; exact h
-            . have aux := Fact.toFact_after_toFunctionFreeFact_is_id e
-              rw [eq] at aux
-              simp [Option.is_none_or] at aux
-              exact aux
+def Database.toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite ∧ fs.isFunctionFree } := ⟨
+  (fun f => ∃ f', f' ∈ db.val ∧ f'.toFact = f),
+  (by
+    rcases db.property with ⟨l, _, l_eq⟩
+    exists (l.map FunctionFreeFact.toFact).eraseDupsKeepRight
+    constructor
+    . apply List.nodup_eraseDupsKeepRight
+    . intro f
+      rw [List.mem_eraseDupsKeepRight_iff]
+      rw [List.mem_map]
+      simp only [l_eq]
+      simp [Set.element]
+  ),
+  (by
+    intro f f_mem
+    rcases f_mem with ⟨_, _, f_eq⟩
+    rw [← f_eq]
+    apply FunctionFreeFact.toFact_isFunctionFree
+  ),
 ⟩
 

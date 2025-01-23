@@ -88,7 +88,13 @@ def not_exists_trigger_list (obs : ObsoletenessCondition sig) (rules : RuleSet s
 @[ext]
 structure ChaseBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig) where
   branch : PossiblyInfiniteList (ChaseNode obs kb.rules)
-  database_first : branch.infinite_list 0 = some { fact := kb.db.toFactSet, origin := none, fact_contains_origin_result := by simp [Option.is_none_or] }
+  database_first : branch.infinite_list 0 = some {
+    fact := (
+      let fs := kb.db.toFactSet
+      ⟨fs.val, fs.property.left⟩
+    ),
+    origin := none, fact_contains_origin_result := by simp [Option.is_none_or]
+  }
   triggers_exist : ∀ n : Nat, (branch.infinite_list n).is_none_or (fun before =>
     let after := branch.infinite_list (n+1)
     (exists_trigger_opt_fs obs kb.rules before after) ∨
@@ -176,7 +182,10 @@ end ChaseBranch
 structure ChaseTree (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig) where
   tree : FiniteDegreeTree (ChaseNode obs kb.rules)
   database_first : tree.get [] = some {
-      fact := kb.db.toFactSet
+      fact := (
+        let fs := kb.db.toFactSet
+        ⟨fs.val, fs.property.left⟩
+      )
       origin := none
       fact_contains_origin_result := by simp [Option.is_none_or]
     }
@@ -511,31 +520,12 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
       rw [ct.database_first] at node_is_at_path
       injection node_is_at_path with node_is_at_path
       rw [node_is_at_path] at f_in_db
-      simp at f_in_db
-      have : ∀ t, t ≠ GroundSubstitution.apply_skolem_term trg.val.subs (VarOrConst.skolemize trg.val.rule.id result_index.val (Rule.frontier trg.val.rule) (VarOrConst.var var)) := by
-        intro t
-        unfold Database.toFactSet at f_in_db
-        unfold Fact.toFunctionFreeFact at f_in_db
-        simp only [Set.element] at f_in_db
-        split at f_in_db
-        case h_1 => contradiction
-        case h_2 _ _ to_fff_is_some =>
-          split at to_fff_is_some
-          case isFalse h => contradiction
-          case isTrue _ _ all_terms_ff =>
-            have : ¬ (List.all f.terms fun t => match t with
-              | GroundTerm.const _ => true
-              | _ => false) = true := by
-                apply List.neg_all_of_any_neg
-                apply List.any_of_exists
-                exists GroundSubstitution.apply_skolem_term trg.val.subs (VarOrConst.skolemize trg.val.rule.id result_index.val (Rule.frontier trg.val.rule) (VarOrConst.var var))
-                constructor
-                exact functional_term_in_f
-                simp [GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier]
-            contradiction
-      apply False.elim
-      apply this
-      rfl
+      simp only at f_in_db
+      have isFunctionFree := kb.db.toFactSet.property.right
+      specialize isFunctionFree _ f_in_db
+      specialize isFunctionFree (trg.val.apply_to_var_or_const (result_index.val) (VarOrConst.var var)) functional_term_in_f
+      rcases isFunctionFree with ⟨c, isFunctionFree⟩
+      simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier, GroundTerm.const] at isFunctionFree
   | cons head tail ih =>
     cases eq : ct.tree.get tail with
     | none =>
