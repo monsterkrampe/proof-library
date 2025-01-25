@@ -423,10 +423,77 @@ namespace RuleSet
           simp [GroundTerm.toConst]
       . rw [Fact.toFact_after_toFunctionFreeFact_is_id]
     | succ n ih =>
-      cases cb.branch.infinite_list (n+1) with
+      cases eq_node : cb.branch.infinite_list (n+1) with
       | none => simp [Option.is_none_or]
       | some node =>
-        sorry
+        rw [Option.is_none_or]
+        cases eq_prev_node : cb.branch.infinite_list n with
+        | none => have no_holes := cb.branch.no_holes (n+1); simp [eq_node] at no_holes; specialize no_holes ⟨n, by simp⟩; contradiction
+        | some prev_node =>
+          rw [eq_prev_node, Option.is_none_or] at ih
+
+          have trg_ex := cb.triggers_exist n
+          rw [eq_prev_node, Option.is_none_or] at trg_ex
+          cases trg_ex with
+          | inr trg_ex => unfold not_exists_trigger_opt_fs at trg_ex; rw [eq_node] at trg_ex; simp at trg_ex
+          | inl trg_ex =>
+            unfold exists_trigger_opt_fs at trg_ex
+            rcases trg_ex with ⟨trg, trg_active, disj_index, trg_result_eq⟩
+            rw [eq_node] at trg_result_eq
+            injection trg_result_eq with trg_result_eq
+
+            have disj_index_zero : disj_index.val = 0 := by
+              have isLt := disj_index.isLt
+              unfold PreTrigger.result at isLt
+              simp only [List.length_map] at isLt
+              rw [← PreTrigger.head_length_eq_mapped_head_length] at isLt
+              rw [det _ trg.property, Nat.lt_one_iff] at isLt
+              exact isLt
+
+            intro f f_predicate f_mem
+            rcases f_mem with ⟨f', f'_mem, f_eq⟩
+            simp only [← trg_result_eq] at f'_mem
+            cases f'_mem with
+            | inl f'_mem =>
+              apply ih
+              . exact f_predicate
+              . exists f'
+            | inr f'_mem =>
+              unfold RuleSet.mfaSet
+              unfold KnowledgeBase.skolemChaseResult
+
+              have : ∃ n, (ConstantMapping.apply_fact_set (fun _ => GroundTerm.const special_const) prev_node.fact.val) ⊆ { rules := rs, db := rs.criticalInstance finite special_const : KnowledgeBase sig }.parallelSkolemChase det n := by
+                sorry
+
+              rcases this with ⟨n, prev_node_subs_parallel_chase⟩
+              exists (n+1)
+              unfold KnowledgeBase.parallelSkolemChase
+              apply Or.inr
+              exists ⟨⟨trg.val.rule, (ConstantMapping.apply_ground_term (fun _ => GroundTerm.const special_const)) ∘ trg.val.subs⟩, by exact trg.property⟩
+              constructor
+              . sorry
+              . unfold PreTrigger.result at f'_mem
+                simp only [List.get_eq_getElem, disj_index_zero] at f'_mem
+                rw [List.getElem_map, ← List.inIffInToSet] at f'_mem
+                unfold PreTrigger.mapped_head at f'_mem
+                simp at f'_mem
+                rcases f'_mem with ⟨a, a_mem, f'_eq⟩
+
+                unfold PreTrigger.result
+                rw [List.getElem_map, ← List.inIffInToSet]
+                unfold PreTrigger.mapped_head
+                simp
+                exists a
+                constructor
+                . exact a_mem
+                . rw [f_eq, ← f'_eq]
+                  unfold PreTrigger.apply_to_function_free_atom
+                  unfold ConstantMapping.apply_fact
+                  unfold PreTrigger.apply_to_var_or_const
+                  unfold PreTrigger.apply_to_skolemized_term
+                  unfold PreTrigger.skolemize_var_or_const
+                  simp?
+                  sorry
 
 end RuleSet
 
