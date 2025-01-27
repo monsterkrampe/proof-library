@@ -175,6 +175,11 @@ namespace FiniteTree
       | FiniteTreeList.cons t ts => FiniteTreeList.cons (mapLeaves f t) (mapLeavesList f ts)
   end
 
+  theorem mapLeavesList_fromList_eq_fromList_map (f : β -> FiniteTree α γ) (ts : List (FiniteTree α β)) : FiniteTree.mapLeavesList f (FiniteTreeList.fromList ts) = FiniteTreeList.fromList (ts.map (fun t => t.mapLeaves f)) := by
+    induction ts with
+    | nil => simp [FiniteTreeList.fromList, mapLeavesList]
+    | cons hd tl ih => simp [FiniteTreeList.fromList, mapLeavesList, ih]
+
   -- TODO: should we remove this? I think we do not need this anymore...
   mutual
     theorem mapLeavesEqIfMapEqOnLeaves (f : β -> FiniteTree α γ) (g : β -> FiniteTree α γ) (t : FiniteTree α β) : t.leaves.map f = t.leaves.map g -> t.mapLeaves f = t.mapLeaves g := by

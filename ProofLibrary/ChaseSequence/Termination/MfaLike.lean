@@ -10,11 +10,32 @@ section Defs
 end Defs
 
 
-variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-
 namespace ConstantMapping
 
+  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+
   def apply_ground_term (g : ConstantMapping sig) (t : GroundTerm sig) : GroundTerm sig := t.mapLeaves g
+
+  theorem apply_ground_term_swap_apply_skolem_term (g : ConstantMapping sig) (subs : GroundSubstitution sig) : ∀ t, (∀ c, t ≠ SkolemTerm.const c) -> g.apply_ground_term (subs.apply_skolem_term t) = GroundSubstitution.apply_skolem_term (g.apply_ground_term ∘ subs) t := by
+    intro t
+    cases t with
+    | var v =>
+      intros
+      unfold GroundSubstitution.apply_skolem_term
+      simp
+    | const c => simp
+    | func f ts =>
+      intros
+      conv => left; unfold ConstantMapping.apply_ground_term; unfold FiniteTree.mapLeaves; unfold GroundSubstitution.apply_skolem_term
+      conv => right; unfold GroundSubstitution.apply_skolem_term
+      simp
+      rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+      unfold ConstantMapping.apply_ground_term
+      rw [List.map_map]
+      rfl
+
+
+  variable [DecidableEq sig.P]
 
   def apply_fact (g : ConstantMapping sig) (f : Fact sig) : Fact sig := {
     predicate := f.predicate
@@ -22,9 +43,38 @@ namespace ConstantMapping
     arity_ok := by rw [List.length_map]; exact f.arity_ok
   }
 
+  theorem apply_fact_swap_apply_to_function_free_atom (g : ConstantMapping sig) (trg : PreTrigger sig) (a : FunctionFreeAtom sig) (h : ∃ c, (∀ d, g d = c) ∧ (∀ d, VarOrConst.const d ∈ a.terms -> c = GroundTerm.const d)) : ∀ i, g.apply_fact (trg.apply_to_function_free_atom i a) = PreTrigger.apply_to_function_free_atom { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } i a := by
+    intro i
+    unfold PreTrigger.apply_to_function_free_atom
+    unfold ConstantMapping.apply_fact
+    unfold PreTrigger.apply_to_var_or_const
+    unfold PreTrigger.apply_to_skolemized_term
+    unfold PreTrigger.skolemize_var_or_const
+    simp
+    intro voc voc_mem
+    cases voc with
+    | var v =>
+      rw [ConstantMapping.apply_ground_term_swap_apply_skolem_term]
+      intro c contra
+      simp [VarOrConst.skolemize] at contra
+      split at contra <;> contradiction
+    | const d =>
+      unfold VarOrConst.skolemize
+      unfold GroundSubstitution.apply_skolem_term
+      unfold ConstantMapping.apply_ground_term
+      unfold FiniteTree.mapLeaves
+      simp only
+      rcases h with ⟨c, g_eq, mem_a_eq⟩
+      rw [g_eq]
+      apply mem_a_eq
+      exact voc_mem
+
   def apply_fact_set (g : ConstantMapping sig) (fs : FactSet sig) : FactSet sig := fun f => ∃ f', f' ∈ fs ∧ f = g.apply_fact f'
 
 end ConstantMapping
+
+
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 namespace KnowledgeBase
 
@@ -471,7 +521,26 @@ namespace RuleSet
               apply Or.inr
               exists ⟨⟨trg.val.rule, (ConstantMapping.apply_ground_term (fun _ => GroundTerm.const special_const)) ∘ trg.val.subs⟩, by exact trg.property⟩
               constructor
-              . sorry
+              . constructor
+                . apply Set.subsetTransitive _ (ConstantMapping.apply_fact_set (fun _ => GroundTerm.const special_const) prev_node.fact.val) _
+                  constructor
+                  . intro f f_mem
+                    rw [← List.inIffInToSet] at f_mem
+                    simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map] at f_mem
+                    rcases f_mem with ⟨a, a_mem, f_eq⟩
+                    exists trg.val.subs.apply_function_free_atom a
+                    constructor
+                    . apply trg_active.left
+                      rw [← List.inIffInToSet]
+                      simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map]
+                      exists a
+                    . rw [← f_eq]
+                      unfold ConstantMapping.apply_fact
+                      unfold GroundSubstitution.apply_function_free_atom
+                      simp
+                      sorry
+                  . exact  prev_node_subs_parallel_chase
+                . sorry
               . unfold PreTrigger.result at f'_mem
                 simp only [List.get_eq_getElem, disj_index_zero] at f'_mem
                 rw [List.getElem_map, ← List.inIffInToSet] at f'_mem
@@ -487,13 +556,12 @@ namespace RuleSet
                 constructor
                 . exact a_mem
                 . rw [f_eq, ← f'_eq]
-                  unfold PreTrigger.apply_to_function_free_atom
-                  unfold ConstantMapping.apply_fact
-                  unfold PreTrigger.apply_to_var_or_const
-                  unfold PreTrigger.apply_to_skolemized_term
-                  unfold PreTrigger.skolemize_var_or_const
-                  simp?
-                  sorry
+                  rw [ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
+                  exists GroundTerm.const special_const
+                  constructor
+                  . simp
+                  . -- we need to apply g to every constant in every rule in rs to achieve this
+                    sorry
 
 end RuleSet
 
