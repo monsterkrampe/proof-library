@@ -91,6 +91,23 @@ namespace StrictConstantMapping
   | .var v => .var v
   | .const c => .const (g c)
 
+
+  variable [DecidableEq sig.P]
+
+  def apply_function_free_atom (g : StrictConstantMapping sig) (a : FunctionFreeAtom sig) : FunctionFreeAtom sig := {
+    predicate := a.predicate
+    terms := a.terms.map g.apply_var_or_const
+    arity_ok := by rw [List.length_map]; exact a.arity_ok
+  }
+
+  def apply_function_free_conj (g : StrictConstantMapping sig) (conj : FunctionFreeConjunction sig) : FunctionFreeConjunction sig := conj.map g.apply_function_free_atom
+
+  def apply_rule (g : StrictConstantMapping sig) (rule : Rule sig) : Rule sig := {
+    id := rule.id
+    body := g.apply_function_free_conj rule.body
+    head := rule.head.map g.apply_function_free_conj
+  }
+
 end StrictConstantMapping
 
 
@@ -438,12 +455,39 @@ namespace RuleSet
             . exact h.right
     ⟩
 
-  def mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (det : rs.isDeterministic) (special_const : sig.C) : FactSet sig :=
-    let kb : KnowledgeBase sig := {
-      rules := rs
-      db := criticalInstance rs finite special_const
+  def mfaKb (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) : KnowledgeBase sig := {
+    rules := {
+      rules := fun r => ∃ r', r' ∈ rs.rules ∧ r = (UniformConstantMapping sig special_const).apply_rule r'
+      id_unique := by
+        intro r1 r2 h
+        rcases h with ⟨r1_mem, r2_mem, id_eq⟩
+        rcases r1_mem with ⟨r1', r1'_mem, r1_eq⟩
+        rcases r2_mem with ⟨r2', r2'_mem, r2_eq⟩
+        have : r1' = r2' := by
+          apply rs.id_unique
+          constructor
+          . exact r1'_mem
+          constructor
+          . exact r2'_mem
+          rw [r1_eq, r2_eq] at id_eq
+          simp only [StrictConstantMapping.apply_rule] at id_eq
+          exact id_eq
+        rw [r1_eq, this, r2_eq]
     }
-    kb.skolemChaseResult det
+    db := criticalInstance rs finite special_const
+  }
+
+  theorem mfaKb_det_of_rs_det (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) : rs.isDeterministic -> (rs.mfaKb finite special_const).rules.isDeterministic := by
+    intro det r r_mem
+    rcases r_mem with ⟨r', r'_mem, r_eq⟩
+    rw [r_eq]
+    unfold StrictConstantMapping.apply_rule
+    unfold Rule.isDeterministic
+    simp only [List.length_map]
+    exact det r' r'_mem
+
+  def mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (det : rs.isDeterministic) (special_const : sig.C) : FactSet sig :=
+    (rs.mfaKb finite special_const).skolemChaseResult (mfaKb_det_of_rs_det rs finite special_const det)
 
   theorem mfaSet_contains_every_chase_step_for_every_kb_expect_for_facts_with_predicates_not_from_rs (rs : RuleSet sig) (finite : rs.rules.finite) (det : rs.isDeterministic) (special_const : sig.C) : ∀ {db : Database sig} (cb : ChaseBranch obs { rules := rs, db := db }) (n : Nat), (cb.branch.infinite_list n).is_none_or (fun node => ∀ f, f.predicate ∈ rs.predicates -> f ∈ node.fact.val -> ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaSet finite det special_const)) := by
     intro db cb n
@@ -455,6 +499,7 @@ namespace RuleSet
       exists 0
       unfold KnowledgeBase.parallelSkolemChase
       unfold Database.toFactSet
+      unfold RuleSet.mfaKb
       unfold criticalInstance
       simp only
 
@@ -527,8 +572,9 @@ namespace RuleSet
               unfold RuleSet.mfaSet
               unfold KnowledgeBase.skolemChaseResult
 
-              have : ∃ n, ∀ f, f.predicate ∈ rs.predicates -> f ∈ prev_node.fact.val -> ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact f) ∈ { rules := rs, db := rs.criticalInstance finite special_const : KnowledgeBase sig }.parallelSkolemChase det n := by
-                let kb := { rules := rs, db := rs.criticalInstance finite special_const : KnowledgeBase sig }
+              have : ∃ n, ∀ f, f.predicate ∈ rs.predicates -> f ∈ prev_node.fact.val -> ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaKb finite special_const).parallelSkolemChase (rs.mfaKb_det_of_rs_det finite special_const det) n := by
+                let kb := rs.mfaKb finite special_const
+                have kb_det := (rs.mfaKb_det_of_rs_det finite special_const det)
                 let prev_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ prev_node.fact.val
                 have prev_finite : prev_filtered.finite := by
                   rcases prev_node.fact.property with ⟨prev_l, _, prev_l_eq⟩
@@ -543,7 +589,7 @@ namespace RuleSet
                     simp [preds_l_eq, Set.element, And.comm]
                 rcases prev_finite with ⟨prev_l, _, prev_l_eq⟩
 
-                have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e.predicate ∈ rs.predicates ∧ e ∈ prev_node.fact.val) -> ∃ n, (∀ e, e ∈ l -> ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact e) ∈ (kb.parallelSkolemChase det n)) := by
+                have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e.predicate ∈ rs.predicates ∧ e ∈ prev_node.fact.val) -> ∃ n, (∀ e, e ∈ l -> ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact e) ∈ (kb.parallelSkolemChase kb_det n)) := by
                   intro l l_sub
                   induction l with
                   | nil => exists 0; intro e; simp
@@ -564,7 +610,7 @@ namespace RuleSet
                       | inr f_mem =>
                         rcases Nat.exists_eq_add_of_le le with ⟨diff, le⟩
                         rw [le]
-                        apply kb.parallelSkolemChase_subset_all_following det n_from_ih diff
+                        apply kb.parallelSkolemChase_subset_all_following kb_det n_from_ih diff
                         apply from_ih; exact f_mem
                     | inr lt =>
                       simp at lt
@@ -577,7 +623,7 @@ namespace RuleSet
                       | inl f_mem =>
                         rcases Nat.exists_eq_add_of_le le with ⟨diff, le⟩
                         rw [le]
-                        apply kb.parallelSkolemChase_subset_all_following det n_from_hd diff
+                        apply kb.parallelSkolemChase_subset_all_following kb_det n_from_hd diff
                         rw [f_mem]; exact from_hd
 
                 specialize this prev_l (by
@@ -607,7 +653,13 @@ namespace RuleSet
               rw [Classical.or_iff_not_imp_left]
               intro f_not_in_prev
 
-              exists ⟨⟨trg.val.rule, (UniformConstantMapping sig special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs⟩, by exact trg.property⟩
+              exists ⟨⟨(UniformConstantMapping sig special_const).apply_rule trg.val.rule, (UniformConstantMapping sig special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs⟩, by
+                simp only [RuleSet.mfaKb]
+                exists trg.val.rule
+                constructor
+                . exact trg.property
+                . rfl
+              ⟩
               constructor
               . constructor
                 . apply Set.subsetTransitive _ (fun f => f.predicate ∈ rs.predicates ∧ f ∈ ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set prev_node.fact.val)) _
@@ -616,6 +668,10 @@ namespace RuleSet
                     rw [← List.inIffInToSet] at f_mem
                     simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map] at f_mem
                     rcases f_mem with ⟨a, a_mem, f_eq⟩
+                    unfold StrictConstantMapping.apply_rule at a_mem
+                    unfold StrictConstantMapping.apply_function_free_conj at a_mem
+                    simp only [List.mem_map] at a_mem
+                    rcases a_mem with ⟨a', a'_mem, a_eq⟩
                     simp only [Set.element]
                     constructor
                     . rw [← f_eq]
@@ -629,19 +685,30 @@ namespace RuleSet
                         apply Or.inl
                         unfold FunctionFreeConjunction.predicates
                         rw [List.mem_map]
-                        exists a
-                    . exists trg.val.subs.apply_function_free_atom a
+                        exists a'
+                        constructor
+                        . exact a'_mem
+                        . rw [← a_eq]
+                          simp [StrictConstantMapping.apply_function_free_atom]
+                    . exists trg.val.subs.apply_function_free_atom a'
                       constructor
                       . apply trg_active.left
                         rw [← List.inIffInToSet]
                         simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map]
-                        exists a
+                        exists a'
                       . rw [← f_eq]
                         unfold ConstantMapping.apply_fact
                         unfold GroundSubstitution.apply_function_free_atom
-                        simp
+
                         -- we need to apply g to every constant in every rule in rs to achieve this
-                        sorry
+                        rw [← a_eq]
+                        simp [StrictConstantMapping.apply_function_free_atom]
+                        intro voc voc_mem
+                        cases voc with
+                        | var v =>
+                          simp [GroundSubstitution.apply_var_or_const, StrictConstantMapping.apply_var_or_const]
+                        | const c =>
+                          simp [GroundSubstitution.apply_var_or_const, StrictConstantMapping.apply_var_or_const, ConstantMapping.apply_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping]
                   . intro f f_mem
                     rcases f_mem with ⟨f_pred, f', f'_mem, f_eq⟩
                     rw [f_eq]
@@ -657,8 +724,9 @@ namespace RuleSet
                   have i_zero : i.val = 0 := by
                     have isLt := i.isLt
                     simp only [← PreTrigger.head_length_eq_mapped_head_length] at isLt
-                    rw [det _ trg.property, Nat.lt_one_iff] at isLt
-                    exact isLt
+                    sorry
+                    /- rw [det _ trg.property, Nat.lt_one_iff] at isLt -/
+                    /- exact isLt -/
                   apply f_not_in_prev
                   apply contra
                   rw [← List.inIffInToSet, List.get_eq_getElem]
@@ -672,14 +740,15 @@ namespace RuleSet
                   simp at f_mem
                   rw [← List.inIffInToSet, List.mem_map] at f_mem
                   rcases f_mem with ⟨a, a_mem, f_eq⟩
-                  exists a
-                  constructor
-                  . exact a_mem
-                  . rw [← ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
-                    . rw [f_eq]
-                    . exists GroundTerm.const special_const
-                      -- we need to apply g to every constant in every rule in rs to achieve this
-                      sorry
+                  sorry
+                  /- exists a -/
+                  /- constructor -/
+                  /- . exact a_mem -/
+                  /- . rw [← ConstantMapping.apply_fact_swap_apply_to_function_free_atom] -/
+                  /-   . rw [f_eq] -/
+                  /-   . exists GroundTerm.const special_const -/
+                  /-     -- we need to apply g to every constant in every rule in rs to achieve this -/
+                  /-     sorry -/
               . unfold PreTrigger.result at f_mem
                 simp only [List.get_eq_getElem, disj_index_zero] at f_mem
                 rw [List.getElem_map, ← List.inIffInToSet] at f_mem
@@ -692,16 +761,17 @@ namespace RuleSet
                 apply List.listElementAlsoToSetElement
                 unfold PreTrigger.mapped_head
                 simp
-                exists a
-                constructor
-                . exact a_mem
-                . rw [← f_eq]
-                  rw [ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
-                  exists GroundTerm.const special_const
-                  constructor
-                  . simp [StrictConstantMapping.toConstantMapping]
-                  . -- we need to apply g to every constant in every rule in rs to achieve this
-                    sorry
+                sorry
+                /- exists a -/
+                /- constructor -/
+                /- . exact a_mem -/
+                /- . rw [← f_eq] -/
+                /-   rw [ConstantMapping.apply_fact_swap_apply_to_function_free_atom] -/
+                /-   exists GroundTerm.const special_const -/
+                /-   constructor -/
+                /-   . simp [StrictConstantMapping.toConstantMapping] -/
+                /-   . -- we need to apply g to every constant in every rule in rs to achieve this -/
+                /-     sorry -/
 
 end RuleSet
 
