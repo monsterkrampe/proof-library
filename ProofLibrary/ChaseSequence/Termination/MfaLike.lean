@@ -71,6 +71,10 @@ namespace ConstantMapping
 
   def apply_fact_set (g : ConstantMapping sig) (fs : FactSet sig) : FactSet sig := fun f => ∃ f', f' ∈ fs ∧ f = g.apply_fact f'
 
+  theorem apply_fact_mem_apply_fact_set_of_mem (g : ConstantMapping sig) (f : Fact sig) (fs : FactSet sig) : f ∈ fs -> g.apply_fact f ∈ g.apply_fact_set fs := by
+    intro f_mem
+    exists f
+
 end ConstantMapping
 
 
@@ -425,7 +429,7 @@ namespace RuleSet
     }
     kb.skolemChaseResult det
 
-  theorem mfaSet_contains_every_chase_step_for_every_kb_expect_for_facts_with_predicates_not_from_rs (rs : RuleSet sig) (finite : rs.rules.finite) (det : rs.isDeterministic) (special_const : sig.C) : ∀ {db : Database sig} (cb : ChaseBranch (SkolemObsoleteness sig) { rules := rs, db := db }) (n : Nat), (cb.branch.infinite_list n).is_none_or (fun node => ∀ f, f.predicate ∈ rs.predicates -> f ∈ (ConstantMapping.apply_fact_set (fun _ => GroundTerm.const special_const) node.fact.val) -> f ∈ (rs.mfaSet finite det special_const)) := by
+  theorem mfaSet_contains_every_chase_step_for_every_kb_expect_for_facts_with_predicates_not_from_rs (rs : RuleSet sig) (finite : rs.rules.finite) (det : rs.isDeterministic) (special_const : sig.C) : ∀ {db : Database sig} (cb : ChaseBranch obs { rules := rs, db := db }) (n : Nat), (cb.branch.infinite_list n).is_none_or (fun node => ∀ f, f.predicate ∈ rs.predicates -> f ∈ (ConstantMapping.apply_fact_set (fun _ => GroundTerm.const special_const) node.fact.val) -> f ∈ (rs.mfaSet finite det special_const)) := by
     intro db cb n
     induction n with
     | zero =>
@@ -512,35 +516,173 @@ namespace RuleSet
               unfold RuleSet.mfaSet
               unfold KnowledgeBase.skolemChaseResult
 
-              have : ∃ n, (ConstantMapping.apply_fact_set (fun _ => GroundTerm.const special_const) prev_node.fact.val) ⊆ { rules := rs, db := rs.criticalInstance finite special_const : KnowledgeBase sig }.parallelSkolemChase det n := by
-                sorry
+              have : ∃ n, ∀ f, f.predicate ∈ rs.predicates -> f ∈ (ConstantMapping.apply_fact_set (fun _ => GroundTerm.const special_const) prev_node.fact.val) -> f ∈ { rules := rs, db := rs.criticalInstance finite special_const : KnowledgeBase sig }.parallelSkolemChase det n := by
+                let kb := { rules := rs, db := rs.criticalInstance finite special_const : KnowledgeBase sig }
+                let prev_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ prev_node.fact.val
+                have prev_finite : prev_filtered.finite := by
+                  rcases prev_node.fact.property with ⟨prev_l, _, prev_l_eq⟩
+                  rcases (RuleSet.predicates_finite_of_finite _ finite) with ⟨preds_l, _, preds_l_eq⟩
+                  exists (prev_l.filter (fun f => f.predicate ∈ preds_l)).eraseDupsKeepRight
+                  constructor
+                  . apply List.nodup_eraseDupsKeepRight
+                  . intro f
+                    rw [List.mem_eraseDupsKeepRight_iff, List.mem_filter]
+                    rw [prev_l_eq]
+                    unfold prev_filtered
+                    simp [preds_l_eq, Set.element, And.comm]
+                rcases prev_finite with ⟨prev_l, _, prev_l_eq⟩
+
+                have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e.predicate ∈ rs.predicates ∧ e ∈ (ConstantMapping.apply_fact_set (fun _ => GroundTerm.const special_const) prev_node.fact.val)) -> ∃ n, (∀ e, e ∈ l -> e ∈ (kb.parallelSkolemChase det n)) := by
+                  intro l l_sub
+                  induction l with
+                  | nil => exists 0; intro e; simp
+                  | cons hd tl ih_inner =>
+                    have from_ih := ih_inner (by intro e e_mem; apply l_sub; simp [e_mem])
+                    rcases from_ih with ⟨n_from_ih, from_ih⟩
+
+                    have from_hd := ih hd (l_sub hd (by simp)).left (l_sub hd (by simp)).right
+                    rcases from_hd with ⟨n_from_hd, from_hd⟩
+
+                    cases Decidable.em (n_from_ih ≤ n_from_hd) with
+                    | inl le =>
+                      exists n_from_hd
+                      intro f f_mem
+                      simp at f_mem
+                      cases f_mem with
+                      | inl f_mem => rw [f_mem]; exact from_hd
+                      | inr f_mem =>
+                        rcases Nat.exists_eq_add_of_le le with ⟨diff, le⟩
+                        rw [le]
+                        apply kb.parallelSkolemChase_subset_all_following det n_from_ih diff
+                        apply from_ih; exact f_mem
+                    | inr lt =>
+                      simp at lt
+                      have le := Nat.le_of_lt lt
+                      exists n_from_ih
+                      intro f f_mem
+                      simp at f_mem
+                      cases f_mem with
+                      | inr f_mem => apply from_ih; exact f_mem
+                      | inl f_mem =>
+                        rcases Nat.exists_eq_add_of_le le with ⟨diff, le⟩
+                        rw [le]
+                        apply kb.parallelSkolemChase_subset_all_following det n_from_hd diff
+                        rw [f_mem]; exact from_hd
+
+                specialize this (prev_l.map (fun f => ConstantMapping.apply_fact (fun _ => GroundTerm.const special_const) f))
+                specialize this (by
+                  intro f f_mem
+                  rw [List.mem_map] at f_mem
+                  rcases f_mem with ⟨f', f'_mem, f_eq⟩
+                  rw [prev_l_eq] at f'_mem
+                  unfold prev_filtered at f'_mem
+                  simp [Set.element] at f'_mem
+                  constructor
+                  . rw [← f_eq]
+                    unfold ConstantMapping.apply_fact
+                    exact f'_mem.left
+                  . rw [← f_eq]
+                    apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+                    exact f'_mem.right
+                )
+                rcases this with ⟨n, this⟩
+                exists n
+                intro f f_pred f_mem
+                specialize this f
+                rcases f_mem with ⟨f', f'_mem, f_eq⟩
+                specialize this (by
+                  rw [List.mem_map]
+                  exists f'
+                  constructor
+                  . rw [prev_l_eq]
+                    unfold prev_filtered
+                    simp only [Set.element]
+                    rw [f_eq] at f_pred
+                    simp only [ConstantMapping.apply_fact] at f_pred
+                    constructor
+                    . exact f_pred
+                    . exact f'_mem
+                  . rw [f_eq]
+                )
+                exact this
 
               rcases this with ⟨n, prev_node_subs_parallel_chase⟩
               exists (n+1)
               unfold KnowledgeBase.parallelSkolemChase
-              apply Or.inr
+              simp only [Set.element]
+
+              rw [Classical.or_iff_not_imp_left]
+              intro f_not_in_prev
+
               exists ⟨⟨trg.val.rule, (ConstantMapping.apply_ground_term (fun _ => GroundTerm.const special_const)) ∘ trg.val.subs⟩, by exact trg.property⟩
               constructor
               . constructor
-                . apply Set.subsetTransitive _ (ConstantMapping.apply_fact_set (fun _ => GroundTerm.const special_const) prev_node.fact.val) _
+                . apply Set.subsetTransitive _ (fun f => f.predicate ∈ rs.predicates ∧ f ∈ (ConstantMapping.apply_fact_set (fun _ => GroundTerm.const special_const) prev_node.fact.val)) _
                   constructor
                   . intro f f_mem
                     rw [← List.inIffInToSet] at f_mem
                     simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map] at f_mem
                     rcases f_mem with ⟨a, a_mem, f_eq⟩
-                    exists trg.val.subs.apply_function_free_atom a
+                    simp only [Set.element]
                     constructor
-                    . apply trg_active.left
-                      rw [← List.inIffInToSet]
-                      simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map]
-                      exists a
                     . rw [← f_eq]
-                      unfold ConstantMapping.apply_fact
-                      unfold GroundSubstitution.apply_function_free_atom
-                      simp
+                      simp only [GroundSubstitution.apply_function_free_atom]
+                      unfold RuleSet.predicates
+                      exists trg.val.rule
+                      constructor
+                      . exact trg.property
+                      . unfold Rule.predicates
+                        rw [List.mem_append]
+                        apply Or.inl
+                        unfold FunctionFreeConjunction.predicates
+                        rw [List.mem_map]
+                        exists a
+                    . exists trg.val.subs.apply_function_free_atom a
+                      constructor
+                      . apply trg_active.left
+                        rw [← List.inIffInToSet]
+                        simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map]
+                        exists a
+                      . rw [← f_eq]
+                        unfold ConstantMapping.apply_fact
+                        unfold GroundSubstitution.apply_function_free_atom
+                        simp
+                        -- we need to apply g to every constant in every rule in rs to achieve this
+                        sorry
+                  . intro f f_mem
+                    apply prev_node_subs_parallel_chase
+                    . exact f_mem.left
+                    . exact f_mem.right
+                . intro contra
+                  simp only [SkolemObsoleteness] at contra
+                  rcases contra with ⟨i, contra⟩
+
+                  have i_zero : i.val = 0 := by
+                    have isLt := i.isLt
+                    simp only [← PreTrigger.head_length_eq_mapped_head_length] at isLt
+                    rw [det _ trg.property, Nat.lt_one_iff] at isLt
+                    exact isLt
+                  apply f_not_in_prev
+                  apply contra
+                  rw [← List.inIffInToSet, List.get_eq_getElem]
+                  simp only [i_zero]
+                  unfold PreTrigger.mapped_head
+                  simp
+                  unfold PreTrigger.result at f'_mem
+                  unfold PreTrigger.mapped_head at f'_mem
+                  rw [List.get_eq_getElem] at f'_mem
+                  simp only [disj_index_zero] at f'_mem
+                  simp at f'_mem
+                  rw [← List.inIffInToSet, List.mem_map] at f'_mem
+                  rcases f'_mem with ⟨a, a_mem, f'_eq⟩
+                  exists a
+                  constructor
+                  . exact a_mem
+                  . rw [← ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
+                    . rw [f_eq, f'_eq]
+                    . exists GroundTerm.const special_const
+                      -- we need to apply g to every constant in every rule in rs to achieve this
                       sorry
-                  . exact  prev_node_subs_parallel_chase
-                . sorry
               . unfold PreTrigger.result at f'_mem
                 simp only [List.get_eq_getElem, disj_index_zero] at f'_mem
                 rw [List.getElem_map, ← List.inIffInToSet] at f'_mem
@@ -549,7 +691,8 @@ namespace RuleSet
                 rcases f'_mem with ⟨a, a_mem, f'_eq⟩
 
                 unfold PreTrigger.result
-                rw [List.getElem_map, ← List.inIffInToSet]
+                rw [List.getElem_map]
+                apply List.listElementAlsoToSetElement
                 unfold PreTrigger.mapped_head
                 simp
                 exists a
