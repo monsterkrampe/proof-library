@@ -1,5 +1,6 @@
 import ProofLibrary.List
-import ProofLibrary.Set
+import ProofLibrary.Set.Basic
+import ProofLibrary.Set.Finite
 import ProofLibrary.TermBasics
 
 section StructuralDefs

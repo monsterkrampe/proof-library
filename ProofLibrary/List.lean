@@ -1,4 +1,4 @@
-import ProofLibrary.Set
+import ProofLibrary.Set.Basic
 import ProofLibrary.Option
 
 section

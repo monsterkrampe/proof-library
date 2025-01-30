@@ -15,7 +15,8 @@ import ProofLibrary.Models.Cores
 import ProofLibrary.Option
 import ProofLibrary.PossiblyInfiniteList
 import ProofLibrary.PossiblyInfiniteTree
-import ProofLibrary.Set
+import ProofLibrary.Set.Basic
+import ProofLibrary.Set.Finite
 import ProofLibrary.SubstitutionAndHomomorphismBasics
 import ProofLibrary.TermBasics
 import ProofLibrary.Trigger
