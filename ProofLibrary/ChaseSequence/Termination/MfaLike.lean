@@ -91,6 +91,15 @@ namespace StrictConstantMapping
   | .var v => .var v
   | .const c => .const (g c)
 
+  theorem apply_var_or_const_filterVars_eq (g : StrictConstantMapping sig) (vocs : List (VarOrConst sig)) : VarOrConst.filterVars (vocs.map g.apply_var_or_const) = VarOrConst.filterVars vocs := by
+    induction vocs with
+    | nil => simp
+    | cons hd tl ih =>
+      cases hd <;> (
+        simp only [VarOrConst.filterVars, StrictConstantMapping.apply_var_or_const]
+        rw [ih]
+      )
+
 
   variable [DecidableEq sig.P]
 
@@ -100,13 +109,57 @@ namespace StrictConstantMapping
     arity_ok := by rw [List.length_map]; exact a.arity_ok
   }
 
+  theorem apply_function_free_atom_vars_eq (g : StrictConstantMapping sig) (a : FunctionFreeAtom sig) : (g.apply_function_free_atom a).variables = a.variables := by
+    unfold apply_function_free_atom
+    unfold FunctionFreeAtom.variables
+    simp only
+    rw [apply_var_or_const_filterVars_eq]
+
   def apply_function_free_conj (g : StrictConstantMapping sig) (conj : FunctionFreeConjunction sig) : FunctionFreeConjunction sig := conj.map g.apply_function_free_atom
+
+  theorem apply_function_free_conj_vars_eq (g : StrictConstantMapping sig) (conj : FunctionFreeConjunction sig) : (g.apply_function_free_conj conj).vars = conj.vars := by
+    unfold apply_function_free_conj
+    unfold FunctionFreeConjunction.vars
+    rw [List.map_map]
+    have : conj.map (FunctionFreeAtom.variables ∘ g.apply_function_free_atom) = conj.map FunctionFreeAtom.variables := by
+      simp only [List.map_inj_left]
+      intro a a_mem
+      rw [Function.comp_apply]
+      apply apply_function_free_atom_vars_eq
+    rw [this]
 
   def apply_rule (g : StrictConstantMapping sig) (rule : Rule sig) : Rule sig := {
     id := rule.id
     body := g.apply_function_free_conj rule.body
     head := rule.head.map g.apply_function_free_conj
   }
+
+  theorem apply_rule_id_eq (g : StrictConstantMapping sig) (rule : Rule sig) : (g.apply_rule rule).id = rule.id := by simp [apply_rule]
+
+  theorem apply_rule_frontier_eq (g : StrictConstantMapping sig) (rule : Rule sig) : (g.apply_rule rule).frontier = rule.frontier := by
+    unfold apply_rule
+    unfold Rule.frontier
+    rw [apply_function_free_conj_vars_eq]
+    apply List.filter_eq_of_all_eq
+    intro e e_mem
+    simp only [List.any_eq, decide_eq_decide, decide_eq_true_eq, List.mem_map]
+    constructor
+    . intro h
+      rcases h with ⟨applied, h, mem_applied⟩
+      rcases h with ⟨conj, conj_mem, h⟩
+      exists conj
+      constructor
+      . exact conj_mem
+      . rw [← h] at mem_applied
+        rw [apply_function_free_conj_vars_eq] at mem_applied
+        exact mem_applied
+    . intro h
+      rcases h with ⟨conj, conj_mem, h⟩
+      exists g.apply_function_free_conj conj
+      constructor
+      . exists conj
+      . rw [apply_function_free_conj_vars_eq]
+        exact h
 
 end StrictConstantMapping
 
@@ -724,9 +777,10 @@ namespace RuleSet
                   have i_zero : i.val = 0 := by
                     have isLt := i.isLt
                     simp only [← PreTrigger.head_length_eq_mapped_head_length] at isLt
-                    sorry
-                    /- rw [det _ trg.property, Nat.lt_one_iff] at isLt -/
-                    /- exact isLt -/
+                    unfold StrictConstantMapping.apply_rule at isLt
+                    simp only [List.length_map] at isLt
+                    rw [det _ trg.property, Nat.lt_one_iff] at isLt
+                    exact isLt
                   apply f_not_in_prev
                   apply contra
                   rw [← List.inIffInToSet, List.get_eq_getElem]
@@ -740,15 +794,27 @@ namespace RuleSet
                   simp at f_mem
                   rw [← List.inIffInToSet, List.mem_map] at f_mem
                   rcases f_mem with ⟨a, a_mem, f_eq⟩
-                  sorry
-                  /- exists a -/
-                  /- constructor -/
-                  /- . exact a_mem -/
-                  /- . rw [← ConstantMapping.apply_fact_swap_apply_to_function_free_atom] -/
-                  /-   . rw [f_eq] -/
-                  /-   . exists GroundTerm.const special_const -/
-                  /-     -- we need to apply g to every constant in every rule in rs to achieve this -/
-                  /-     sorry -/
+
+                  exists (UniformConstantMapping sig special_const).apply_function_free_atom a
+                  constructor
+                  . unfold StrictConstantMapping.apply_rule
+                    unfold StrictConstantMapping.apply_function_free_conj
+                    simp only [List.getElem_map, List.mem_map]
+                    exists a
+                  . rw [← f_eq]
+                    simp only [ConstantMapping.apply_fact, PreTrigger.apply_to_function_free_atom, StrictConstantMapping.apply_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, PreTrigger.apply_to_skolemized_term, Fact.mk.injEq, true_and, List.map_map, List.map_inj_left, Function.comp_apply]
+                    intro voc voc_mem
+                    cases voc with
+                    | var v =>
+                      simp only [StrictConstantMapping.apply_var_or_const]
+                      rw [← ConstantMapping.apply_ground_term_swap_apply_skolem_term]
+                      . rw [StrictConstantMapping.apply_rule_id_eq, StrictConstantMapping.apply_rule_frontier_eq]
+                      . intros
+                        unfold VarOrConst.skolemize
+                        simp only
+                        split <;> simp
+                    | const c =>
+                      simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping]
               . unfold PreTrigger.result at f_mem
                 simp only [List.get_eq_getElem, disj_index_zero] at f_mem
                 rw [List.getElem_map, ← List.inIffInToSet] at f_mem
@@ -761,17 +827,27 @@ namespace RuleSet
                 apply List.listElementAlsoToSetElement
                 unfold PreTrigger.mapped_head
                 simp
-                sorry
-                /- exists a -/
-                /- constructor -/
-                /- . exact a_mem -/
-                /- . rw [← f_eq] -/
-                /-   rw [ConstantMapping.apply_fact_swap_apply_to_function_free_atom] -/
-                /-   exists GroundTerm.const special_const -/
-                /-   constructor -/
-                /-   . simp [StrictConstantMapping.toConstantMapping] -/
-                /-   . -- we need to apply g to every constant in every rule in rs to achieve this -/
-                /-     sorry -/
+
+                exists (UniformConstantMapping sig special_const).apply_function_free_atom a
+                constructor
+                . unfold StrictConstantMapping.apply_rule
+                  unfold StrictConstantMapping.apply_function_free_conj
+                  simp only [List.getElem_map, List.mem_map]
+                  exists a
+                . rw [← f_eq]
+                  simp only [ConstantMapping.apply_fact, PreTrigger.apply_to_function_free_atom, StrictConstantMapping.apply_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, PreTrigger.apply_to_skolemized_term, Fact.mk.injEq, true_and, List.map_map, List.map_inj_left, Function.comp_apply]
+                  intro voc voc_mem
+                  cases voc with
+                  | var v =>
+                    simp only [StrictConstantMapping.apply_var_or_const]
+                    rw [← ConstantMapping.apply_ground_term_swap_apply_skolem_term]
+                    . rw [StrictConstantMapping.apply_rule_id_eq, StrictConstantMapping.apply_rule_frontier_eq]
+                    . intros
+                      unfold VarOrConst.skolemize
+                      simp only
+                      split <;> simp
+                  | const c =>
+                    simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping]
 
 end RuleSet
 

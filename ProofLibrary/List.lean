@@ -372,6 +372,33 @@ namespace List
         simp [e_mem]
       . simp
 
+
+  theorem filter_eq_of_all_eq (l : List α) (p q : α -> Bool) : (∀ e, e ∈ l -> p e = q e) -> l.filter p = l.filter q := by
+    intro h
+    induction l with
+    | nil => simp
+    | cons hd tl ih =>
+      rw [List.filter_cons]
+      rw [List.filter_cons]
+
+      have : tl.filter p = tl.filter q := by
+        apply ih
+        intro e e_mem
+        apply h
+        simp [e_mem]
+
+      cases eq : p hd with
+      | false =>
+        rw [← h]
+        . rw [eq]
+          simp [this]
+        . simp
+      | true =>
+        rw [← h]
+        . rw [eq]
+          simp [this]
+        . simp
+
 end List
 
 def List.repeat (val : α) : Nat -> List α
