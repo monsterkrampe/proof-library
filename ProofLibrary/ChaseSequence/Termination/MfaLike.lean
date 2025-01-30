@@ -849,5 +849,125 @@ namespace RuleSet
                   | const c =>
                     simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping]
 
+  theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (det : rs.isDeterministic) (special_const : sig.C) : ∀ {db : Database sig} (cb : ChaseBranch obs { rules := rs, db := db }), ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite det special_const) := by
+    intro db cb f f_mem
+
+    rcases f_mem with ⟨f', f'_mem, f_eq⟩
+    rcases f'_mem with ⟨f'_pred, f'_mem⟩
+    rcases f'_mem with ⟨n, f'_mem⟩
+    rw [f_eq]
+
+    cases eq : cb.branch.infinite_list n with
+    | none => simp [eq, Option.is_some_and] at f'_mem
+    | some node =>
+      have := rs.mfaSet_contains_every_chase_step_for_every_kb_expect_for_facts_with_predicates_not_from_rs finite det special_const cb n
+      rw [eq, Option.is_none_or] at this
+      apply this
+      . exact f'_pred
+      . rw [eq, Option.is_some_and] at f'_mem
+        exact f'_mem
+
+  theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (det : rs.isDeterministic) : (rs.mfaSet rs_finite det Inhabited.default).finite -> rs.terminates obs := by
+    intro mfa_finite
+    unfold RuleSet.terminates
+    intro db
+    unfold KnowledgeBase.terminates
+    intro ct
+    unfold ChaseTree.terminates
+    intro cb cb_mem
+    rw [ChaseBranch.terminates_iff_result_finite]
+
+    let res_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result
+    have res_filtered_finite : res_filtered.finite := by
+      have : ((UniformConstantMapping sig Inhabited.default).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)).finite :=
+        Set.finite_of_subset_finite mfa_finite (rs.filtered_cb_result_subset_mfaSet rs_finite det Inhabited.default cb)
+
+      rcases this with ⟨l, _, l_eq⟩
+
+      -- TODO: this only holds if we know that there are only finitely many constants in the result
+      -- (which holds since the db and rule set are both finite; still Lean cannot quite know this yet...)
+      sorry
+
+    have res_sub_db_and_filtered : cb.result ⊆ db.toFactSet.val ∪ res_filtered := by
+      have each_step_sub_db_and_filtered : ∀ n, (cb.branch.infinite_list n).is_none_or (fun node => node.fact.val ⊆ db.toFactSet.val ∪ res_filtered) := by
+        intro n
+        induction n with
+        | zero => rw [cb.database_first, Option.is_none_or]; intro f f_mem; apply Or.inl; exact f_mem
+        | succ n ih =>
+          cases eq_node : cb.branch.infinite_list (n+1) with
+          | none => simp [eq_node, Option.is_none_or]
+          | some node =>
+            cases eq_prev : cb.branch.infinite_list n with
+            | none =>
+              have no_holes := cb.branch.no_holes (n+1)
+              simp [eq_node] at no_holes
+              specialize no_holes ⟨n, by simp⟩
+              simp [eq_prev] at no_holes
+            | some prev =>
+              rw [eq_prev, Option.is_none_or] at ih
+              rw [Option.is_none_or]
+              intro f f_mem
+
+              have trg_ex := cb.triggers_exist n
+              rw [eq_prev, Option.is_none_or] at trg_ex
+              cases trg_ex with
+              | inr trg_ex => unfold not_exists_trigger_opt_fs at trg_ex; rw [trg_ex.right] at eq_node; simp at eq_node
+              | inl trg_ex =>
+                unfold exists_trigger_opt_fs at trg_ex
+                rcases trg_ex with ⟨trg, trg_active, disj_index, step_eq⟩
+                rw [eq_node] at step_eq
+                injection step_eq with step_eq
+                rw [← step_eq] at f_mem
+                cases f_mem with
+                | inl f_mem => apply ih; exact f_mem
+                | inr f_mem =>
+                  apply Or.inr
+                  constructor
+                  . -- since f occur in the trigger result, its predicate occurs in the rule and must therefore occur in the ruleset
+                    simp only [List.get_eq_getElem, PreTrigger.result, List.getElem_map] at f_mem
+                    rw [← List.inIffInToSet] at f_mem
+                    simp only [PreTrigger.mapped_head] at f_mem
+                    simp at f_mem
+                    rcases f_mem with ⟨a, a_mem, f_eq⟩
+                    rw [← f_eq]
+                    simp only [PreTrigger.apply_to_function_free_atom]
+                    exists trg.val.rule
+                    constructor
+                    . exact trg.property
+                    . unfold Rule.predicates
+                      rw [List.mem_append]
+                      apply Or.inr
+                      rw [List.mem_flatMap]
+                      exists trg.val.rule.head[disj_index.val]'(by
+                        have isLt := disj_index.isLt
+                        unfold PreTrigger.result at isLt
+                        simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length] at isLt
+                        exact isLt
+                      )
+                      simp only [List.getElem_mem, true_and]
+                      unfold FunctionFreeConjunction.predicates
+                      rw [List.mem_map]
+                      exists a
+                  . exists (n+1)
+                    rw [eq_node, Option.is_some_and, ← step_eq]
+                    apply Or.inr
+                    exact f_mem
+
+      intro f f_mem
+      rcases f_mem with ⟨n, f_mem⟩
+      cases eq_node : cb.branch.infinite_list n with
+      | none => simp [eq_node, Option.is_some_and] at f_mem
+      | some node =>
+        rw [eq_node, Option.is_some_and] at f_mem
+        specialize each_step_sub_db_and_filtered n
+        rw [eq_node, Option.is_none_or] at each_step_sub_db_and_filtered
+        apply each_step_sub_db_and_filtered
+        exact f_mem
+
+    apply Set.finite_of_subset_finite _ res_sub_db_and_filtered
+    apply Set.union_finite_of_both_finite
+    . exact db.toFactSet.property.left
+    . exact res_filtered_finite
+
 end RuleSet
 
