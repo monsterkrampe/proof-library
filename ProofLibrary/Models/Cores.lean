@@ -891,5 +891,23 @@ namespace FactSet
           exists a
         . exact h_fs_sc_hom.right
 
+  theorem strong_core_of_universal_model_is_universal_model
+      {kb : KnowledgeBase sig}
+      (fs : FactSet sig) (fs_univ_model : fs.universallyModelsKb kb)
+      (sc : FactSet sig) (sc_sub : sc.homSubset fs) (sc_strong : sc.isStrongCore) :
+      sc.universallyModelsKb kb := by
+    constructor
+    . exact strong_core_of_model_is_model fs fs_univ_model.left sc sc_sub sc_strong
+    . intro m m_model
+      rcases fs_univ_model.right m m_model with ⟨h, h_hom⟩
+      exists h
+      constructor
+      . exact h_hom.left
+      . apply Set.subsetTransitive _ (h.applyFactSet fs) _
+        constructor
+        . apply GroundTermMapping.applyFactSet_subset_of_subset
+          exact sc_sub.left
+        . exact h_hom.right
+
 end FactSet
 
