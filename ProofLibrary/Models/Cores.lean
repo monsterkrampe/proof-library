@@ -701,5 +701,195 @@ namespace FactSet
 
     exact every_weakCore_isomorphic_to_strongCore_of_hom_both_ways sc sc_strong wc wc_weak h_sc_wc h_wc_sc h_sc_wc_hom h_wc_sc_hom
 
+  theorem strong_core_of_model_is_model
+      {kb : KnowledgeBase sig}
+      (fs : FactSet sig) (fs_model : fs.modelsKb kb)
+      (sc : FactSet sig) (sc_sub : sc.homSubset fs) (sc_strong : sc.isStrongCore) :
+      sc.modelsKb kb := by
+
+    rcases sc_sub with ⟨sc_sub, h_fs_sc, h_fs_sc_hom⟩
+
+    have h_fs_sc_endo_sc : h_fs_sc.isHomomorphism sc sc := by
+      constructor
+      . exact h_fs_sc_hom.left
+      . apply Set.subsetTransitive _ (h_fs_sc.applyFactSet fs) _
+        constructor
+        . apply GroundTermMapping.applyFactSet_subset_of_subset
+          exact sc_sub
+        . exact h_fs_sc_hom.right
+
+    specialize sc_strong h_fs_sc h_fs_sc_endo_sc
+
+    -- TODO: extract this into a general result; check which properties we really need and want here
+    have ex_inv : ∃ (inv : GroundTermMapping sig), (∀ t, t ∈ sc.terms -> (h_fs_sc (inv t)) = t) ∧ inv.isHomomorphism sc sc := by
+      let inv : GroundTermMapping sig := fun t =>
+        have dev := Classical.propDecidable (t ∈ sc.terms)
+        if t_mem : t ∈ sc.terms
+        then
+          Classical.choose (sc_strong.right.right t t_mem)
+        else
+          t
+
+      have inv_id : (∀ t, t ∈ sc.terms -> (h_fs_sc (inv t)) = t) := by
+        intro t t_mem
+        unfold inv
+        simp [t_mem]
+        have spec := Classical.choose_spec (sc_strong.right.right t t_mem)
+        exact spec.right
+      exists inv
+
+      constructor
+      . exact inv_id
+      . constructor
+        . intro t
+          cases t with
+          | inner _ _ => simp
+          | leaf c =>
+            simp only
+            unfold inv
+            cases Classical.em (FiniteTree.leaf c ∈ sc.terms) with
+            | inr n_mem => simp [n_mem]
+            | inl mem =>
+              simp [mem]
+              have spec := Classical.choose_spec (sc_strong.right.right (FiniteTree.leaf c) mem)
+              apply sc_strong.right.left
+              . exact spec.left
+              . exact mem
+              . rw [spec.right]
+                rw [h_fs_sc_hom.left (FiniteTree.leaf c)]
+        . intro f f_mem
+          rcases f_mem with ⟨f', f'_mem, f_eq⟩
+          have strong := sc_strong.left
+          unfold GroundTermMapping.strong at strong
+          apply Classical.byContradiction
+          intro contra
+          apply strong f
+          . intro t t_mem
+            rw [← f_eq] at t_mem
+            unfold GroundTermMapping.applyFact at t_mem
+            rw [List.mem_map] at t_mem
+            rcases t_mem with ⟨t', t'_mem, t_eq⟩
+            have t'_mem : t' ∈ sc.terms := by exists f'
+            have spec := Classical.choose_spec (sc_strong.right.right t' t'_mem)
+            rw [← t_eq]
+            unfold inv
+            simp [t'_mem]
+            exact spec.left
+          . exact contra
+          . rw [← f_eq]
+            rw [← Function.comp_apply (f := h_fs_sc.applyFact), ← GroundTermMapping.applyFact_compose]
+            have : f' = GroundTermMapping.applyFact (h_fs_sc ∘ inv) f' := by
+              unfold GroundTermMapping.applyFact
+              apply Fact.ext
+              . rfl
+              . apply List.ext_getElem
+                . rw [List.length_map]
+                . intro n _ _
+                  rw [List.getElem_map]
+                  rw [Function.comp_apply]
+                  rw [inv_id]
+                  exists f'
+                  constructor
+                  . exact f'_mem
+                  . apply List.getElem_mem
+            rw [← this]
+            exact f'_mem
+    rcases ex_inv with ⟨inv, inv_id, inv_hom⟩
+
+    constructor
+    . intro f f_mem
+      have : f = h_fs_sc.applyFact f := by
+        have prop := kb.db.toFactSet.property.right
+        unfold FactSet.isFunctionFree at prop
+        unfold Fact.isFunctionFree at prop
+        specialize prop f f_mem
+
+        unfold GroundTermMapping.applyFact
+        apply Fact.ext
+        . rfl
+        . apply List.ext_getElem
+          . rw [List.length_map]
+          . intro n _ _
+            rw [List.getElem_map]
+            rcases (prop f.terms[n] (by apply List.getElem_mem)) with ⟨c, t_eq⟩
+            rw [t_eq]
+            rw [h_fs_sc_hom.left (GroundTerm.const c)]
+      rw [this]
+      apply h_fs_sc_hom.right
+      apply GroundTermMapping.applyPreservesElement
+      apply fs_model.left
+      exact f_mem
+    . intro r r_mem
+      intro subs loaded
+
+      have fs_models_rule := fs_model.right r r_mem (inv ∘ subs)
+      specialize fs_models_rule (by
+        apply Set.subsetTransitive _ (inv.applyFactSet sc) _
+        constructor
+        . intro f f_mem
+          unfold GroundSubstitution.apply_function_free_conj at f_mem
+          rw [← List.inIffInToSet, List.mem_map] at f_mem
+          rcases f_mem with ⟨a, a_mem, f_eq⟩
+          rw [GroundSubstitution.apply_function_free_atom_compose _ _ inv_hom.left] at f_eq
+          rw [← f_eq]
+          apply GroundTermMapping.applyPreservesElement
+          apply loaded
+          unfold GroundSubstitution.apply_function_free_conj
+          rw [← List.inIffInToSet, List.mem_map]
+          exists a
+        . apply Set.subsetTransitive _ sc _
+          constructor
+          . exact inv_hom.right
+          . exact sc_sub
+      )
+      rcases fs_models_rule with ⟨i, subs', frontier_mapping, sub_mapping⟩
+
+      exists i
+      exists (h_fs_sc ∘ subs')
+      constructor
+      . intro v v_mem
+        rw [Function.comp_apply]
+        rw [frontier_mapping v v_mem]
+        rw [Function.comp_apply]
+        rw [inv_id _ (by
+          unfold Rule.frontier at v_mem
+          rw [List.mem_filter] at v_mem
+          have v_mem := v_mem.left
+          unfold FunctionFreeConjunction.vars at v_mem
+          rw [List.mem_flatten] at v_mem
+          rcases v_mem with ⟨vars, vars_mem, v_mem⟩
+          rw [List.mem_map] at vars_mem
+          rcases vars_mem with ⟨a, a_mem, vars_eq⟩
+          exists subs.apply_function_free_atom a
+          constructor
+          . apply loaded
+            unfold GroundSubstitution.apply_function_free_conj
+            rw [← List.inIffInToSet, List.mem_map]
+            exists a
+          . unfold GroundSubstitution.apply_function_free_atom
+            rw [List.mem_map]
+            exists VarOrConst.var v
+            constructor
+            . unfold FunctionFreeAtom.variables at vars_eq
+              apply VarOrConst.filterVars_occur_in_original_list
+              rw [vars_eq]
+              exact v_mem
+            . rfl
+        )]
+      . apply Set.subsetTransitive _ (h_fs_sc.applyFactSet fs) _
+        constructor
+        . intro f f_mem
+          unfold GroundSubstitution.apply_function_free_conj at f_mem
+          rw [← List.inIffInToSet, List.mem_map] at f_mem
+          rcases f_mem with ⟨a, a_mem, f_eq⟩
+          rw [GroundSubstitution.apply_function_free_atom_compose _ _ h_fs_sc_hom.left] at f_eq
+          rw [← f_eq]
+          apply GroundTermMapping.applyPreservesElement
+          apply sub_mapping
+          unfold GroundSubstitution.apply_function_free_conj
+          rw [← List.inIffInToSet, List.mem_map]
+          exists a
+        . exact h_fs_sc_hom.right
+
 end FactSet
 

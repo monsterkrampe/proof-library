@@ -280,15 +280,6 @@ namespace List
   theorem any_of_exists (l : List α) (p : α -> Bool) : (∃ a, a ∈ l ∧ p a) -> l.any p = true := by
     simp
 
-  theorem elemFilterAlsoElemList (L : List α) (f : α -> Bool) : ∀ e, e ∈ (L.filter f) -> e ∈ L := by
-    induction L with
-    | nil => intros; contradiction
-    | cons head tail ih =>
-      unfold filter
-      split
-      . intro e; intro h; cases h; left; right; apply ih; assumption
-      . intros; right; apply ih; assumption
-
   theorem elemConcatIffElemOfOne (L L' : List α) : ∀ e, e ∈ (L ++ L') ↔ e ∈ L ∨ e ∈ L' := by simp
 
   theorem concatEqMeansPartsEqIfSameLength (as bs cs ds : List α) (h : as.length = cs.length) : as ++ bs = cs ++ ds -> as = cs ∧ bs = ds := by

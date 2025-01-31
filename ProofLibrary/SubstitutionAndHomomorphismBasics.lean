@@ -12,13 +12,12 @@ section Defs
   class SubsTarget (α) (β) where
     apply : GroundSubstitution sig -> α -> β
 
-
 end Defs
 
-
-variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-
 namespace GroundSubstitution
+
+  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+
   def apply_var_or_const (σ : GroundSubstitution sig) : VarOrConst sig -> GroundTerm sig
     | .var v => σ v
     | .const c => GroundTerm.const c
@@ -77,20 +76,23 @@ namespace GroundSubstitution
     apply List.idx_of_eq_under_map
     apply hs
 
+  instance : SubsTarget sig (SkolemTerm sig) (GroundTerm sig) where
+    apply := GroundSubstitution.apply_skolem_term
+  -- instance : SubsTarget Term GroundTerm where
+  --   apply := GroundSubstitution.apply_term
+  instance : SubsTarget sig (Atom sig) (Fact sig) where
+    apply := GroundSubstitution.apply_atom
+  instance : SubsTarget sig (FunctionFreeAtom sig) (Fact sig) where
+    apply := GroundSubstitution.apply_function_free_atom
+  instance : SubsTarget sig (FunctionFreeConjunction sig) (List (Fact sig)) where
+    apply := GroundSubstitution.apply_function_free_conj
+
 end GroundSubstitution
 
-instance : SubsTarget sig (SkolemTerm sig) (GroundTerm sig) where
-  apply := GroundSubstitution.apply_skolem_term
--- instance : SubsTarget Term GroundTerm where
---   apply := GroundSubstitution.apply_term
-instance : SubsTarget sig (Atom sig) (Fact sig) where
-  apply := GroundSubstitution.apply_atom
-instance : SubsTarget sig (FunctionFreeAtom sig) (Fact sig) where
-  apply := GroundSubstitution.apply_function_free_atom
-instance : SubsTarget sig (FunctionFreeConjunction sig) (List (Fact sig)) where
-  apply := GroundSubstitution.apply_function_free_conj
 
 namespace GroundTermMapping
+
+  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
   def isIdOnConstants (h : GroundTermMapping sig) : Prop :=
     ∀ (t : GroundTerm sig), match t with
@@ -174,4 +176,28 @@ namespace GroundTermMapping
       . exact f'_eq
 
 end GroundTermMapping
+
+section GroundSubstitutionInteractionWithGroundTermMapping
+
+  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+
+  theorem GroundSubstitution.apply_var_or_const_compose (s : GroundSubstitution sig) (h : GroundTermMapping sig) (id_on_const : h.isIdOnConstants) :
+      ∀ (voc : VarOrConst sig), GroundSubstitution.apply_var_or_const (h ∘ s) voc = h (s.apply_var_or_const voc) := by
+    intro voc
+    unfold GroundSubstitution.apply_var_or_const
+    cases voc with
+    | var v => simp
+    | const c =>
+      simp only
+      rw [id_on_const (GroundTerm.const c)]
+
+  variable [DecidableEq sig.P]
+
+  theorem GroundSubstitution.apply_function_free_atom_compose (s : GroundSubstitution sig) (h : GroundTermMapping sig) (id_on_const : h.isIdOnConstants) :
+      ∀ (a : FunctionFreeAtom sig), GroundSubstitution.apply_function_free_atom (h ∘ s) a = h.applyFact (s.apply_function_free_atom a) := by
+    unfold GroundTermMapping.applyFact
+    unfold GroundSubstitution.apply_function_free_atom
+    simp [apply_var_or_const_compose _ _ id_on_const]
+
+end GroundSubstitutionInteractionWithGroundTermMapping
 

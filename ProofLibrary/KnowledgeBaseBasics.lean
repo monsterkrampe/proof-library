@@ -94,27 +94,6 @@ namespace FunctionFreeConjunction
 
   def vars (conj : FunctionFreeConjunction sig) : List sig.V := (conj.map FunctionFreeAtom.variables).flatten
 
-  theorem v_in_vars_occurs_in_fact (conj : FunctionFreeConjunction sig) : ∀ v, v ∈ conj.vars -> ∃ f, f ∈ conj ∧ (VarOrConst.var v) ∈ f.terms := by
-    unfold vars
-    cases conj with
-    | nil => intros; contradiction
-    | cons head tail =>
-      intro v vInVars
-      rw [List.mem_flatten] at vInVars
-      cases vInVars with | intro L' hL' =>
-        simp only [List.mem_map] at hL'
-        cases hL'.left with | intro e' he' =>
-          exists e'
-          constructor
-          . exact he'.left
-          . have : v ∈ e'.variables := by
-              rw [he'.right]
-              apply hL'.right
-
-            apply VarOrConst.filterVars_occur_in_original_list
-            unfold FunctionFreeAtom.variables at this
-            apply this
-
   def predicates (conj : FunctionFreeConjunction sig) : List sig.P := conj.map FunctionFreeAtom.predicate
 
 end FunctionFreeConjunction
@@ -131,9 +110,20 @@ namespace Rule
     | nil => intros; contradiction
     | cons head tail =>
       intro v vInFrontier
-      have vInBody := List.elemFilterAlsoElemList _ _ v vInFrontier
-      have exFactInBody := FunctionFreeConjunction.v_in_vars_occurs_in_fact _ v vInBody
-      exact exFactInBody
+      rw [List.mem_filter] at vInFrontier
+      have mem_body := vInFrontier.left
+      unfold FunctionFreeConjunction.vars at mem_body
+      rw [List.mem_flatten] at mem_body
+      rcases mem_body with ⟨vars, mem_body, v_mem⟩
+      rw [List.mem_map] at mem_body
+      rcases mem_body with ⟨a, a_mem, vars_eq⟩
+      exists a
+      constructor
+      . exact a_mem
+      . unfold FunctionFreeAtom.variables at vars_eq
+        apply VarOrConst.filterVars_occur_in_original_list
+        rw [vars_eq]
+        exact v_mem
 
   def isDatalog (r : Rule sig) : Bool :=
     r.head.all (fun h => h.vars.all (fun v => v ∈ r.body.vars))
