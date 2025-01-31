@@ -506,6 +506,8 @@ namespace FactSet
   def isStrongCore (fs : FactSet sig) : Prop :=
     ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ h.injective_for_domain_set fs.terms ∧ h.surjective_for_domain_and_image_set fs.terms fs.terms
 
+  def homSubset (c fs : FactSet sig) : Prop := c ⊆ fs ∧ (∃ (h : GroundTermMapping sig), h.isHomomorphism fs c)
+
   theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) : ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injective_for_domain_set fs.terms -> h.surjective_for_domain_and_image_set fs.terms fs.terms := by
     rcases finite with ⟨l, finite⟩
     intro h isHom inj
@@ -615,14 +617,11 @@ namespace FactSet
       . exact isHom
       . exact injective
 
-  theorem every_universal_weakCore_isomorphic_to_universal_strongCore
-      {kb : KnowledgeBase sig}
-      (sc : FactSet sig) (sc_universal : sc.universallyModelsKb kb) (sc_strong : sc.isStrongCore)
-      (wc : FactSet sig) (wc_universal : wc.universallyModelsKb kb) (wc_weak : wc.isWeakCore) :
+  theorem every_weakCore_isomorphic_to_strongCore_of_hom_both_ways
+      (sc : FactSet sig) (sc_strong : sc.isStrongCore)
+      (wc : FactSet sig) (wc_weak : wc.isWeakCore)
+      (h_sc_wc h_wc_sc : GroundTermMapping sig) (h_sc_wc_hom : h_sc_wc.isHomomorphism sc wc) (h_wc_sc_hom : h_wc_sc.isHomomorphism wc sc) :
       ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injective_for_domain_set wc.terms ∧ iso.surjective_for_domain_and_image_set wc.terms sc.terms := by
-
-    rcases sc_universal.right wc wc_universal.left with ⟨h_sc_wc, h_sc_wc_hom⟩
-    rcases wc_universal.right sc sc_universal.left with ⟨h_wc_sc, h_wc_sc_hom⟩
 
     specialize wc_weak (h_sc_wc ∘ h_wc_sc) (by
       apply GroundTermMapping.isHomomorphism_compose
@@ -661,6 +660,46 @@ namespace FactSet
         . unfold GroundTermMapping.applyFact
           simp
           exists arg
+
+  theorem strongCore_unique_up_to_isomorphism_with_respect_to_weak_cores
+      (fs : FactSet sig)
+      (sc : FactSet sig) (sub_sc : sc.homSubset fs) (sc_strong : sc.isStrongCore)
+      (wc : FactSet sig) (sub_wc : wc.homSubset fs) (wc_weak : wc.isWeakCore) :
+      ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injective_for_domain_set wc.terms ∧ iso.surjective_for_domain_and_image_set wc.terms sc.terms := by
+
+    rcases sub_sc with ⟨sub_sc, h_fs_sc, h_fs_sc_hom⟩
+    rcases sub_wc with ⟨sub_wc, h_fs_wc, h_fs_wc_hom⟩
+
+    have h_sc_wc_hom : h_fs_wc.isHomomorphism sc wc := by
+      constructor
+      . exact h_fs_wc_hom.left
+      . apply Set.subsetTransitive _ (h_fs_wc.applyFactSet fs) _
+        constructor
+        . apply GroundTermMapping.applyFactSet_subset_of_subset
+          exact sub_sc
+        . exact h_fs_wc_hom.right
+
+    have h_wc_sc_hom : h_fs_sc.isHomomorphism wc sc := by
+      constructor
+      . exact h_fs_sc_hom.left
+      . apply Set.subsetTransitive _ (h_fs_sc.applyFactSet fs) _
+        constructor
+        . apply GroundTermMapping.applyFactSet_subset_of_subset
+          exact sub_wc
+        . exact h_fs_sc_hom.right
+
+    exact every_weakCore_isomorphic_to_strongCore_of_hom_both_ways sc sc_strong wc wc_weak h_fs_wc h_fs_sc h_sc_wc_hom h_wc_sc_hom
+
+  theorem every_universal_weakCore_isomorphic_to_universal_strongCore
+      {kb : KnowledgeBase sig}
+      (sc : FactSet sig) (sc_universal : sc.universallyModelsKb kb) (sc_strong : sc.isStrongCore)
+      (wc : FactSet sig) (wc_universal : wc.universallyModelsKb kb) (wc_weak : wc.isWeakCore) :
+      ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injective_for_domain_set wc.terms ∧ iso.surjective_for_domain_and_image_set wc.terms sc.terms := by
+
+    rcases sc_universal.right wc wc_universal.left with ⟨h_sc_wc, h_sc_wc_hom⟩
+    rcases wc_universal.right sc sc_universal.left with ⟨h_wc_sc, h_wc_sc_hom⟩
+
+    exact every_weakCore_isomorphic_to_strongCore_of_hom_both_ways sc sc_strong wc wc_weak h_sc_wc h_wc_sc h_sc_wc_hom h_wc_sc_hom
 
 end FactSet
 

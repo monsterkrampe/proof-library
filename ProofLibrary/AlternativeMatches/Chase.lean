@@ -901,9 +901,11 @@ namespace ChaseBranch
       . exact noAltMatch
       . exact endo
 
-  theorem core_superset_of_chase_result (cb : ChaseBranch obs kb) (fs : FactSet sig) (fs_super : cb.result ⊆ fs) (noAltMatch : ¬ cb.has_alt_match_for fs) : ∀ (sub_fs : FactSet sig), sub_fs ⊆ fs -> (∃ (h : GroundTermMapping sig), h.isHomomorphism fs sub_fs) -> cb.result ⊆ sub_fs := by
-    intro sub_fs sub_fs_sub ex_hom
-    rcases ex_hom with ⟨h, hom⟩
+  theorem core_superset_of_chase_result
+      (cb : ChaseBranch obs kb) (fs : FactSet sig) (fs_super : cb.result ⊆ fs) (noAltMatch : ¬ cb.has_alt_match_for fs) :
+      ∀ (sub_fs : FactSet sig), sub_fs.homSubset fs -> cb.result ⊆ sub_fs := by
+    intro sub_fs sub_fs_sub
+    rcases sub_fs_sub with ⟨sub_fs_sub, h, hom⟩
 
     apply Classical.byContradiction
     intro not_subsumes
