@@ -21,6 +21,7 @@ namespace PreTrigger
     {
       predicate := atom.predicate
       terms := atom.terms.map (trg.apply_to_var_or_const disjunctIndex)
+      arity_ok := by rw [List.length_map, atom.arity_ok]
     }
 
   theorem apply_to_function_free_atom_terms_same_length (trg : PreTrigger sig) (disjunctIndex : Nat) (atom : FunctionFreeAtom sig) : atom.terms.length = (trg.apply_to_function_free_atom disjunctIndex atom).terms.length := by
@@ -197,7 +198,7 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
     constructor
     . intro v v_in_frontier
       simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, v_in_frontier]
-    . have : trg.mapped_head[i.val] = (trg.rule.head[i]'(by rw [PreTrigger.head_length_eq_mapped_head_length]; exact i.isLt)).map (fun a => { predicate := a.predicate, terms := a.terms.map (trg.apply_to_var_or_const i)}) := by
+    . have : trg.mapped_head[i.val] = (trg.rule.head[i]'(by rw [PreTrigger.head_length_eq_mapped_head_length]; exact i.isLt)).map (fun a => { predicate := a.predicate, terms := a.terms.map (trg.apply_to_var_or_const i), arity_ok := (by rw [List.length_map, a.arity_ok])}) := by
         unfold PreTrigger.mapped_head
         unfold PreTrigger.apply_to_function_free_atom
         simp
@@ -214,8 +215,7 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
         cases x with
         | var => rfl
         | const => simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize]
-      rw [this]
-
+      simp only [this]
       apply h
   contains_trg_result_implies_cond := by
     intro trg F i result_in_F

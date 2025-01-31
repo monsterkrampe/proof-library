@@ -5,6 +5,7 @@ structure Signature where
   P : Type u
   V : Type v
   C : Type w
+  arity : P -> Nat
 
 structure SkolemFS (sig : Signature) [DecidableEq sig.V] where
   ruleId : Nat
@@ -29,6 +30,14 @@ variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
 @[match_pattern]
 def GroundTerm.const (c : sig.C) := @FiniteTree.leaf (SkolemFS sig) sig.C c
+
+def GroundTerm.toConst (t : GroundTerm sig) (isConst : ∃ c, t = GroundTerm.const c) : sig.C :=
+  match eq : t with
+  | .leaf c => c
+  | .inner _ _ => by
+    apply False.elim
+    rcases isConst with ⟨c, isConst⟩
+    simp [GroundTerm.const] at isConst
 
 def SkolemTerm.variables : SkolemTerm sig -> List sig.V
   | .var v => List.cons v List.nil

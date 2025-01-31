@@ -58,22 +58,14 @@ namespace ChaseBranch
           . intro t t_mem
             simp at t_mem
             rcases t_mem with ⟨f, f_mem, t_mem⟩
-            cases t with
-            | inner sfs ftl =>
-              unfold Database.toFactSet at f_mem
-              simp [Set.element] at f_mem
-              unfold Fact.toFunctionFreeFact at f_mem
-              split at f_mem
-              . simp at f_mem
-              case h_2 _ _ eq =>
-                split at eq
-                case isTrue all =>
-                  rw [List.all_eq_false.mpr _] at all
-                  . simp at all
-                  . exists (FiniteTree.inner sfs ftl); constructor; exact t_mem; simp
-                . simp at eq
-            | leaf c =>
-              exact h_0_hom.left (FiniteTree.leaf c)
+
+            have isFunctionFree := kb.db.toFactSet.property.right
+            specialize isFunctionFree _ f_mem
+            specialize isFunctionFree t t_mem
+            rcases isFunctionFree with ⟨c, t_eq⟩
+            rw [t_eq]
+
+            exact h_0_hom.left (GroundTerm.const c)
       | succ k ih =>
         cases eq : cb.branch.infinite_list (k+1) with
         | none => simp [Option.is_none_or]
@@ -676,24 +668,15 @@ namespace ChaseBranch
       rcases prop_step with ⟨t, t_mem, t_prop⟩
       rcases t_mem with ⟨f, f_mem, t_mem⟩
 
-      cases t with
-      | inner sfs ftl =>
-        unfold Database.toFactSet at f_mem
-        simp [Set.element] at f_mem
-        unfold Fact.toFunctionFreeFact at f_mem
-        split at f_mem
-        . exact f_mem
-        case h_2 _ _ eq =>
-          split at eq
-          case isTrue all =>
-            rw [List.all_eq_false.mpr _] at all
-            . simp at all
-            . exists (FiniteTree.inner sfs ftl); constructor; exact t_mem; simp
-          . simp at eq
-      | leaf c =>
-        specialize t_prop 1 (by simp)
-        apply t_prop
-        rw [(h.repeat_hom_id_on_const _ 1) (FiniteTree.leaf c)]; exact hom_res.left
+      have isFunctionFree := kb.db.toFactSet.property.right
+      specialize isFunctionFree _ f_mem
+      specialize isFunctionFree t t_mem
+      rcases isFunctionFree with ⟨c, t_eq⟩
+
+      specialize t_prop 1 (by simp)
+      apply t_prop
+      rw [t_eq]
+      rw [(h.repeat_hom_id_on_const _ 1) (GroundTerm.const c)]; exact hom_res.left
 
     cases eq : cb.branch.infinite_list step with
     | none =>
@@ -969,7 +952,7 @@ namespace ChaseBranch
             intro t t_mem
             apply each_repeats
             exists f
-          rw [this]
+          simp only [this]
         rw [← this]
         have : (h.repeat_hom j).isHomomorphism fs sub_fs := by
           have : h.repeat_hom j = h.repeat_hom (j-1) ∘ h := by
