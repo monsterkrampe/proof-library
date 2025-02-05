@@ -279,6 +279,62 @@ theorem FactSet.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) :
         . rfl
       . exact e_in_f
 
+def FactSet.predicates (fs : FactSet sig) : Set sig.P := fun p => ∃ f, f ∈ fs ∧ f.predicate = p
+
+theorem FactSet.finite_of_preds_finite_of_terms_finite (fs : FactSet sig) : fs.predicates.finite -> fs.terms.finite -> fs.finite := by
+  intro preds_fin terms_fin
+  rcases preds_fin with ⟨preds, _, preds_eq⟩
+  rcases terms_fin with ⟨terms, _, terms_eq⟩
+
+  let overapproximation : FactSet sig := fun f => f.predicate ∈ fs.predicates ∧ (∀ t, t ∈ f.terms -> t ∈ fs.terms)
+  have overapproximation_fin : overapproximation.finite := by
+    exists (preds.flatMap (fun p =>
+      (all_term_lists_of_length terms (sig.arity p)).attach.map (fun ⟨ts, mem⟩ =>
+        {
+          predicate := p
+          terms := ts
+          arity_ok := ((mem_all_term_lists_of_length terms (sig.arity p) ts).mp mem).left
+        }
+      )
+    )).eraseDupsKeepRight
+
+    constructor
+    . apply List.nodup_eraseDupsKeepRight
+    . intro f
+      rw [List.mem_eraseDupsKeepRight_iff]
+      simp only [List.mem_flatMap, List.mem_map, List.mem_attach, true_and, Subtype.exists]
+      constructor
+      . intro h
+        rcases h with ⟨pred, pred_mem, ts, ts_mem, f_eq⟩
+        rw [← f_eq]
+        constructor
+        . rw [preds_eq] at pred_mem
+          exact pred_mem
+        . rw [mem_all_term_lists_of_length] at ts_mem
+          intro t t_mem
+          rw [← terms_eq]
+          apply ts_mem.right
+          exact t_mem
+      . intro h
+        rcases h with ⟨pred_mem, ts_mem⟩
+        exists f.predicate
+        constructor
+        . rw [preds_eq]; exact pred_mem
+        . exists f.terms
+          exists (by
+            rw [mem_all_term_lists_of_length]
+            constructor
+            . exact f.arity_ok
+            . intro t t_mem; rw [terms_eq]; apply ts_mem; exact t_mem
+          )
+
+  apply Set.finite_of_subset_finite overapproximation_fin
+  intro f f_mem
+  constructor
+  . exists f
+  . intro t t_mem
+    exists f
+
 def Database.constants (db : Database sig) : { C : Set sig.C // C.finite } := ⟨
   fun c => ∃ (f : FunctionFreeFact sig), f ∈ db ∧ c ∈ f.terms,
   by

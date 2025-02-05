@@ -155,6 +155,20 @@ namespace FiniteTree
       | FiniteTreeList.cons t ts => max (depth t) (depthList ts)
   end
 
+  theorem depth_le_depthList_of_mem (ts : FiniteTreeList α β) : ∀ t, t ∈ ts.toList -> t.depth ≤ depthList ts := by
+    intro t t_mem
+    cases ts with
+    | nil => simp [FiniteTreeList.toList] at t_mem
+    | cons hd tl =>
+      unfold depthList
+      unfold FiniteTreeList.toList at t_mem
+      rw [List.mem_cons] at t_mem
+      cases t_mem with
+      | inl t_mem => rw [t_mem]; apply Nat.le_max_left
+      | inr t_mem =>
+        apply Nat.le_trans (depth_le_depthList_of_mem tl t t_mem)
+        apply Nat.le_max_right
+
   mutual
     def leaves : FiniteTree α β -> List β
       | FiniteTree.leaf b => List.cons b List.nil

@@ -1311,5 +1311,16 @@ namespace RuleSet
     . exact db.toFactSet.property.left
     . exact res_filtered_finite
 
+  def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.rules.finite) (det : rs.isDeterministic) : Prop :=
+    ∀ t, t ∈ (rs.mfaSet finite det default).terms -> ¬ t.cyclic
+
+  theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (det : rs.isDeterministic) : rs.isMfa rs_finite det -> rs.terminates obs := by
+    intro isMfa
+    apply rs.terminates_of_mfaSet_finite rs_finite det
+    apply FactSet.finite_of_preds_finite_of_terms_finite
+    . sorry
+    . unfold RuleSet.isMfa at isMfa
+      sorry
+
 end RuleSet
 
