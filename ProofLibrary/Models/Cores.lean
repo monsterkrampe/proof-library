@@ -856,10 +856,8 @@ namespace FactSet
           rw [List.mem_filter] at v_mem
           have v_mem := v_mem.left
           unfold FunctionFreeConjunction.vars at v_mem
-          rw [List.mem_flatten] at v_mem
-          rcases v_mem with ⟨vars, vars_mem, v_mem⟩
-          rw [List.mem_map] at vars_mem
-          rcases vars_mem with ⟨a, a_mem, vars_eq⟩
+          rw [List.mem_flatMap] at v_mem
+          rcases v_mem with ⟨a, a_mem, v_mem⟩
           exists subs.apply_function_free_atom a
           constructor
           . apply loaded
@@ -870,9 +868,8 @@ namespace FactSet
             rw [List.mem_map]
             exists VarOrConst.var v
             constructor
-            . unfold FunctionFreeAtom.variables at vars_eq
+            . unfold FunctionFreeAtom.variables at v_mem
               apply VarOrConst.filterVars_occur_in_original_list
-              rw [vars_eq]
               exact v_mem
             . rfl
         )]

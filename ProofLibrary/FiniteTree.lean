@@ -165,6 +165,34 @@ namespace FiniteTree
       | FiniteTreeList.cons t ts => (leaves t) ++ (leavesList ts)
   end
 
+  theorem mem_leavesList (l : FiniteTreeList α β) : ∀ e, e ∈ leavesList l ↔ ∃ t, t ∈ l.toList ∧ e ∈ t.leaves := by
+    intro e
+    cases l with
+    | nil => simp [leavesList, FiniteTreeList.toList]
+    | cons hd tl =>
+      unfold leavesList
+      rw [List.mem_append]
+      constructor
+      . intro h
+        cases h with
+        | inl h => exists hd; constructor; simp [FiniteTreeList.toList]; exact h
+        | inr h =>
+          rcases (mem_leavesList tl e).mp h with ⟨t, t_mem, e_mem⟩
+          exists t
+          constructor
+          . simp [FiniteTreeList.toList, t_mem]
+          . exact e_mem
+      . intro h
+        rcases h with ⟨t, t_mem, e_mem⟩
+        unfold FiniteTreeList.toList at t_mem
+        rw [List.mem_cons] at t_mem
+        cases t_mem with
+        | inl t_mem => apply Or.inl; rw [← t_mem]; exact e_mem
+        | inr t_mem =>
+          apply Or.inr
+          apply (mem_leavesList tl e).mpr
+          exists t
+
   mutual
     def mapLeaves (f : β -> FiniteTree α γ) (t : FiniteTree α β) : FiniteTree α γ := match t with
       | FiniteTree.leaf b => f b

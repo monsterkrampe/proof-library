@@ -62,6 +62,8 @@ namespace FunctionFreeAtom
 
   def variables (a : FunctionFreeAtom sig) : List sig.V := VarOrConst.filterVars a.terms
 
+  def constants (a : FunctionFreeAtom sig) : List sig.C := VarOrConst.filterConsts a.terms
+
   def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (a : FunctionFreeAtom sig) : Atom sig := { predicate := a.predicate, terms := a.terms.map (VarOrConst.skolemize ruleId disjunctIndex frontier), arity_ok := by rw [List.length_map, a.arity_ok] }
 
   theorem skolemize_same_length (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (a : FunctionFreeAtom sig) : a.terms.length = (a.skolemize ruleId disjunctIndex frontier).terms.length := by
@@ -93,7 +95,9 @@ end FunctionFreeAtom
 
 namespace FunctionFreeConjunction
 
-  def vars (conj : FunctionFreeConjunction sig) : List sig.V := (conj.map FunctionFreeAtom.variables).flatten
+  def vars (conj : FunctionFreeConjunction sig) : List sig.V := conj.flatMap FunctionFreeAtom.variables
+
+  def consts (conj : FunctionFreeConjunction sig) : List sig.C := conj.flatMap FunctionFreeAtom.constants
 
   def predicates (conj : FunctionFreeConjunction sig) : List sig.P := conj.map FunctionFreeAtom.predicate
 
@@ -114,16 +118,13 @@ namespace Rule
       rw [List.mem_filter] at vInFrontier
       have mem_body := vInFrontier.left
       unfold FunctionFreeConjunction.vars at mem_body
-      rw [List.mem_flatten] at mem_body
-      rcases mem_body with ⟨vars, mem_body, v_mem⟩
-      rw [List.mem_map] at mem_body
-      rcases mem_body with ⟨a, a_mem, vars_eq⟩
+      rw [List.mem_flatMap] at mem_body
+      rcases mem_body with ⟨a, a_mem, v_mem⟩
       exists a
       constructor
       . exact a_mem
-      . unfold FunctionFreeAtom.variables at vars_eq
+      . unfold FunctionFreeAtom.variables at v_mem
         apply VarOrConst.filterVars_occur_in_original_list
-        rw [vars_eq]
         exact v_mem
 
   def isDatalog (r : Rule sig) : Bool :=
@@ -132,6 +133,8 @@ namespace Rule
   def isDeterministic (r : Rule sig) : Prop := r.head.length = 1
 
   def predicates (r : Rule sig) : List sig.P := r.body.predicates ++ (r.head.flatMap FunctionFreeConjunction.predicates)
+
+  def head_constants (r : Rule sig) : List sig.C := r.head.flatMap (fun conj => conj.consts)
 
 end Rule
 
@@ -155,9 +158,46 @@ namespace RuleSet
       . rw [← eq]; assumption
       . rw [eq]; assumption
 
+  def head_constants (rs : RuleSet sig) : Set sig.C := fun c => ∃ r, r ∈ rs.rules ∧ c ∈ r.head_constants
+
+  theorem head_constants_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.head_constants.finite := by
+    intro finite
+    rcases finite with ⟨l, nodup, eq⟩
+    exists (l.flatMap Rule.head_constants).eraseDupsKeepRight
+    constructor
+    . apply List.nodup_eraseDupsKeepRight
+    . intro c
+      rw [List.mem_eraseDupsKeepRight_iff]
+      unfold head_constants
+      simp only [List.mem_flatMap]
+      constructor <;> (intro h; rcases h with ⟨r, h⟩; exists r)
+      . rw [← eq]; assumption
+      . rw [eq]; assumption
+
 end RuleSet
 
 def KnowledgeBase.isDeterministic (kb : KnowledgeBase sig) : Prop := kb.rules.isDeterministic
+
+def Fact.constants (f : Fact sig) : List sig.C := FiniteTree.leavesList (FiniteTreeList.fromList f.terms)
+def FactSet.constants (fs : FactSet sig) : Set sig.C := fun c => ∃ f, f ∈ fs ∧ c ∈ f.constants
+theorem FactSet.constants_finite_of_finite (fs : FactSet sig) (fin : fs.finite) : fs.constants.finite := by
+  rcases fin with ⟨l, _, l_eq⟩
+  exists (l.flatMap Fact.constants).eraseDupsKeepRight
+  constructor
+  . apply List.nodup_eraseDupsKeepRight
+  . intro c
+    rw [List.mem_eraseDupsKeepRight_iff]
+    rw [List.mem_flatMap]
+    unfold constants
+    constructor
+    . intro h
+      rcases h with ⟨f, f_mem, c_mem⟩
+      rw [l_eq] at f_mem
+      exists f
+    . intro h
+      rcases h with ⟨f, f_mem, c_mem⟩
+      rw [← l_eq] at f_mem
+      exists f
 
 def Fact.isFunctionFree (f : Fact sig) : Prop := ∀ t, t ∈ f.terms -> ∃ c, t = GroundTerm.const c
 def FactSet.isFunctionFree (fs : FactSet sig) : Prop := ∀ f, f ∈ fs -> f.isFunctionFree
@@ -285,4 +325,47 @@ def Database.toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite ∧
     apply FunctionFreeFact.toFact_isFunctionFree
   ),
 ⟩
+
+theorem Database.toFactSet_constants_same (db : Database sig) : db.toFactSet.val.constants = db.constants.val := by
+  unfold toFactSet
+  unfold constants
+  unfold FactSet.constants
+  simp only
+  apply funext
+  intro c
+  rw [eq_iff_iff]
+  constructor
+  . intro h
+    rcases h with ⟨f, f_mem, c_mem⟩
+    rcases f_mem with ⟨f', f'_mem, f_eq⟩
+    exists f'
+    constructor
+    . exact f'_mem
+    . unfold Fact.constants at c_mem
+      rw [FiniteTree.mem_leavesList] at c_mem
+      rcases c_mem with ⟨t, t_mem, c_mem⟩
+      rw [FiniteTreeList.fromListToListIsId] at t_mem
+      rw [← f_eq] at t_mem
+      unfold FunctionFreeFact.toFact at t_mem
+      rw [List.mem_map] at t_mem
+      rcases t_mem with ⟨d, d_mem, t_eq⟩
+      rw [← t_eq] at c_mem
+      unfold FiniteTree.leaves at c_mem
+      simp at c_mem
+      rw [c_mem]
+      exact d_mem
+  . intro h
+    rcases h with ⟨f, f_mem, c_mem⟩
+    exists f.toFact
+    constructor
+    . exists f
+    . unfold FunctionFreeFact.toFact
+      unfold Fact.constants
+      rw [FiniteTree.mem_leavesList]
+      exists GroundTerm.const c
+      constructor
+      . rw [FiniteTreeList.fromListToListIsId]
+        rw [List.mem_map]
+        exists c
+      . simp [FiniteTree.leaves]
 

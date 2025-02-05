@@ -120,6 +120,7 @@ namespace StrictConstantMapping
   theorem apply_function_free_conj_vars_eq (g : StrictConstantMapping sig) (conj : FunctionFreeConjunction sig) : (g.apply_function_free_conj conj).vars = conj.vars := by
     unfold apply_function_free_conj
     unfold FunctionFreeConjunction.vars
+    unfold List.flatMap
     rw [List.map_map]
     have : conj.map (FunctionFreeAtom.variables ∘ g.apply_function_free_atom) = conj.map FunctionFreeAtom.variables := by
       simp only [List.map_inj_left]
@@ -400,7 +401,7 @@ section ArgumentsForImages
       )
 
     theorem apply_to_arguments_yields_original_fact (g : StrictConstantMapping sig) (possible_constants : List sig.C) (f : Fact sig) :
-        ∀ arg, arg ∈ g.arguments_for_fact possible_constants f ↔ ((∀ c, (c ∈ FiniteTree.leavesList (FiniteTreeList.fromList arg.terms)) -> c ∈ possible_constants) ∧ g.toConstantMapping.apply_fact arg = f) := by
+        ∀ arg, arg ∈ g.arguments_for_fact possible_constants f ↔ ((∀ c, c ∈ arg.constants -> c ∈ possible_constants) ∧ g.toConstantMapping.apply_fact arg = f) := by
       intro arg
       unfold arguments_for_fact
       simp only [List.mem_map, List.mem_attach, true_and, Subtype.exists]
@@ -1173,15 +1174,16 @@ namespace RuleSet
 
       rcases this with ⟨l, _, l_eq⟩
 
-      -- TODO: this only holds if we know that there are only finitely many constants in the result
-      -- (which holds since the db and rule set are both finite; still Lean cannot quite know this yet...)
-
       let db_constants := db.constants
-      rcases db_constants.property with ⟨l_c, _, l_c_eq⟩
+      rcases db_constants.property with ⟨l_db_c, _, l_db_c_eq⟩
 
-      let arguments : FactSet sig := fun f => ((UniformConstantMapping sig default).toConstantMapping.apply_fact f) ∈ ((UniformConstantMapping sig default).toConstantMapping.apply_fact_set res_filtered)
+      let rs_constants := rs.head_constants
+      have rs_constants_finite : rs_constants.finite := RuleSet.head_constants_finite_of_finite _ rs_finite
+      rcases rs_constants_finite with ⟨l_rs_c, _, l_rs_c_eq⟩
+
+      let arguments : FactSet sig := fun f => (∀ c, c ∈ f.constants -> (c ∈ l_db_c ++ l_rs_c)) ∧ ((UniformConstantMapping sig default).toConstantMapping.apply_fact f) ∈ ((UniformConstantMapping sig default).toConstantMapping.apply_fact_set res_filtered)
       have arguments_fin : arguments.finite := by
-        exists (l.flatMap (fun f => (UniformConstantMapping sig default).arguments_for_fact l_c f)).eraseDupsKeepRight
+        exists (l.flatMap (fun f => (UniformConstantMapping sig default).arguments_for_fact (l_db_c ++ l_rs_c) f)).eraseDupsKeepRight
         constructor
         . apply List.nodup_eraseDupsKeepRight
         . intro f
@@ -1191,24 +1193,42 @@ namespace RuleSet
             rcases h with ⟨f', f'_mem, f_mem⟩
             rw [l_eq] at f'_mem
             have : f' = (UniformConstantMapping sig default).toConstantMapping.apply_fact f := by
-              have := (UniformConstantMapping sig default).apply_to_arguments_yields_original_fact l_c f'
+              have := (UniformConstantMapping sig default).apply_to_arguments_yields_original_fact (l_db_c ++ l_rs_c) f'
               rw [((this _).mp _).right]
               exact f_mem
             rw [this] at f'_mem
-            exact f'_mem
+            constructor
+            . have := (UniformConstantMapping sig default).apply_to_arguments_yields_original_fact (l_db_c ++ l_rs_c) f' f
+              apply (this.mp _).left
+              exact f_mem
+            . exact f'_mem
           . intro h
             exists (UniformConstantMapping sig default).toConstantMapping.apply_fact f
             constructor
             . rw [l_eq]
-              exact h
-            . rw [(UniformConstantMapping sig default).apply_to_arguments_yields_original_fact l_c]
+              exact h.right
+            . rw [(UniformConstantMapping sig default).apply_to_arguments_yields_original_fact (l_db_c ++ l_rs_c)]
               simp only [and_true]
-              sorry
+              exact h.left
 
       apply Set.finite_of_subset_finite arguments_fin
       intro f f_mem
-      apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
-      exact f_mem
+      constructor
+      . rcases f_mem.right with ⟨step, f_mem⟩
+        intro c c_mem
+        have := constantsInChaseBranchAreFromDatabase cb step
+        cases eq_step : cb.branch.infinite_list step with
+        | none => rw [eq_step] at f_mem; simp [Option.is_some_and] at f_mem
+        | some node =>
+          rw [eq_step, Option.is_some_and] at f_mem
+          rw [eq_step, Option.is_none_or] at this
+          specialize this c (by exists f)
+          rw [List.mem_append]
+          cases this with
+          | inl this => apply Or.inl; rw [l_db_c_eq]; exact this
+          | inr this => apply Or.inr; rw [l_rs_c_eq]; exact this
+      . apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+        exact f_mem
 
     have res_sub_db_and_filtered : cb.result ⊆ db.toFactSet.val ∪ res_filtered := by
       have each_step_sub_db_and_filtered : ∀ n, (cb.branch.infinite_list n).is_none_or (fun node => node.fact.val ⊆ db.toFactSet.val ∪ res_filtered) := by

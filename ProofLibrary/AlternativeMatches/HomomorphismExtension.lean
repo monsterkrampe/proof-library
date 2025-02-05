@@ -185,9 +185,9 @@ namespace ChaseBranch
                     simp [GroundSubstitution.apply_var_or_const]
                     unfold FunctionFreeConjunction.vars
                     simp
-                    exists a.variables
+                    exists a
                     constructor
-                    . exists a
+                    . exact a_mem
                     . unfold FunctionFreeAtom.variables
                       apply VarOrConst.mem_filterVars_of_var
                       exact voc_mem
@@ -209,9 +209,9 @@ namespace ChaseBranch
                     simp [GroundSubstitution.apply_var_or_const]
                     unfold FunctionFreeConjunction.vars
                     simp
-                    exists a.variables
+                    exists a
                     constructor
-                    . exists a
+                    . exact a_mem
                     . unfold FunctionFreeAtom.variables
                       apply VarOrConst.mem_filterVars_of_var
                       exact voc_mem

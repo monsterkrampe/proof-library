@@ -54,7 +54,7 @@ namespace VarOrConst
   | .nil => List.nil
   | .cons voc vocs => match voc with
     | .var v => List.cons v (filterVars vocs)
-    | .const _ => (filterVars vocs)
+    | .const _ => filterVars vocs
 
   theorem filterVars_occur_in_original_list (l : List (VarOrConst sig)) (v : sig.V) : v ∈ filterVars l -> VarOrConst.var v ∈ l := by
     induction l with
@@ -81,7 +81,40 @@ namespace VarOrConst
       unfold filterVars
       cases h with
       | inl h => rw [← h]; simp
-      | inr h => split; simp; apply Or.inr; apply ih; exact h; apply ih; exact h
+      | inr h => split; rw [List.mem_cons]; apply Or.inr; apply ih; exact h; apply ih; exact h
+
+  def filterConsts : List (VarOrConst sig) -> List sig.C
+  | .nil => List.nil
+  | .cons voc vocs => match voc with
+    | .var _ => filterConsts vocs
+    | .const c => List.cons c (filterConsts vocs)
+
+  theorem filterConsts_occur_in_original_list (l : List (VarOrConst sig)) (c : sig.C) : c ∈ filterConsts l -> VarOrConst.const c ∈ l := by
+    induction l with
+    | nil => intros; contradiction
+    | cons head tail ih =>
+      intro h
+      unfold filterConsts at h
+      split at h
+      . simp
+        apply ih
+        exact h
+      . simp at h
+        simp
+        cases h with
+        | inl h => apply Or.inl; exact h
+        | inr h => apply Or.inr; apply ih; exact h
+
+  theorem mem_filterConsts_of_const (l : List (VarOrConst sig)) (c : sig.C) : VarOrConst.const c ∈ l -> c ∈ filterConsts l := by
+    induction l with
+    | nil => intros; contradiction
+    | cons head tail ih =>
+      intro h
+      simp at h
+      unfold filterConsts
+      cases h with
+      | inl h => rw [← h]; simp
+      | inr h => split; apply ih; exact h; rw [List.mem_cons]; apply Or.inr; apply ih; exact h
 
   def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (voc : VarOrConst sig) : SkolemTerm sig :=
     match voc with
