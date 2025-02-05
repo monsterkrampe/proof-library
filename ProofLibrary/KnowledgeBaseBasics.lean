@@ -239,6 +239,32 @@ theorem FactSet.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) :
         . rfl
       . exact e_in_f
 
+def Database.constants (db : Database sig) : { C : Set sig.C // C.finite } := ⟨
+  fun c => ∃ (f : FunctionFreeFact sig), f ∈ db ∧ c ∈ f.terms,
+  by
+    rcases db.property with ⟨l, _, l_eq⟩
+    exists (l.flatMap (fun f => f.terms)).eraseDupsKeepRight
+    constructor
+    . apply List.nodup_eraseDupsKeepRight
+    . intro c
+      rw [List.mem_eraseDupsKeepRight_iff, List.mem_flatMap]
+      constructor
+      . intro h
+        rcases h with ⟨f, f_mem, c_mem⟩
+        exists f
+        constructor
+        . rw [l_eq] at f_mem
+          exact f_mem
+        . exact c_mem
+      . intro h
+        rcases h with ⟨f, f_mem, c_mem⟩
+        exists f
+        constructor
+        . rw [← l_eq] at f_mem
+          exact f_mem
+        . exact c_mem
+⟩
+
 def Database.toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite ∧ fs.isFunctionFree } := ⟨
   (fun f => ∃ f', f' ∈ db.val ∧ f'.toFact = f),
   (by

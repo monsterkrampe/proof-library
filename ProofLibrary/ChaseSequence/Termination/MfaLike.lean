@@ -163,6 +163,295 @@ namespace StrictConstantMapping
 
 end StrictConstantMapping
 
+section ArgumentsForImages
+
+  namespace StrictConstantMapping
+
+    variable {sig : Signature} [DecidableEq sig.C]
+
+    def arguments_for_constant (g : StrictConstantMapping sig) (possible_constants : List sig.C) (c : sig.C) : List sig.C :=
+      possible_constants.filter (fun d => g d = c)
+
+    theorem apply_to_arguments_yields_original_constant (g : StrictConstantMapping sig) (possible_constants : List sig.C) (c : sig.C) :
+        ∀ arg, arg ∈ g.arguments_for_constant possible_constants c ↔ (arg ∈ possible_constants ∧ g arg = c) := by
+      intro arg
+      unfold arguments_for_constant
+      simp
+
+    variable [DecidableEq sig.V]
+
+    mutual
+      def arguments_for_term (g : StrictConstantMapping sig) (possible_constants : List sig.C) : FiniteTree (SkolemFS sig) sig.C -> List (GroundTerm sig)
+      | .leaf c => (g.arguments_for_constant possible_constants c).map (fun arg => .leaf arg)
+      | .inner func ts =>
+        (g.arguments_for_term_list possible_constants ts).map (fun ts =>
+          .inner func (FiniteTreeList.fromList ts)
+        )
+
+      def arguments_for_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) : FiniteTreeList (SkolemFS sig) sig.C -> List (List (GroundTerm sig))
+      | .nil => [[]]
+      | .cons hd tl =>
+        let arguments_tail := g.arguments_for_term_list possible_constants tl
+        (g.arguments_for_term possible_constants hd).flatMap (fun arg =>
+          arguments_tail.map (fun arg_list =>
+            arg :: arg_list
+          )
+        )
+    end
+
+    mutual
+      theorem apply_to_arguments_yields_original_term (g : StrictConstantMapping sig) (possible_constants : List sig.C) (term : FiniteTree (SkolemFS sig) sig.C) :
+          ∀ arg, arg ∈ g.arguments_for_term possible_constants term ↔ ((∀ c, c ∈ arg.leaves -> c ∈ possible_constants) ∧ g.toConstantMapping.apply_ground_term arg = term) := by
+        intro arg
+        constructor
+        . intro h
+          cases term with
+          | leaf c =>
+            unfold arguments_for_term at h
+            rw [List.mem_map] at h
+            rcases h with ⟨a, a_mem, arg_eq⟩
+            rw [apply_to_arguments_yields_original_constant] at a_mem
+            constructor
+            . intro d d_mem
+              rw [← arg_eq] at d_mem
+              unfold FiniteTree.leaves at d_mem
+              simp at d_mem
+              rw [d_mem]
+              exact a_mem.left
+            . rw [← arg_eq]
+              unfold ConstantMapping.apply_ground_term
+              unfold FiniteTree.mapLeaves
+              unfold toConstantMapping
+              rw [a_mem.right]
+              rfl
+          | inner func ts =>
+            unfold arguments_for_term at h
+            rw [List.mem_map] at h
+            rcases h with ⟨a, a_mem, arg_eq⟩
+            rw [apply_to_arguments_yields_original_term_list] at a_mem
+            constructor
+            . intro d d_mem
+              rw [← arg_eq] at d_mem
+              unfold FiniteTree.leaves at d_mem
+              apply a_mem.left
+              exact d_mem
+            . rw [← arg_eq]
+              unfold ConstantMapping.apply_ground_term
+              unfold FiniteTree.mapLeaves
+              rw [a_mem.right]
+        . intro h
+          cases term with
+          | leaf c =>
+            unfold arguments_for_term
+            rw [List.mem_map]
+            cases arg with
+            | leaf d =>
+              exists d
+              rw [apply_to_arguments_yields_original_constant]
+              constructor
+              . constructor
+                . apply h.left
+                  unfold FiniteTree.leaves
+                  simp
+                . have r := h.right
+                  unfold ConstantMapping.apply_ground_term at r
+                  unfold toConstantMapping at r
+                  unfold FiniteTree.mapLeaves at r
+                  injection r with r
+              . rfl
+            | inner func args =>
+              have contra := h.right
+              simp [ConstantMapping.apply_ground_term, FiniteTree.mapLeaves] at contra
+          | inner func ts =>
+            unfold arguments_for_term
+            rw [List.mem_map]
+            cases arg with
+            | leaf d =>
+              have contra := h.right
+              simp [ConstantMapping.apply_ground_term, FiniteTree.mapLeaves, toConstantMapping, GroundTerm.const] at contra
+            | inner func' args =>
+              exists args
+              rw [apply_to_arguments_yields_original_term_list]
+              constructor
+              . constructor
+                . intro d d_mem
+                  apply h.left
+                  unfold FiniteTree.leaves
+                  rw [FiniteTreeList.toListFromListIsId] at d_mem
+                  exact d_mem
+                . have r := h.right
+                  unfold ConstantMapping.apply_ground_term at r
+                  unfold FiniteTree.mapLeaves at r
+                  injection r with func_eq args_eq
+                  rw [FiniteTreeList.toListFromListIsId]
+                  exact args_eq
+              . have r := h.right
+                unfold ConstantMapping.apply_ground_term at r
+                unfold FiniteTree.mapLeaves at r
+                injection r with func_eq args_eq
+                rw [FiniteTreeList.toListFromListIsId]
+                rw [func_eq]
+
+      theorem apply_to_arguments_yields_original_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : FiniteTreeList (SkolemFS sig) sig.C) :
+          ∀ args, args ∈ g.arguments_for_term_list possible_constants ts ↔ ((∀ c, c ∈ (FiniteTree.leavesList (FiniteTreeList.fromList args)) -> c ∈ possible_constants) ∧ ((FiniteTree.mapLeavesList (fun leaf => g.toConstantMapping leaf) (FiniteTreeList.fromList args)) = ts)) := by
+        intro args
+        constructor
+        . intro h
+          cases ts with
+          | nil =>
+            simp [arguments_for_term_list] at h
+            rw [h]
+            simp [FiniteTreeList.fromList, FiniteTree.mapLeavesList, FiniteTree.leavesList]
+          | cons hd tl =>
+            unfold arguments_for_term_list at h
+            rw [List.mem_flatMap] at h
+            rcases h with ⟨hd_arg, hd_arg_mem, args_mem⟩
+            rw [List.mem_map] at args_mem
+            rcases args_mem with ⟨tl_args, tl_args_mem, args_eq⟩
+            rw [apply_to_arguments_yields_original_term] at hd_arg_mem
+            rw [apply_to_arguments_yields_original_term_list] at tl_args_mem
+            rw [← args_eq]
+            constructor
+            . intro d d_mem
+              unfold FiniteTreeList.fromList at d_mem
+              unfold FiniteTree.leavesList at d_mem
+              rw [List.mem_append] at d_mem
+              cases d_mem with
+              | inl d_mem => apply hd_arg_mem.left; exact d_mem
+              | inr d_mem => apply tl_args_mem.left; exact d_mem
+            . unfold FiniteTreeList.fromList
+              unfold FiniteTree.mapLeavesList
+              unfold ConstantMapping.apply_ground_term at hd_arg_mem
+              rw [hd_arg_mem.right]
+              rw [tl_args_mem.right]
+        . intro h
+          cases ts with
+          | nil =>
+            cases args with
+            | nil => simp [arguments_for_term_list]
+            | cons hd_arg tl_arg =>
+              have r := h.right
+              simp [FiniteTreeList.fromList, FiniteTree.mapLeavesList] at r
+          | cons hd tl =>
+            cases args with
+            | nil =>
+              have r := h.right
+              simp [FiniteTreeList.fromList, FiniteTree.mapLeavesList] at r
+            | cons hd_arg tl_arg =>
+              unfold arguments_for_term_list
+              unfold FiniteTreeList.fromList at h
+              unfold FiniteTree.leavesList at h
+              unfold FiniteTree.mapLeavesList at h
+              rw [List.mem_flatMap]
+              exists hd_arg
+              constructor
+              . rw [apply_to_arguments_yields_original_term]
+                constructor
+                . intro d d_mem
+                  apply h.left
+                  rw [List.mem_append]
+                  apply Or.inl
+                  exact d_mem
+                . injection h.right
+              . rw [List.mem_map]
+                exists tl_arg
+                simp only [and_true]
+                rw [apply_to_arguments_yields_original_term_list]
+                constructor
+                . intro d d_mem
+                  apply h.left
+                  rw [List.mem_append]
+                  apply Or.inr
+                  exact d_mem
+                . injection h.right
+    end
+
+    theorem arguments_for_term_list_length_preserved (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : FiniteTreeList (SkolemFS sig) sig.C) :
+        ∀ res, res ∈ (g.arguments_for_term_list possible_constants ts) -> res.length = ts.toList.length := by
+      cases ts with
+      | nil => simp [arguments_for_term_list, FiniteTreeList.toList]
+      | cons hd tl =>
+        intro res res_mem
+        unfold arguments_for_term_list at res_mem
+        rw [List.mem_flatMap] at res_mem
+        rcases res_mem with ⟨arg, arg_for_hd, res_mem⟩
+        rw [List.mem_map] at res_mem
+        rcases res_mem with ⟨args, args_for_tl, res_mem⟩
+        rw [← res_mem]
+        unfold FiniteTreeList.toList
+        rw [List.length_cons]
+        rw [List.length_cons]
+        rw [Nat.add_right_cancel_iff]
+        exact g.arguments_for_term_list_length_preserved possible_constants tl args args_for_tl
+
+
+    variable [DecidableEq sig.P]
+
+    def arguments_for_fact (g : StrictConstantMapping sig) (possible_constants : List sig.C) (f : Fact sig) : List (Fact sig) :=
+      (g.arguments_for_term_list possible_constants (FiniteTreeList.fromList f.terms)).attach.map (fun ⟨ts, mem⟩ =>
+        {
+          predicate := f.predicate
+          terms := ts
+          arity_ok := by
+            rw [g.arguments_for_term_list_length_preserved _ _ ts mem]
+            rw [FiniteTreeList.fromListToListIsId]
+            exact f.arity_ok
+        }
+      )
+
+    theorem apply_to_arguments_yields_original_fact (g : StrictConstantMapping sig) (possible_constants : List sig.C) (f : Fact sig) :
+        ∀ arg, arg ∈ g.arguments_for_fact possible_constants f ↔ ((∀ c, (c ∈ FiniteTree.leavesList (FiniteTreeList.fromList arg.terms)) -> c ∈ possible_constants) ∧ g.toConstantMapping.apply_fact arg = f) := by
+      intro arg
+      unfold arguments_for_fact
+      simp only [List.mem_map, List.mem_attach, true_and, Subtype.exists]
+
+      have := g.apply_to_arguments_yields_original_term_list possible_constants (FiniteTreeList.fromList f.terms)
+
+      constructor
+      . intro h
+        rcases h with ⟨ts, mem, arg_eq⟩
+        rw [← arg_eq]
+        unfold ConstantMapping.apply_fact
+        rw [Fact.ext_iff]
+        simp only [true_and]
+
+        specialize this ts
+        rw [this] at mem
+        constructor
+        . exact mem.left
+        . have r := mem.right
+          rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map] at r
+          rw [← FiniteTreeList.eqIffFromListEq] at r
+          unfold ConstantMapping.apply_ground_term
+          exact r
+      . intro h
+        specialize this arg.terms
+        exists arg.terms
+        exists (by
+          apply this.mpr
+          constructor
+          . exact h.left
+          . have r := h.right
+            unfold ConstantMapping.apply_fact at r
+            rw [Fact.ext_iff] at r
+            have r := r.right
+            simp only at r
+            rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+            rw [← FiniteTreeList.eqIffFromListEq]
+            unfold ConstantMapping.apply_ground_term at r
+            exact r
+        )
+        have r := h.right
+        unfold ConstantMapping.apply_fact at r
+        rw [Fact.ext_iff] at r
+        apply Fact.ext
+        . rw [← r.left]
+        . rfl
+
+  end StrictConstantMapping
+
+end ArgumentsForImages
+
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
@@ -886,7 +1175,40 @@ namespace RuleSet
 
       -- TODO: this only holds if we know that there are only finitely many constants in the result
       -- (which holds since the db and rule set are both finite; still Lean cannot quite know this yet...)
-      sorry
+
+      let db_constants := db.constants
+      rcases db_constants.property with ⟨l_c, _, l_c_eq⟩
+
+      let arguments : FactSet sig := fun f => ((UniformConstantMapping sig default).toConstantMapping.apply_fact f) ∈ ((UniformConstantMapping sig default).toConstantMapping.apply_fact_set res_filtered)
+      have arguments_fin : arguments.finite := by
+        exists (l.flatMap (fun f => (UniformConstantMapping sig default).arguments_for_fact l_c f)).eraseDupsKeepRight
+        constructor
+        . apply List.nodup_eraseDupsKeepRight
+        . intro f
+          rw [List.mem_eraseDupsKeepRight_iff, List.mem_flatMap]
+          constructor
+          . intro h
+            rcases h with ⟨f', f'_mem, f_mem⟩
+            rw [l_eq] at f'_mem
+            have : f' = (UniformConstantMapping sig default).toConstantMapping.apply_fact f := by
+              have := (UniformConstantMapping sig default).apply_to_arguments_yields_original_fact l_c f'
+              rw [((this _).mp _).right]
+              exact f_mem
+            rw [this] at f'_mem
+            exact f'_mem
+          . intro h
+            exists (UniformConstantMapping sig default).toConstantMapping.apply_fact f
+            constructor
+            . rw [l_eq]
+              exact h
+            . rw [(UniformConstantMapping sig default).apply_to_arguments_yields_original_fact l_c]
+              simp only [and_true]
+              sorry
+
+      apply Set.finite_of_subset_finite arguments_fin
+      intro f f_mem
+      apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+      exact f_mem
 
     have res_sub_db_and_filtered : cb.result ⊆ db.toFactSet.val ∪ res_filtered := by
       have each_step_sub_db_and_filtered : ∀ n, (cb.branch.infinite_list n).is_none_or (fun node => node.fact.val ⊆ db.toFactSet.val ∪ res_filtered) := by
