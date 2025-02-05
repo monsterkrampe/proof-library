@@ -208,6 +208,16 @@ namespace FiniteTree
           exists t
 
   mutual
+    def innerLabels : FiniteTree α β -> List α
+    | .leaf _ => []
+    | .inner a ts => a :: (innerLabelsList ts)
+
+    def innerLabelsList : FiniteTreeList α β -> List α
+    | .nil => []
+    | .cons hd tl => (innerLabels hd) ++ (innerLabelsList tl)
+  end
+
+  mutual
     def mapLeaves (f : β -> FiniteTree α γ) (t : FiniteTree α β) : FiniteTree α γ := match t with
       | FiniteTree.leaf b => f b
       | FiniteTree.inner a ts => FiniteTree.inner a (mapLeavesList f ts)

@@ -51,7 +51,7 @@ namespace PreTrigger
       apply False.elim
       let tree_for_s := trg.apply_to_var_or_const disjunctIndex (VarOrConst.var s)
       let ts := trg.rule.frontier.map (fun fv => trg.subs fv)
-      let a : SkolemFS sig := { ruleId := trg.rule.id, disjunctIndex, var := t }
+      let a : SkolemFS sig := { ruleId := trg.rule.id, disjunctIndex, var := t, arity := trg.rule.frontier.length }
       apply FiniteTree.tree_eq_while_contained_is_impossible tree_for_s (FiniteTreeList.fromList ts) a
       simp [tree_for_s, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
       apply apply_eq_for_t_and_s
