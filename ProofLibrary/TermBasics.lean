@@ -240,7 +240,7 @@ section ListsOfTerms
       (all_term_lists_of_length prev func.arity).map (fun ts =>
         FiniteTree.inner func (FiniteTreeList.fromList ts)
       )
-    )
+    ) ++ prev
 
   theorem mem_all_terms_limited_by_depth (constants : List sig.C) (funcs : List (SkolemFS sig)) (depth : Nat) :
       ∀ t, t ∈ (all_terms_limited_by_depth constants funcs depth) ↔ (t.depth ≤ depth ∧ (∀ c, c ∈ t.leaves -> c ∈ constants) ∧ (∀ func, func ∈ t.innerLabels -> func ∈ funcs)) := by
@@ -253,140 +253,150 @@ section ListsOfTerms
       intro t
       unfold all_terms_limited_by_depth
 
-      cases t with
-      | leaf c => sorry
-      | inner t_func ts =>
-
-        cases depth with
-        | zero =>
-          simp only [Nat.zero_add]
-          sorry
-        | succ depth =>
-          simp only [List.mem_flatMap, List.mem_map]
-
-          let rec aux : ∀ (ts : FiniteTreeList (SkolemFS sig) sig.C), (∀ t, t ∈ ts.toList -> t ∈ (all_terms_limited_by_depth constants funcs depth.succ)) ↔
-              ((FiniteTree.depthList ts ≤ depth.succ) ∧ (∀ c, c ∈ FiniteTree.leavesList ts -> c ∈ constants) ∧ (∀ func, func ∈ FiniteTree.innerLabelsList ts -> func ∈ funcs)) := by
-            intro ts
+      cases depth with
+      | zero =>
+        simp only [Nat.zero_add]
+        constructor
+        . intro h
+          rw [List.mem_map] at h
+          rcases h with ⟨c, c_mem, h⟩
+          rw [← h]
+          simp [FiniteTree.depth, FiniteTree.leaves, FiniteTree.innerLabels]
+          exact c_mem
+        . intro h
+          cases t with
+          | leaf c =>
+            rw [List.mem_map]
+            exists c
+            constructor
+            . apply h.right.left
+              simp [FiniteTree.leaves]
+            . rfl
+          | inner _ ts =>
+            have contra := h.left
+            unfold FiniteTree.depth at contra
             cases ts with
-            | nil =>
-              simp [FiniteTree.depthList, FiniteTree.leavesList, FiniteTree.innerLabelsList, FiniteTreeList.toList]
-            | cons hd tl =>
-              unfold FiniteTree.depthList
-              unfold FiniteTree.leavesList
-              unfold FiniteTree.innerLabelsList
+            | nil => simp [FiniteTree.depthList] at contra
+            | cons t _ =>
+              simp only [FiniteTree.depthList] at contra
+              rw [Nat.add_comm, Nat.succ_le_succ_iff, Nat.max_le] at contra
+              have contra := contra.left
+              unfold FiniteTree.depth at contra
+              cases t <;> simp at contra
+      | succ depth =>
+        let rec aux : ∀ (ts : FiniteTreeList (SkolemFS sig) sig.C), (∀ t, t ∈ ts.toList -> t ∈ (all_terms_limited_by_depth constants funcs depth.succ)) ↔
+            ((FiniteTree.depthList ts ≤ depth.succ) ∧ (∀ c, c ∈ FiniteTree.leavesList ts -> c ∈ constants) ∧ (∀ func, func ∈ FiniteTree.innerLabelsList ts -> func ∈ funcs)) := by
+          intro ts
+          cases ts with
+          | nil =>
+            simp [FiniteTree.depthList, FiniteTree.leavesList, FiniteTree.innerLabelsList, FiniteTreeList.toList]
+          | cons hd tl =>
+            unfold FiniteTree.depthList
+            unfold FiniteTree.leavesList
+            unfold FiniteTree.innerLabelsList
 
-              specialize ih hd
-              have ih_inner := aux tl
+            specialize ih hd
+            have ih_inner := aux tl
+
+            constructor
+            . intro h
+
+              have ih := ih.mp (by
+                apply h
+                unfold FiniteTreeList.toList
+                simp
+              )
+              have ih_inner := ih_inner.mp (by
+                intro t t_mem
+                apply h
+                unfold FiniteTreeList.toList
+                simp [t_mem]
+              )
 
               constructor
-              . intro h
-
-                have ih := ih.mp (by
-                  apply h
-                  unfold FiniteTreeList.toList
-                  simp
-                )
-                have ih_inner := ih_inner.mp (by
-                  intro t t_mem
-                  apply h
-                  unfold FiniteTreeList.toList
-                  simp [t_mem]
-                )
-
+              . rw [Nat.max_le]
                 constructor
-                . rw [Nat.max_le]
-                  constructor
-                  . apply ih.left
-                  . apply ih_inner.left
+                . apply ih.left
+                . apply ih_inner.left
+              constructor
+              . intro c c_mem
+                rw [List.mem_append] at c_mem
+                cases c_mem with
+                | inl c_mem => apply ih.right.left; exact c_mem
+                | inr c_mem => apply ih_inner.right.left; exact c_mem
+              . intro func func_mem
+                rw [List.mem_append] at func_mem
+                cases func_mem with
+                | inl func_mem => apply ih.right.right; exact func_mem
+                | inr func_mem => apply ih_inner.right.right; exact func_mem
+            . intro h
+              rw [Nat.max_le] at h
+
+              have ih := ih.mpr (by
+                constructor
+                . exact h.left.left
                 constructor
                 . intro c c_mem
-                  rw [List.mem_append] at c_mem
-                  cases c_mem with
-                  | inl c_mem => apply ih.right.left; exact c_mem
-                  | inr c_mem => apply ih_inner.right.left; exact c_mem
+                  apply h.right.left
+                  rw [List.mem_append]
+                  apply Or.inl
+                  exact c_mem
                 . intro func func_mem
-                  rw [List.mem_append] at func_mem
-                  cases func_mem with
-                  | inl func_mem => apply ih.right.right; exact func_mem
-                  | inr func_mem => apply ih_inner.right.right; exact func_mem
-              . intro h
+                  apply h.right.right
+                  rw [List.mem_append]
+                  apply Or.inl
+                  exact func_mem
+              )
+              have ih_inner := ih_inner.mpr (by
+                constructor
+                . exact h.left.right
+                constructor
+                . intro c c_mem
+                  apply h.right.left
+                  rw [List.mem_append]
+                  apply Or.inr
+                  exact c_mem
+                . intro func func_mem
+                  apply h.right.right
+                  rw [List.mem_append]
+                  apply Or.inr
+                  exact func_mem
+              )
+              intro t t_mem
+              unfold FiniteTreeList.toList at t_mem
+              rw [List.mem_cons] at t_mem
+              cases t_mem with
+              | inl t_mem => rw [t_mem]; apply ih
+              | inr t_mem => apply ih_inner; exact t_mem
 
-                have ih := ih.mpr (by
-                  sorry
-                  /- apply h -/
-                  /- unfold FiniteTreeList.toList -/
-                  /- simp -/
-                )
-                have ih_inner := ih_inner.mpr (by
-                  sorry
-                  /- intro t t_mem -/
-                  /- apply h -/
-                  /- unfold FiniteTreeList.toList -/
-                  /- simp [t_mem] -/
-                )
-                intro t t_mem
-                unfold FiniteTreeList.toList at t_mem
-                rw [List.mem_cons] at t_mem
-                cases t_mem with
-                | inl t_mem => rw [t_mem]; apply ih
-                | inr t_mem => apply ih_inner; exact t_mem
-
-          constructor
-          . intro h
+        constructor
+        . intro h
+          rw [List.mem_append] at h
+          cases h with
+          | inr h =>
+            rw [ih] at h
+            constructor
+            . apply Nat.le_succ_of_le
+              exact h.left
+            constructor
+            . exact h.right.left
+            . exact h.right.right
+          | inl h =>
+            simp only [List.mem_flatMap, List.mem_map] at h
             rcases h with ⟨func, func_mem, ts, ts_mem, t_eq⟩
             rw [← t_eq]
             rw [mem_all_term_lists_of_length] at ts_mem
-
-            /- let rec aux : ∀ (ts : FiniteTreeList (SkolemFS sig) sig.C), (∀ t, t ∈ ts.toList -> t ∈ (all_terms_limited_by_depth constants funcs depth.succ)) -> -/
-            /-     ((FiniteTree.depthList ts ≤ depth.succ) ∧ (∀ c, c ∈ FiniteTree.leavesList ts -> c ∈ constants) ∧ (∀ func, func ∈ FiniteTree.innerLabelsList ts -> func ∈ funcs)) := by -/
-            /-   intro ts -/
-            /-   cases ts with -/
-            /-   | nil => -/
-            /-     intro h -/
-            /-     constructor -/
-            /-     . simp [FiniteTree.depthList] -/
-            /-     constructor -/
-            /-     . simp [FiniteTree.leavesList] -/
-            /-     . simp [FiniteTree.innerLabelsList] -/
-            /-   | cons hd tl => -/
-            /-     intro h -/
-            /-     unfold FiniteTree.depthList -/
-            /-     unfold FiniteTree.leavesList -/
-            /-     unfold FiniteTree.innerLabelsList -/
-            /-     specialize ih hd -/
-            /-     have ih := ih.mp (by -/
-            /-       apply h -/
-            /-       unfold FiniteTreeList.toList -/
-            /-       simp -/
-            /-     ) -/
-            /-     have ih_inner := aux tl (by -/
-            /-       intro t t_mem -/
-            /-       apply h -/
-            /-       unfold FiniteTreeList.toList -/
-            /-       simp [t_mem] -/
-            /-     ) -/
-            /-     constructor -/
-            /-     . rw [Nat.max_le] -/
-            /-       constructor -/
-            /-       . apply ih.left -/
-            /-       . apply ih_inner.left -/
-            /-     constructor -/
-            /-     . intro c c_mem -/
-            /-       rw [List.mem_append] at c_mem -/
-            /-       cases c_mem with -/
-            /-       | inl c_mem => apply ih.right.left; exact c_mem -/
-            /-       | inr c_mem => apply ih_inner.right.left; exact c_mem -/
-            /-     . intro func func_mem -/
-            /-       rw [List.mem_append] at func_mem -/
-            /-       cases func_mem with -/
-            /-       | inl func_mem => apply ih.right.right; exact func_mem -/
-            /-       | inr func_mem => apply ih_inner.right.right; exact func_mem -/
 
             unfold FiniteTree.depth
             unfold FiniteTree.leaves
             unfold FiniteTree.innerLabels
 
-            have this := (aux (FiniteTreeList.fromList ts)).mp (by intro t t_mem; rw [FiniteTreeList.fromListToListIsId] at t_mem; apply ts_mem.right; exact t_mem)
+            have this := (aux (FiniteTreeList.fromList ts)).mp (by
+              intro t t_mem
+              rw [FiniteTreeList.fromListToListIsId] at t_mem
+              apply ts_mem.right
+              exact t_mem
+            )
             constructor
             . rw [Nat.add_comm]
               apply Nat.succ_le_succ
@@ -399,37 +409,55 @@ section ListsOfTerms
               | inl func'_mem => rw [func'_mem]; exact func_mem
               | inr func'_mem => apply this.right.right; exact func'_mem
 
-          . intro h
-            exists t_func
+        . intro h
+          rw [List.mem_append]
+          simp only [List.mem_flatMap, List.mem_map]
+          rcases h with ⟨depth_le, consts_mem, funcs_mem⟩
+          rw [Nat.le_iff_lt_or_eq] at depth_le
+          cases depth_le with
+          | inl depth_le =>
+            apply Or.inr
+            rw [ih]
             constructor
-            . apply h.right.right
-              unfold FiniteTree.innerLabels
-              simp
-            exists ts
-
-            unfold FiniteTree.depth at h
-            unfold FiniteTree.leaves at h
-            unfold FiniteTree.innerLabels at h
-
-            have this := (aux ts).mpr (by
-              constructor
-              . rw [Nat.add_comm] at h
-                rw [Nat.succ_le_succ_iff] at h
-                exact h.left
-              constructor
-              . exact h.right.left
-              . intro func func_mem
-                apply h.right.right
-                simp [func_mem]
-            )
-
+            . apply Nat.le_of_lt_succ
+              exact depth_le
             constructor
-            . rw [mem_all_term_lists_of_length]
+            . exact consts_mem
+            . exact funcs_mem
+          | inr depth_le =>
+            cases t with
+            | leaf _ => simp [FiniteTree.depth] at depth_le
+            | inner t_func ts =>
+              unfold FiniteTree.depth at depth_le
+              unfold FiniteTree.leaves at consts_mem
+              unfold FiniteTree.innerLabels at funcs_mem
+
+              have this := (aux ts).mpr (by
+                constructor
+                . apply Nat.le_of_eq
+                  rw [Nat.add_comm] at depth_le
+                  injection depth_le with depth_le
+                constructor
+                . exact consts_mem
+                . intro func func_mem
+                  apply funcs_mem
+                  simp [func_mem]
+              )
+
+              apply Or.inl
+              exists t_func
               constructor
-              . sorry
-              . intro t t_mem
-                apply this
-                exact t_mem
-            . rw [FiniteTreeList.toListFromListIsId]
+              . apply funcs_mem
+                simp
+              exists ts
+
+              constructor
+              . rw [mem_all_term_lists_of_length]
+                constructor
+                . sorry
+                . intro t t_mem
+                  apply this
+                  exact t_mem
+              . rw [FiniteTreeList.toListFromListIsId]
 
 end ListsOfTerms

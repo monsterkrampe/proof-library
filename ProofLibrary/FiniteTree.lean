@@ -151,7 +151,7 @@ namespace FiniteTree
       | FiniteTree.inner _ ts => 1 + depthList ts
 
     def depthList : FiniteTreeList α β -> Nat
-      | FiniteTreeList.nil => 0
+      | FiniteTreeList.nil => 1
       | FiniteTreeList.cons t ts => max (depth t) (depthList ts)
   end
 
