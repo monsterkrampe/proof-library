@@ -16,12 +16,37 @@ structure SkolemFS (sig : Signature) [DecidableEq sig.V] where
   arity : Nat -- NOTE: this is not enforced anywhere; we set this when skolemizing to remember the frontier size
   deriving DecidableEq
 
-abbrev GroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := FiniteTree (SkolemFS sig) sig.C
+abbrev PreGroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := FiniteTree (SkolemFS sig) sig.C
+
+mutual
+
+  def PreGroundTerm.arity_ok {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] : FiniteTree (SkolemFS sig) sig.C -> Bool
+  | .leaf _ => true
+  | .inner func ts =>
+    ts.toList.length == func.arity && arity_ok_list ts
+
+  def PreGroundTerm.arity_ok_list {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] : FiniteTreeList (SkolemFS sig) sig.C -> Bool
+  | .nil => true
+  | .cons hd tl => arity_ok hd && arity_ok_list tl
+
+end
+
+theorem PreGroundTerm.arity_ok_list_of_arity_ok_each_mem {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] (ts : FiniteTreeList (SkolemFS sig) sig.C) : (∀ t, t ∈ ts.toList -> PreGroundTerm.arity_ok t) ↔ PreGroundTerm.arity_ok_list ts := by
+  cases ts with
+  | nil => simp [arity_ok_list, FiniteTreeList.toList]
+  | cons hd tl =>
+    unfold arity_ok_list
+    simp [FiniteTreeList.toList]
+    intro _
+    apply arity_ok_list_of_arity_ok_each_mem
+
+
+abbrev GroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := { t : PreGroundTerm sig // PreGroundTerm.arity_ok t }
 
 inductive SkolemTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] where
   | var (v : sig.V) : SkolemTerm sig
   | const (c : sig.C) : SkolemTerm sig
-  | func (fs : SkolemFS sig) (frontier : List sig.V) : SkolemTerm sig
+  | func (fs : SkolemFS sig) (frontier : List sig.V) (arity_ok : frontier.length = fs.arity) : SkolemTerm sig
   deriving DecidableEq
 
 inductive VarOrConst (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] where
@@ -31,18 +56,7 @@ inductive VarOrConst (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] w
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
-@[match_pattern]
-def GroundTerm.const (c : sig.C) := @FiniteTree.leaf (SkolemFS sig) sig.C c
-
-def GroundTerm.toConst (t : GroundTerm sig) (isConst : ∃ c, t = GroundTerm.const c) : sig.C :=
-  match eq : t with
-  | .leaf c => c
-  | .inner _ _ => by
-    apply False.elim
-    rcases isConst with ⟨c, isConst⟩
-    simp [GroundTerm.const] at isConst
-
-def GroundTerm.contains_func (func : SkolemFS sig) : GroundTerm sig -> Bool
+def PreGroundTerm.contains_func (func : SkolemFS sig) : PreGroundTerm sig -> Bool
 | .leaf _ => false
 | .inner func' ts => func == func' || ts.toList.attach.any (fun ⟨t, mem⟩ =>
   have : t.depth < (FiniteTree.inner func' ts).depth := by
@@ -55,7 +69,7 @@ def GroundTerm.contains_func (func : SkolemFS sig) : GroundTerm sig -> Bool
 )
 termination_by t => FiniteTree.depth t
 
-def GroundTerm.cyclic : GroundTerm sig -> Bool
+def PreGroundTerm.cyclic : PreGroundTerm sig -> Bool
 | .leaf _ => false
 | .inner func ts => (ts.toList.any (contains_func func)) || ts.toList.attach.any (fun ⟨t, mem⟩ =>
   have : t.depth < (FiniteTree.inner func ts).depth := by
@@ -68,10 +82,22 @@ def GroundTerm.cyclic : GroundTerm sig -> Bool
 )
 termination_by t => FiniteTree.depth t
 
+
+def GroundTerm.const (c : sig.C) : GroundTerm sig := ⟨FiniteTree.leaf c, by simp [PreGroundTerm.arity_ok]⟩
+
+def GroundTerm.toConst (t : GroundTerm sig) (isConst : ∃ c, t = GroundTerm.const c) : sig.C :=
+  match eq : t.val with
+  | .leaf c => c
+  | .inner _ _ => by
+    apply False.elim
+    rcases isConst with ⟨c, isConst⟩
+    rw [isConst] at eq
+    simp [GroundTerm.const] at eq
+
 def SkolemTerm.variables : SkolemTerm sig -> List sig.V
   | .var v => List.cons v List.nil
   | .const _ => List.nil
-  | .func _ vs => vs
+  | .func _ vs _ => vs
 
 namespace VarOrConst
 
@@ -149,7 +175,7 @@ namespace VarOrConst
     match voc with
       | .var v => ite (v ∈ frontier)
         (SkolemTerm.var v)
-        (SkolemTerm.func { ruleId, disjunctIndex, var := v, arity := frontier.length } frontier)
+        (SkolemTerm.func { ruleId, disjunctIndex, var := v, arity := frontier.length } frontier rfl)
       | .const c => SkolemTerm.const c
 
   theorem skolemize_injective (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (s t : VarOrConst sig) : s.skolemize ruleId disjunctIndex frontier = t.skolemize ruleId disjunctIndex frontier -> s = t := by
@@ -192,7 +218,7 @@ section ListsOfTerms
 
   theorem mem_all_term_lists_of_length (candidate_terms : List (GroundTerm sig)) (length : Nat) : ∀ ts, ts ∈ (all_term_lists_of_length candidate_terms length) ↔ (ts.length = length ∧ (∀ t, t ∈ ts -> t ∈ candidate_terms)) := by
     induction length with
-    | zero => intro ts; unfold all_term_lists_of_length; simp; intro eq t mem; rw [eq] at mem; simp at mem
+    | zero => intro ts; unfold all_term_lists_of_length; simp; intro eq t _ mem; rw [eq] at mem; simp at mem
     | succ length ih =>
       intro ts
       unfold all_term_lists_of_length
@@ -237,17 +263,35 @@ section ListsOfTerms
   | .succ (.succ depth) =>
     let prev := all_terms_limited_by_depth constants funcs (.succ depth)
     funcs.flatMap (fun func =>
-      (all_term_lists_of_length prev func.arity).map (fun ts =>
-        FiniteTree.inner func (FiniteTreeList.fromList ts)
+      (all_term_lists_of_length prev func.arity).attach.map (fun ⟨ts, mem⟩ =>
+        ⟨
+          FiniteTree.inner func (FiniteTreeList.fromList ts.unattach),
+          by
+            unfold PreGroundTerm.arity_ok
+            simp
+            constructor
+            . rw [FiniteTreeList.fromListToListIsId]
+              rw [List.length_unattach]
+              rw [mem_all_term_lists_of_length] at mem
+              exact mem.left
+            . apply (PreGroundTerm.arity_ok_list_of_arity_ok_each_mem _).mp
+              rw [FiniteTreeList.fromListToListIsId]
+              intro t t_mem
+              unfold List.unattach at t_mem
+              rw [List.mem_map] at t_mem
+              rcases t_mem with ⟨t, h⟩
+              rw [← h.right]
+              exact t.property
+        ⟩
       )
     ) ++ prev
 
   theorem mem_all_terms_limited_by_depth (constants : List sig.C) (funcs : List (SkolemFS sig)) (depth : Nat) :
-      ∀ t, t ∈ (all_terms_limited_by_depth constants funcs depth) ↔ (t.depth ≤ depth ∧ (∀ c, c ∈ t.leaves -> c ∈ constants) ∧ (∀ func, func ∈ t.innerLabels -> func ∈ funcs)) := by
+      ∀ t, t ∈ (all_terms_limited_by_depth constants funcs depth) ↔ (t.val.depth ≤ depth ∧ (∀ c, c ∈ t.val.leaves -> c ∈ constants) ∧ (∀ func, func ∈ t.val.innerLabels -> func ∈ funcs)) := by
     induction depth with
     | zero =>
       simp [all_terms_limited_by_depth]
-      intro t t_depth
+      intro t _ t_depth
       cases t <;> simp [FiniteTree.depth] at t_depth
     | succ depth ih =>
       intro t
@@ -261,20 +305,23 @@ section ListsOfTerms
           rw [List.mem_map] at h
           rcases h with ⟨c, c_mem, h⟩
           rw [← h]
-          simp [FiniteTree.depth, FiniteTree.leaves, FiniteTree.innerLabels]
+          simp [GroundTerm.const, FiniteTree.depth, FiniteTree.leaves, FiniteTree.innerLabels]
           exact c_mem
         . intro h
-          cases t with
+          cases eq : t.val with
           | leaf c =>
             rw [List.mem_map]
             exists c
             constructor
             . apply h.right.left
-              simp [FiniteTree.leaves]
-            . rfl
+              simp [eq, FiniteTree.leaves]
+            . unfold GroundTerm.const
+              apply Subtype.eq
+              rw [eq]
           | inner _ ts =>
             have contra := h.left
             unfold FiniteTree.depth at contra
+            rw [eq] at contra
             cases ts with
             | nil => simp [FiniteTree.depthList] at contra
             | cons t _ =>
@@ -284,18 +331,20 @@ section ListsOfTerms
               unfold FiniteTree.depth at contra
               cases t <;> simp at contra
       | succ depth =>
-        let rec aux : ∀ (ts : FiniteTreeList (SkolemFS sig) sig.C), (∀ t, t ∈ ts.toList -> t ∈ (all_terms_limited_by_depth constants funcs depth.succ)) ↔
-            ((FiniteTree.depthList ts ≤ depth.succ) ∧ (∀ c, c ∈ FiniteTree.leavesList ts -> c ∈ constants) ∧ (∀ func, func ∈ FiniteTree.innerLabelsList ts -> func ∈ funcs)) := by
-          intro ts
+        let rec aux : ∀ (ts : FiniteTreeList (SkolemFS sig) sig.C), (PreGroundTerm.arity_ok_list ts) -> ((∀ (t : GroundTerm sig), t.val ∈ ts.toList -> t ∈ (all_terms_limited_by_depth constants funcs depth.succ)) ↔
+            ((FiniteTree.depthList ts ≤ depth.succ) ∧ (∀ c, c ∈ FiniteTree.leavesList ts -> c ∈ constants) ∧ (∀ func, func ∈ FiniteTree.innerLabelsList ts -> func ∈ funcs))) := by
+          intro ts arities_ok
           cases ts with
           | nil =>
             simp [FiniteTree.depthList, FiniteTree.leavesList, FiniteTree.innerLabelsList, FiniteTreeList.toList]
           | cons hd tl =>
+            unfold PreGroundTerm.arity_ok_list at arities_ok
+            rw [Bool.and_eq_true] at arities_ok
             unfold FiniteTree.depthList
             unfold FiniteTree.leavesList
             unfold FiniteTree.innerLabelsList
 
-            specialize ih hd
+            specialize ih ⟨hd, arities_ok.left⟩
             have ih_inner := aux tl
 
             constructor
@@ -306,7 +355,7 @@ section ListsOfTerms
                 unfold FiniteTreeList.toList
                 simp
               )
-              have ih_inner := ih_inner.mp (by
+              have ih_inner := (ih_inner arities_ok.right).mp (by
                 intro t t_mem
                 apply h
                 unfold FiniteTreeList.toList
@@ -347,7 +396,7 @@ section ListsOfTerms
                   apply Or.inl
                   exact func_mem
               )
-              have ih_inner := ih_inner.mpr (by
+              have ih_inner := (ih_inner arities_ok.right).mpr (by
                 constructor
                 . exact h.left.right
                 constructor
@@ -366,7 +415,10 @@ section ListsOfTerms
               unfold FiniteTreeList.toList at t_mem
               rw [List.mem_cons] at t_mem
               cases t_mem with
-              | inl t_mem => rw [t_mem]; apply ih
+              | inl t_mem =>
+                have : t = ⟨hd, arities_ok.left⟩ := by apply Subtype.eq; exact t_mem
+                rw [this]
+                apply ih
               | inr t_mem => apply ih_inner; exact t_mem
 
         constructor
@@ -385,18 +437,38 @@ section ListsOfTerms
             simp only [List.mem_flatMap, List.mem_map] at h
             rcases h with ⟨func, func_mem, ts, ts_mem, t_eq⟩
             rw [← t_eq]
+            unfold List.attach at ts_mem
+            unfold List.attachWith at ts_mem
+            rw [List.mem_pmap] at ts_mem
+            rcases ts_mem with ⟨ts_val, ts_mem, ts_eq⟩
             rw [mem_all_term_lists_of_length] at ts_mem
 
             unfold FiniteTree.depth
             unfold FiniteTree.leaves
             unfold FiniteTree.innerLabels
 
-            have this := (aux (FiniteTreeList.fromList ts)).mp (by
+            have this := (aux (FiniteTreeList.fromList ts_val.unattach) (by
+              apply (PreGroundTerm.arity_ok_list_of_arity_ok_each_mem _).mp
+              rw [FiniteTreeList.fromListToListIsId]
+              intro t t_mem
+              unfold List.unattach at t_mem
+              rw [List.mem_map] at t_mem
+              rcases t_mem with ⟨t, h⟩
+              rw [← h.right]
+              exact t.property
+            )).mp (by
               intro t t_mem
               rw [FiniteTreeList.fromListToListIsId] at t_mem
               apply ts_mem.right
-              exact t_mem
+              unfold List.unattach at t_mem
+              rw [List.mem_map] at t_mem
+              rcases t_mem with ⟨t', mem, eq⟩
+              have : t' = t := by apply Subtype.eq; exact eq
+              rw [← this]
+              exact mem
             )
+
+            rw [← ts_eq]
             constructor
             . rw [Nat.add_comm]
               apply Nat.succ_le_succ
@@ -425,14 +497,17 @@ section ListsOfTerms
             . exact consts_mem
             . exact funcs_mem
           | inr depth_le =>
-            cases t with
-            | leaf _ => simp [FiniteTree.depth] at depth_le
+            cases eq : t.val with
+            | leaf _ => rw [eq] at depth_le; simp [FiniteTree.depth] at depth_le
             | inner t_func ts =>
+              rw [eq] at depth_le
+              rw [eq] at consts_mem
+              rw [eq] at funcs_mem
               unfold FiniteTree.depth at depth_le
               unfold FiniteTree.leaves at consts_mem
               unfold FiniteTree.innerLabels at funcs_mem
 
-              have this := (aux ts).mpr (by
+              have this := (aux ts (by have prop := t.property; unfold PreGroundTerm.arity_ok at prop; simp only [eq, Bool.and_eq_true] at prop; exact prop.right)).mpr (by
                 constructor
                 . apply Nat.le_of_eq
                   rw [Nat.add_comm] at depth_le
@@ -449,15 +524,52 @@ section ListsOfTerms
               constructor
               . apply funcs_mem
                 simp
-              exists ts
-
-              constructor
-              . rw [mem_all_term_lists_of_length]
+              let ts_ground_terms : List (GroundTerm sig) := ts.toList.attach.map (fun ⟨t', mem⟩ =>
+                ⟨t', by
+                  have prop := t.property
+                  unfold PreGroundTerm.arity_ok at prop
+                  rw [eq] at prop
+                  simp only [Bool.and_eq_true] at prop
+                  apply (PreGroundTerm.arity_ok_list_of_arity_ok_each_mem ts).mpr
+                  . exact prop.right
+                  . exact mem
+                ⟩
+              )
+              have : ts_ground_terms ∈ all_term_lists_of_length (all_terms_limited_by_depth constants funcs depth.succ) t_func.arity := by
+                rw [mem_all_term_lists_of_length]
                 constructor
-                . sorry
+                . have prop := t.property
+                  unfold PreGroundTerm.arity_ok at prop
+                  rw [eq, Bool.and_eq_true, beq_iff_eq] at prop
+                  unfold ts_ground_terms
+                  rw [List.length_map, List.length_attach]
+                  exact prop.left
                 . intro t t_mem
                   apply this
-                  exact t_mem
-              . rw [FiniteTreeList.toListFromListIsId]
+                  unfold ts_ground_terms at t_mem
+                  rw [List.mem_map] at t_mem
+                  rcases t_mem with ⟨val, val_mem, t_eq⟩
+                  unfold List.attach at val_mem
+                  unfold List.attachWith at val_mem
+                  rw [List.mem_pmap] at val_mem
+                  rcases val_mem with ⟨_, val_mem, eq⟩
+                  simp only at t_eq
+                  rw [← t_eq, ← eq]
+                  exact val_mem
+
+              exists ⟨ts_ground_terms, this⟩
+
+              constructor
+              . apply List.mem_attach
+              . have : ts_ground_terms.unattach = ts.toList := by
+                  unfold List.unattach
+                  unfold ts_ground_terms
+                  rw [List.map_map, List.map_attach]
+                  simp
+                apply Subtype.eq
+                simp only
+                rw [this]
+                rw [FiniteTreeList.toListFromListIsId]
+                rw [eq]
 
 end ListsOfTerms
