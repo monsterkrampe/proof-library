@@ -436,7 +436,14 @@ namespace GroundTermMapping
         | inr s_mem => specialize ih s s_mem; rw [Nat.mul_comm, h.repeat_hom_cycle_mul]; exact ih
 
   theorem exists_repetition_that_is_inverse_of_surj (h : GroundTermMapping sig) (ts : List (GroundTerm sig)) (surj : h.surjective_for_domain_and_image_list ts ts) : ∃ k, ∀ t, t ∈ ts -> (h.repeat_hom k) (h t) = t := by
-    have each_repeats := h.repeat_each_reaches_self_of_each_reachable ts (by intro t t_mem; exists 1; constructor; simp; simp [repeat_hom]; apply surj t t_mem)
+    have each_repeats := h.repeat_each_reaches_self_of_each_reachable ts (by
+      intro t t_mem
+      exists 1
+      constructor
+      . simp
+      . simp only [repeat_hom]
+        apply surj t t_mem
+    )
     have repeats_globally := h.repeat_globally_of_each_repeats ts each_repeats
 
     rcases repeats_globally with ⟨k, le, repeats_globally⟩
@@ -456,14 +463,16 @@ namespace GroundTermMapping
     | zero => unfold repeat_hom; unfold isIdOnConstants; intro t; split <;> simp
     | succ i ih =>
       intro t
-      cases t with
+      cases eq : t.val with
       | inner _ _ => simp
       | leaf c =>
         simp
         unfold repeat_hom
         simp
-        rw [ih (FiniteTree.leaf c)]
-        rw [idOnConst (FiniteTree.leaf c)]
+        have : t = GroundTerm.const c := by apply Subtype.eq; exact eq
+        rw [this]
+        rw [GroundTermMapping.apply_constant_is_id_of_isIdOnConstants ih c]
+        rw [GroundTermMapping.apply_constant_is_id_of_isIdOnConstants idOnConst c]
 
   variable [DecidableEq sig.P]
 
@@ -557,7 +566,7 @@ namespace FactSet
         . rw [finite.right]; exact f'_mem
         . rfl
       . simp only [f', GroundTermMapping.applyFact]
-        simp
+        rw [List.mem_map]
         exists e
 
     rw [Function.surjective_set_list_equiv h fs.terms terms_list mem_terms_list fs.terms terms_list mem_terms_list]
@@ -658,7 +667,7 @@ namespace FactSet
         . apply h_sc_wc_hom.right
           exists f
         . unfold GroundTermMapping.applyFact
-          simp
+          rw [List.mem_map]
           exists arg
 
   theorem strongCore_unique_up_to_isomorphism_with_respect_to_weak_cores
@@ -742,21 +751,23 @@ namespace FactSet
       . exact inv_id
       . constructor
         . intro t
-          cases t with
+          cases eq : t.val with
           | inner _ _ => simp
           | leaf c =>
+            have eq : t = GroundTerm.const c := by apply Subtype.eq; exact eq
             simp only
             unfold inv
-            cases Classical.em (FiniteTree.leaf c ∈ sc.terms) with
-            | inr n_mem => simp [n_mem]
+            cases Classical.em (GroundTerm.const c ∈ sc.terms) with
+            | inr n_mem => rw [eq]; simp [n_mem]
             | inl mem =>
+              rw [eq]
               simp [mem]
-              have spec := Classical.choose_spec (sc_strong.right.right (FiniteTree.leaf c) mem)
+              have spec := Classical.choose_spec (sc_strong.right.right (GroundTerm.const c) mem)
               apply sc_strong.right.left
               . exact spec.left
               . exact mem
               . rw [spec.right]
-                rw [h_fs_sc_hom.left (FiniteTree.leaf c)]
+                rw [h_fs_sc_hom.left (GroundTerm.const c)]
         . intro f f_mem
           rcases f_mem with ⟨f', f'_mem, f_eq⟩
           have strong := sc_strong.left

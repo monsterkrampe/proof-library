@@ -60,7 +60,7 @@ namespace PreTrigger
     rcases satisfied with ⟨s, s_frontier, s_subs⟩
 
     let h_alt : GroundTermMapping sig := fun t =>
-      if t ∈ trg.rule.frontier.map trg.subs then t else match t with
+      if t ∈ trg.rule.frontier.map trg.subs then t else match t.val with
         | .leaf c => t
         | .inner skolem_fs _ => s skolem_fs.var
 
@@ -85,7 +85,7 @@ namespace PreTrigger
         cases voc with
         | const c =>
           simp [GroundSubstitution.apply_var_or_const, PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term]
-          simp [h_alt]
+          simp [h_alt, GroundTerm.const]
         | var v =>
           simp [GroundSubstitution.apply_var_or_const]
           cases Decidable.em (v ∈ trg.rule.frontier) with
@@ -108,8 +108,8 @@ namespace PreTrigger
     exists h_alt
     constructor
     . constructor
-      . intro t; cases t with
-        | leaf c => simp [h_alt]
+      . intro t; cases eq : t.val with
+        | leaf c => simp [h_alt, eq]
         | inner _ _ => simp
       . exact this
     constructor

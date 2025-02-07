@@ -453,7 +453,8 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
             rw [FiniteTree.mem_leavesList] at c_mem
             rcases c_mem with ⟨tree, tree_mem, c_mem⟩
             rw [FiniteTreeList.fromListToListIsId] at tree_mem
-            rw [List.mem_map] at tree_mem
+            unfold List.unattach at tree_mem
+            rw [List.map_map, List.mem_map] at tree_mem
             rcases tree_mem with ⟨voc, voc_mem, tree_eq⟩
             unfold PreTrigger.apply_to_var_or_const at tree_eq
 
@@ -478,7 +479,7 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
                   . unfold FunctionFreeAtom.constants
                     apply VarOrConst.mem_filterConsts_of_const
                     rw [← tree_eq] at c_mem
-                    simp [FiniteTree.leaves] at c_mem
+                    simp only [FiniteTree.leaves, GroundTerm.const, List.mem_singleton] at c_mem
                     rw [c_mem]
                     exact voc_mem
             | var v =>
@@ -505,7 +506,8 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
                   . rw [FiniteTreeList.fromListToListIsId]
                     rw [← tree_eq]
                     unfold GroundSubstitution.apply_function_free_atom
-                    rw [List.mem_map]
+                    unfold List.unattach
+                    rw [List.map_map, List.mem_map]
                     exists (VarOrConst.var v)
                   . exact c_mem
               | inr v_frontier =>
@@ -536,7 +538,8 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
                   . rw [FiniteTreeList.fromListToListIsId]
                     rw [← tree_eq]
                     unfold GroundSubstitution.apply_function_free_atom
-                    rw [List.mem_map]
+                    unfold List.unattach
+                    rw [List.map_map, List.mem_map]
                     exists (VarOrConst.var v)
                   . exact c_mem
 
@@ -782,7 +785,7 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
                   | const c =>
                     rw [eq_term_for_f] at this
                     simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier] at this
-                    contradiction
+                    simp [GroundTerm.const] at this
                   | var var_for_f =>
                     exists var_for_f
                     have var_for_f_not_in_frontier : ¬ var_for_f ∈ trg'.val.rule.frontier := by

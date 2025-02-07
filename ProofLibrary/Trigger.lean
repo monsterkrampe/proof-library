@@ -52,15 +52,22 @@ namespace PreTrigger
       let tree_for_s := trg.apply_to_var_or_const disjunctIndex (VarOrConst.var s)
       let ts := trg.rule.frontier.map (fun fv => trg.subs fv)
       let a : SkolemFS sig := { ruleId := trg.rule.id, disjunctIndex, var := t, arity := trg.rule.frontier.length }
-      apply FiniteTree.tree_eq_while_contained_is_impossible tree_for_s (FiniteTreeList.fromList ts) a
+      apply FiniteTree.tree_eq_while_contained_is_impossible tree_for_s (FiniteTreeList.fromList ts.unattach) a
+      . simp [tree_for_s, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
+        rw [← apply_eq_for_t_and_s]
+        rw [FiniteTree.inner.injEq]
+        constructor
+        . rfl
+        . rw [← FiniteTreeList.eqIffFromListEq]
+          unfold List.unattach
+          unfold ts
+          simp
       simp [tree_for_s, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
-      apply apply_eq_for_t_and_s
-      simp [tree_for_s, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
-      apply List.listToSetElementAlsoListElement
       rw [FiniteTreeList.fromListToListIsId]
-      apply List.mappedElemInMappedList
-      apply List.listElementAlsoToSetElement
-      apply hl
+      unfold List.unattach
+      unfold ts
+      rw [List.map_map, List.mem_map]
+      exists s
 
   def idx_of_fact_in_result (trg : PreTrigger sig) (f : Fact sig) (disj_index : Fin trg.result.length) (f_in_res : f ∈ trg.result.get disj_index) : Fin (trg.rule.head.get ⟨disj_index.val, (by rw [head_length_eq_mapped_head_length]; have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩).length :=
     let disj_index_mapped_head : Fin trg.mapped_head.length := ⟨disj_index.val, (by have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩
@@ -327,9 +334,11 @@ namespace RTrigger
         have : trg1.val.rule.frontier = trg2.val.rule.frontier := by rw [rules_eq]
         rw [← this] at right
         rw [List.map_eq_map_iff] at right
-        intro v
-        rw [← List.inIffInToSet]
+        intro v v_mem
+        rw [← List.inIffInToSet] at v_mem
+        apply Subtype.eq
         apply right
+        exact v_mem
     . exact applications_eq.left.right.left
 end RTrigger
 

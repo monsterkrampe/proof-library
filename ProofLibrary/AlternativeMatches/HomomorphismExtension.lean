@@ -62,17 +62,20 @@ namespace ChaseBranch
       | some v => subs v
 
     have h'_is_id_on_const : h'.isIdOnConstants := by
-      intro voc
-      cases voc with
+      intro term
+      cases eq : term.val with
       | inner _ _ => simp
       | leaf c =>
+        have : term = GroundTerm.const c := by apply Subtype.eq; exact eq
+        rw [this]
         simp
         unfold h'
         rw [List.find?_eq_none.mpr]
-        . simp; exact hom.left (GroundTerm.const c)
+        . simp; exact GroundTermMapping.apply_constant_is_id_of_isIdOnConstants hom.left c
         . simp
           intro v _ not_frontier contra
           simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, not_frontier] at contra
+          simp [GroundTerm.const] at contra
 
     have h'_is_subs_on_head_vars : ∀ v, v ∈ (trg.val.rule.head.get disj_index').vars -> (h' (trg.val.apply_to_var_or_const disj_index.val (VarOrConst.var v))) = subs v := by
       intro v v_mem
@@ -154,7 +157,7 @@ namespace ChaseBranch
           intro f f_mem
           rcases f_mem with ⟨f, f_mem, f_eq⟩
           cases f_mem with
-          | inl f_mem => apply hom.right; exists f; constructor; exact f_mem; rw [← f_eq]; unfold GroundTermMapping.applyFact; simp; intro t t_mem; rw [h'_is_h_on_terms_in_node]; unfold FactSet.terms; exists f
+          | inl f_mem => apply hom.right; exists f; constructor; exact f_mem; rw [← f_eq]; unfold GroundTermMapping.applyFact; simp; intro t _ t_mem; rw [h'_is_h_on_terms_in_node]; unfold FactSet.terms; exists f
           | inr f_mem =>
             rw [← f_eq]
             apply subs_contained
@@ -288,8 +291,8 @@ namespace ChaseBranch
       induction j with
       | zero => intros; rfl
       | succ j ih =>
-        intro t t_mem
-        specialize ih t t_mem
+        intro t _ t_mem
+        specialize ih t _ t_mem
         conv => left; unfold extend_hom_to_any_following_step
         simp
         split
@@ -358,7 +361,7 @@ namespace ChaseBranch
           intro f f_mem
           unfold GroundTermMapping.applyFact
           simp [global_h]
-          intro t t_mem
+          intro t t_arity_ok t_mem
           split
           case h_2 _ n_ex _ =>
             apply False.elim
@@ -424,7 +427,7 @@ namespace ChaseBranch
                     simp at gt3
                     have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom (i - k) (j - i)
                     simp only [Nat.add_sub_of_le (Nat.le_of_lt gt3), eq2, Option.is_none_or] at target_h_same
-                    specialize target_h_same t
+                    specialize target_h_same ⟨t, t_arity_ok⟩
                     have : (i - k + (j - i)) = j - k := by omega
                     rw [this] at target_h_same
                     rw [target_h_same]
@@ -433,7 +436,7 @@ namespace ChaseBranch
                   simp at gt2
                   have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom (j - k) (i - j)
                   simp only [Nat.add_sub_of_le (Nat.le_of_lt gt), eq3, Option.is_none_or] at target_h_same
-                  specialize target_h_same t
+                  specialize target_h_same ⟨t, t_arity_ok⟩
                   have : (j - k + (i - j)) = i - k := by omega
                   rw [this] at target_h_same
                   rw [target_h_same]
@@ -465,7 +468,7 @@ namespace ChaseBranch
             let i := Classical.choose hfl
             have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom 0 (i - k)
             simp [eq, Option.is_none_or] at target_h_same
-            specialize target_h_same t t_mem
+            specialize target_h_same t.val t.property t_mem
             have : 0 + (i - k) = i - k := by simp
             unfold target_h
             rw [← this, target_h_same]
@@ -474,10 +477,11 @@ namespace ChaseBranch
         . contradiction
       . constructor
         . intro t
-          cases t with
+          cases eq : t.val with
           | inner _ _ => simp
           | leaf c =>
-            simp
+            have eq : t = GroundTerm.const c := by apply Subtype.eq; exact eq
+            rw [eq]
             exact id_on_const c
         . intro f f_mem
           unfold GroundTermMapping.applyFactSet at f_mem

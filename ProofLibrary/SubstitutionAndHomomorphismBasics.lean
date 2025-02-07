@@ -25,7 +25,22 @@ namespace GroundSubstitution
   def apply_skolem_term (σ : GroundSubstitution sig) : SkolemTerm sig -> GroundTerm sig
     | .var v => σ v
     | .const c => GroundTerm.const c
-    | .func fs frontier => FiniteTree.inner fs (FiniteTreeList.fromList (frontier.map (fun fv => σ fv)))
+    | .func fs frontier arity_ok => ⟨
+      FiniteTree.inner fs (FiniteTreeList.fromList (frontier.map (fun fv => σ fv))),
+      by
+        unfold PreGroundTerm.arity_ok
+        rw [Bool.and_eq_true]
+        constructor
+        . rw [FiniteTreeList.fromListToListIsId]
+          rw [List.length_map, beq_iff_eq]
+          exact arity_ok
+        . rw [← PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem]
+          intro t t_mem
+          rw [FiniteTreeList.fromListToListIsId, List.mem_map] at t_mem
+          rcases t_mem with ⟨v, v_mem, t_eq⟩
+          rw [← t_eq]
+          exact (σ v).property
+    ⟩
 
   def apply_atom (σ : GroundSubstitution sig) (ϕ : Atom sig) : Fact sig :=
     { predicate := ϕ.predicate, terms := List.map (apply_skolem_term σ) ϕ.terms, arity_ok := by rw [List.length_map, ϕ.arity_ok] }
@@ -92,12 +107,16 @@ end GroundSubstitution
 
 namespace GroundTermMapping
 
-  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
   def isIdOnConstants (h : GroundTermMapping sig) : Prop :=
-    ∀ (t : GroundTerm sig), match t with
-      | GroundTerm.const _ => h t = t
-      | _ => True
+    ∀ (t : GroundTerm sig), match t.val with
+    | .leaf _ => h t = t
+    | .inner _ _ => True
+
+  theorem apply_constant_is_id_of_isIdOnConstants {h : GroundTermMapping sig} (isId : h.isIdOnConstants) (c : sig.C) : h (GroundTerm.const c) = GroundTerm.const c := isId (GroundTerm.const c)
+
+  variable [DecidableEq sig.P]
 
   def applyFact (h : GroundTermMapping sig) (f : Fact sig) : Fact sig :=
     { predicate := f.predicate, terms := List.map h f.terms, arity_ok := by rw [List.length_map, f.arity_ok] }
@@ -155,16 +174,16 @@ namespace GroundTermMapping
     intro g_hom h_hom
     constructor
     . intro t
-      cases t with
+      cases eq : t.val with
       | inner _ _ => simp
       | leaf c =>
         simp
-        have g_const := g_hom.left (FiniteTree.leaf c)
-        simp at g_const
+        have g_const := g_hom.left t
+        simp only [eq] at g_const
         rw [g_const]
-        have g_const := h_hom.left (FiniteTree.leaf c)
-        simp at g_const
-        rw [g_const]
+        have h_const := h_hom.left t
+        simp only [eq] at h_const
+        rw [h_const]
     . rw [applyFactSet_compose]
       intro f f_mem_compose
       rcases f_mem_compose with ⟨f', f'_mem, f'_eq⟩

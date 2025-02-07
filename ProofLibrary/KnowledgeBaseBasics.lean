@@ -178,7 +178,7 @@ end RuleSet
 
 def KnowledgeBase.isDeterministic (kb : KnowledgeBase sig) : Prop := kb.rules.isDeterministic
 
-def Fact.constants (f : Fact sig) : List sig.C := FiniteTree.leavesList (FiniteTreeList.fromList f.terms)
+def Fact.constants (f : Fact sig) : List sig.C := FiniteTree.leavesList (FiniteTreeList.fromList f.terms.unattach)
 def FactSet.constants (fs : FactSet sig) : Set sig.C := fun c => ∃ f, f ∈ fs ∧ c ∈ f.constants
 theorem FactSet.constants_finite_of_finite (fs : FactSet sig) (fin : fs.finite) : fs.constants.finite := by
   rcases fin with ⟨l, _, l_eq⟩
@@ -225,11 +225,12 @@ def Fact.toFunctionFreeFact (f : Fact sig) (isFunctionFree : f.isFunctionFree) :
 theorem FunctionFreeFact.toFunctionFreeFact_after_toFact_is_id (f : FunctionFreeFact sig) : f.toFact.toFunctionFreeFact (f.toFact_isFunctionFree) = f := by
   unfold toFact
   unfold Fact.toFunctionFreeFact
-  simp
+  simp only
   apply FunctionFreeFact.ext
   . simp
-  . simp only [GroundTerm.toConst]
+  . simp only
     rw [List.map_attach, List.pmap_map]
+    simp only [GroundTerm.toConst, GroundTerm.const]
     simp
 
 theorem Fact.toFact_after_toFunctionFreeFact_is_id (f : Fact sig) (isFunctionFree : f.isFunctionFree) : (f.toFunctionFreeFact isFunctionFree).toFact = f := by
@@ -246,6 +247,7 @@ theorem Fact.toFact_after_toFunctionFreeFact_is_id (f : Fact sig) (isFunctionFre
     specialize isFunctionFree f.terms[n] (by simp)
     rcases isFunctionFree with ⟨c, isFunctionFree⟩
     simp only [isFunctionFree]
+    unfold GroundTerm.const
     unfold GroundTerm.toConst
     simp
 
@@ -403,11 +405,12 @@ theorem Database.toFactSet_constants_same (db : Database sig) : db.toFactSet.val
       rw [FiniteTreeList.fromListToListIsId] at t_mem
       rw [← f_eq] at t_mem
       unfold FunctionFreeFact.toFact at t_mem
-      rw [List.mem_map] at t_mem
+      unfold List.unattach at t_mem
+      rw [List.map_map, List.mem_map] at t_mem
       rcases t_mem with ⟨d, d_mem, t_eq⟩
       rw [← t_eq] at c_mem
       unfold FiniteTree.leaves at c_mem
-      simp at c_mem
+      simp only [Function.comp_apply, GroundTerm.const, List.mem_singleton] at c_mem
       rw [c_mem]
       exact d_mem
   . intro h
@@ -421,7 +424,8 @@ theorem Database.toFactSet_constants_same (db : Database sig) : db.toFactSet.val
       exists GroundTerm.const c
       constructor
       . rw [FiniteTreeList.fromListToListIsId]
-        rw [List.mem_map]
+        unfold List.unattach
+        rw [List.map_map, List.mem_map]
         exists c
-      . simp [FiniteTree.leaves]
+      . simp [FiniteTree.leaves, GroundTerm.const]
 

@@ -181,24 +181,63 @@ section ArgumentsForImages
 
     variable [DecidableEq sig.V]
 
-    mutual
-      def arguments_for_term (g : StrictConstantMapping sig) (possible_constants : List sig.C) : FiniteTree (SkolemFS sig) sig.C -> List (GroundTerm sig)
-      | .leaf c => (g.arguments_for_constant possible_constants c).map (fun arg => .leaf arg)
-      | .inner func ts =>
-        (g.arguments_for_term_list possible_constants ts).map (fun ts =>
-          .inner func (FiniteTreeList.fromList ts)
-        )
-
-      def arguments_for_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) : FiniteTreeList (SkolemFS sig) sig.C -> List (List (GroundTerm sig))
-      | .nil => [[]]
-      | .cons hd tl =>
-        let arguments_tail := g.arguments_for_term_list possible_constants tl
-        (g.arguments_for_term possible_constants hd).flatMap (fun arg =>
-          arguments_tail.map (fun arg_list =>
-            arg :: arg_list
+    def arguments_for_term (g : StrictConstantMapping sig) (possible_constants : List sig.C) (t : GroundTerm sig) : List (GroundTerm sig) :=
+      t.cases (
+        fun c => (g.arguments_for_constant possible_constants c).map (fun arg => GroundTerm.const arg)
+      ) (
+        fun f ts arity_ok =>
+          let args : List (List (GroundTerm sig)) := ts.foldl (fun acc (t' : GroundTerm sig) =>
+            have : t'.val.depth < t.val.depth := by
+              sorry
+            /-   conv => right; unfold FiniteTree.depth -/
+            /-   simp only [eq_val] -/
+            /-   rw [Nat.add_comm] -/
+            /-   apply Nat.lt_add_one_of_le -/
+            /-   apply FiniteTree.depth_le_depthList_of_mem -/
+            /-   unfold ts at mem -/
+            /-   rw [List.mem_map] at mem -/
+            /-   rcases mem with ⟨s, s_mem, t_eq⟩ -/
+            /-   simp at t_eq -/
+            /-   rw [← t_eq] -/
+            /-   unfold List.attach at s_mem -/
+            /-   unfold List.attachWith at s_mem -/
+            /-   rw [List.mem_pmap] at s_mem -/
+            /-   rcases s_mem with ⟨_, s_mem, s_eq⟩ -/
+            /-   rw [← s_eq] -/
+            /-   exact s_mem -/
+            /-   sorry -/
+            (g.arguments_for_term possible_constants t').flatMap (fun arg =>
+              acc.map (fun args =>
+                arg :: args
+              )
+            )
+          ) [[]]
+          args.map (fun ts =>
+            GroundTerm.func f ts (by sorry)
           )
-        )
-    end
+          /- ts.flatMap (fun t => sorry) -/
+      )
+      termination_by t.val.depth
+    /- | .const c => sorry -/
+    /- | .func f ts arity => sorry -/
+
+    /- mutual -/
+    /-   def arguments_for_term (g : StrictConstantMapping sig) (possible_constants : List sig.C) : FiniteTree (SkolemFS sig) sig.C -> List (GroundTerm sig) -/
+    /-   | .leaf c => (g.arguments_for_constant possible_constants c).map (fun arg => .leaf arg) -/
+    /-   | .inner func ts => -/
+    /-     (g.arguments_for_term_list possible_constants ts).map (fun ts => -/
+    /-       .inner func (FiniteTreeList.fromList ts) -/
+    /-     ) -/
+    /-   def arguments_for_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) : FiniteTreeList (SkolemFS sig) sig.C -> List (List (GroundTerm sig)) -/
+    /-   | .nil => [[]] -/
+    /-   | .cons hd tl => -/
+    /-     let arguments_tail := g.arguments_for_term_list possible_constants tl -/
+    /-     (g.arguments_for_term possible_constants hd).flatMap (fun arg => -/
+    /-       arguments_tail.map (fun arg_list => -/
+    /-         arg :: arg_list -/
+    /-       ) -/
+    /-     ) -/
+    /- end -/
 
     mutual
       theorem apply_to_arguments_yields_original_term (g : StrictConstantMapping sig) (possible_constants : List sig.C) (term : FiniteTree (SkolemFS sig) sig.C) :

@@ -31,14 +31,14 @@ mutual
 
 end
 
-theorem PreGroundTerm.arity_ok_list_of_arity_ok_each_mem {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] (ts : FiniteTreeList (SkolemFS sig) sig.C) : (∀ t, t ∈ ts.toList -> PreGroundTerm.arity_ok t) ↔ PreGroundTerm.arity_ok_list ts := by
+theorem PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] (ts : FiniteTreeList (SkolemFS sig) sig.C) : (∀ t, t ∈ ts.toList -> PreGroundTerm.arity_ok t) ↔ PreGroundTerm.arity_ok_list ts := by
   cases ts with
   | nil => simp [arity_ok_list, FiniteTreeList.toList]
   | cons hd tl =>
     unfold arity_ok_list
     simp [FiniteTreeList.toList]
     intro _
-    apply arity_ok_list_of_arity_ok_each_mem
+    apply arity_ok_list_iff_arity_ok_each_mem
 
 
 abbrev GroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := { t : PreGroundTerm sig // PreGroundTerm.arity_ok t }
@@ -82,8 +82,117 @@ def PreGroundTerm.cyclic : PreGroundTerm sig -> Bool
 )
 termination_by t => FiniteTree.depth t
 
-
 def GroundTerm.const (c : sig.C) : GroundTerm sig := ⟨FiniteTree.leaf c, by simp [PreGroundTerm.arity_ok]⟩
+def GroundTerm.func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.length = func.arity) : GroundTerm sig := ⟨FiniteTree.inner func (FiniteTreeList.fromList ts.unattach), by
+  unfold PreGroundTerm.arity_ok
+  rw [Bool.and_eq_true, beq_iff_eq]
+  rw [FiniteTreeList.fromListToListIsId]
+  constructor
+  . rw [List.length_unattach]; exact arity_ok
+  . rw [← PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem]
+    rw [FiniteTreeList.fromListToListIsId]
+    intro t t_mem
+    unfold List.unattach at t_mem
+    rw [List.mem_map] at t_mem
+    rcases t_mem with ⟨t, t_mem, t_eq⟩
+    rw [← t_eq]
+    exact t.property
+⟩
+
+@[elab_as_elim, cases_eliminator]
+def GroundTerm.cases
+    {motive : GroundTerm sig -> Sort u}
+    (const : (c : sig.C) -> motive (GroundTerm.const c))
+    (func : (func : SkolemFS sig) -> (ts : List (GroundTerm sig)) -> (arity_ok : ts.length = func.arity) -> motive (GroundTerm.func func ts arity_ok))
+    (t : GroundTerm sig) :
+    motive t :=
+  match eq : t.val with
+  | .leaf c =>
+    have eq : t = GroundTerm.const c := Subtype.eq eq
+    eq ▸ const c
+  | .inner f ts => by
+    let ts : List (GroundTerm sig) := ts.toList.attach.map (fun ⟨t', mem⟩ => ⟨t', by
+      have prop := t.property
+      unfold PreGroundTerm.arity_ok at prop
+      simp only [eq, Bool.and_eq_true, beq_iff_eq] at prop
+      have prop := prop.right
+      rw [← PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem] at prop
+      apply prop
+      exact mem
+    ⟩)
+    have arity_ok : ts.length = f.arity := by
+      have prop := t.property
+      unfold PreGroundTerm.arity_ok at prop
+      simp only [eq, Bool.and_eq_true, beq_iff_eq] at prop
+      unfold ts
+      rw [List.length_map, List.length_attach]
+      exact prop.left
+    have eq : t = GroundTerm.func f ts arity_ok := by
+      apply Subtype.eq
+      unfold GroundTerm.func
+      simp [eq, ts]
+      unfold List.unattach
+      rw [List.map_map, List.map_attach]
+      simp [FiniteTreeList.toListFromListIsId]
+    exact eq ▸ (func f ts arity_ok)
+
+@[elab_as_elim, induction_eliminator]
+def GroundTerm.rec
+    {motive : GroundTerm sig -> Sort u}
+    (const : (c : sig.C) -> motive (GroundTerm.const c))
+    (func : (func : SkolemFS sig) -> (ts : List (GroundTerm sig)) -> (arity_ok : ts.length = func.arity) -> (∀ t, t ∈ ts -> motive t) -> motive (GroundTerm.func func ts arity_ok))
+    (t : GroundTerm sig) :
+    motive t :=
+  match eq_val : t.val with
+  | .leaf c =>
+    have eq : t = GroundTerm.const c := Subtype.eq eq_val
+    eq ▸ const c
+  | .inner f ts => by
+    let ts : List (GroundTerm sig) := ts.toList.attach.map (fun ⟨t', mem⟩ => ⟨t', by
+      have prop := t.property
+      unfold PreGroundTerm.arity_ok at prop
+      simp only [eq_val, Bool.and_eq_true, beq_iff_eq] at prop
+      have prop := prop.right
+      rw [← PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem] at prop
+      apply prop
+      exact mem
+    ⟩)
+    have arity_ok : ts.length = f.arity := by
+      have prop := t.property
+      unfold PreGroundTerm.arity_ok at prop
+      simp only [eq_val, Bool.and_eq_true, beq_iff_eq] at prop
+      unfold ts
+      rw [List.length_map, List.length_attach]
+      exact prop.left
+    have eq : t = GroundTerm.func f ts arity_ok := by
+      apply Subtype.eq
+      unfold GroundTerm.func
+      simp [eq_val, ts]
+      unfold List.unattach
+      rw [List.map_map, List.map_attach]
+      simp [FiniteTreeList.toListFromListIsId]
+    exact eq ▸ (func f ts arity_ok (by
+      intro t' mem
+      have : t'.val.depth < t.val.depth := by
+        conv => right; unfold FiniteTree.depth
+        simp only [eq_val]
+        rw [Nat.add_comm]
+        apply Nat.lt_add_one_of_le
+        apply FiniteTree.depth_le_depthList_of_mem
+        unfold ts at mem
+        rw [List.mem_map] at mem
+        rcases mem with ⟨s, s_mem, t_eq⟩
+        simp at t_eq
+        rw [← t_eq]
+        unfold List.attach at s_mem
+        unfold List.attachWith at s_mem
+        rw [List.mem_pmap] at s_mem
+        rcases s_mem with ⟨_, s_mem, s_eq⟩
+        rw [← s_eq]
+        exact s_mem
+      apply GroundTerm.rec const func
+    ))
+termination_by t.val.depth
 
 def GroundTerm.toConst (t : GroundTerm sig) (isConst : ∃ c, t = GroundTerm.const c) : sig.C :=
   match eq : t.val with
@@ -274,7 +383,7 @@ section ListsOfTerms
               rw [List.length_unattach]
               rw [mem_all_term_lists_of_length] at mem
               exact mem.left
-            . apply (PreGroundTerm.arity_ok_list_of_arity_ok_each_mem _).mp
+            . apply (PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem _).mp
               rw [FiniteTreeList.fromListToListIsId]
               intro t t_mem
               unfold List.unattach at t_mem
@@ -308,20 +417,18 @@ section ListsOfTerms
           simp [GroundTerm.const, FiniteTree.depth, FiniteTree.leaves, FiniteTree.innerLabels]
           exact c_mem
         . intro h
-          cases eq : t.val with
-          | leaf c =>
+          cases eq : t with
+          | const c =>
             rw [List.mem_map]
             exists c
             constructor
             . apply h.right.left
-              simp [eq, FiniteTree.leaves]
-            . unfold GroundTerm.const
-              apply Subtype.eq
-              rw [eq]
-          | inner _ ts =>
+              simp [eq, GroundTerm.const, FiniteTree.leaves]
+            . rfl
+          | func _ ts _ =>
             have contra := h.left
             unfold FiniteTree.depth at contra
-            rw [eq] at contra
+            simp only [eq, GroundTerm.func] at contra
             cases ts with
             | nil => simp [FiniteTree.depthList] at contra
             | cons t _ =>
@@ -329,7 +436,7 @@ section ListsOfTerms
               rw [Nat.add_comm, Nat.succ_le_succ_iff, Nat.max_le] at contra
               have contra := contra.left
               unfold FiniteTree.depth at contra
-              cases t <;> simp at contra
+              cases eq : t.val <;> simp [eq] at contra
       | succ depth =>
         let rec aux : ∀ (ts : FiniteTreeList (SkolemFS sig) sig.C), (PreGroundTerm.arity_ok_list ts) -> ((∀ (t : GroundTerm sig), t.val ∈ ts.toList -> t ∈ (all_terms_limited_by_depth constants funcs depth.succ)) ↔
             ((FiniteTree.depthList ts ≤ depth.succ) ∧ (∀ c, c ∈ FiniteTree.leavesList ts -> c ∈ constants) ∧ (∀ func, func ∈ FiniteTree.innerLabelsList ts -> func ∈ funcs))) := by
@@ -448,7 +555,7 @@ section ListsOfTerms
             unfold FiniteTree.innerLabels
 
             have this := (aux (FiniteTreeList.fromList ts_val.unattach) (by
-              apply (PreGroundTerm.arity_ok_list_of_arity_ok_each_mem _).mp
+              apply (PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem _).mp
               rw [FiniteTreeList.fromListToListIsId]
               intro t t_mem
               unfold List.unattach at t_mem
@@ -530,7 +637,7 @@ section ListsOfTerms
                   unfold PreGroundTerm.arity_ok at prop
                   rw [eq] at prop
                   simp only [Bool.and_eq_true] at prop
-                  apply (PreGroundTerm.arity_ok_list_of_arity_ok_each_mem ts).mpr
+                  apply (PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem ts).mpr
                   . exact prop.right
                   . exact mem
                 ⟩
