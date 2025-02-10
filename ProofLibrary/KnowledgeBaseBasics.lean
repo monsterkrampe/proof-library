@@ -136,6 +136,10 @@ namespace Rule
 
   def head_constants (r : Rule sig) : List sig.C := r.head.flatMap (fun conj => conj.consts)
 
+  def skolem_functions (r : Rule sig) : List (SkolemFS sig) := r.head.enum.flatMap (fun (i, head) =>
+    (head.vars.filter (fun v => !(v ∈ r.frontier))).map (fun v => { ruleId := r.id, disjunctIndex := i, var := v, arity := r.frontier.length })
+  )
+
 end Rule
 
 namespace RuleSet
@@ -169,6 +173,22 @@ namespace RuleSet
     . intro c
       rw [List.mem_eraseDupsKeepRight_iff]
       unfold head_constants
+      simp only [List.mem_flatMap]
+      constructor <;> (intro h; rcases h with ⟨r, h⟩; exists r)
+      . rw [← eq]; assumption
+      . rw [eq]; assumption
+
+  def skolem_functions (rs : RuleSet sig) : Set (SkolemFS sig) := fun f => ∃ r, r ∈ rs.rules ∧ f ∈ r.skolem_functions
+
+  theorem skolem_functions_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.skolem_functions.finite := by
+    intro finite
+    rcases finite with ⟨l, nodup, eq⟩
+    exists (l.flatMap Rule.skolem_functions).eraseDupsKeepRight
+    constructor
+    . apply List.nodup_eraseDupsKeepRight
+    . intro c
+      rw [List.mem_eraseDupsKeepRight_iff]
+      unfold skolem_functions
       simp only [List.mem_flatMap]
       constructor <;> (intro h; rcases h with ⟨r, h⟩; exists r)
       . rw [← eq]; assumption

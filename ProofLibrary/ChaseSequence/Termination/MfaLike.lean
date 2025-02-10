@@ -1483,7 +1483,7 @@ namespace RuleSet
     . exact res_filtered_finite
 
   def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.rules.finite) (det : rs.isDeterministic) : Prop :=
-    ∀ t, t ∈ (rs.mfaSet finite det default).terms -> ¬ t.val.cyclic
+    ∀ t, t ∈ (rs.mfaSet finite det default).terms -> ¬ PreGroundTerm.cyclic t.val
 
   theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (det : rs.isDeterministic) : rs.isMfa rs_finite det -> rs.terminates obs := by
     intro isMfa
@@ -1491,7 +1491,35 @@ namespace RuleSet
     apply FactSet.finite_of_preds_finite_of_terms_finite
     . sorry
     . unfold RuleSet.isMfa at isMfa
-      sorry
+      let funcs : Set (SkolemFS sig) := rs.skolem_functions
+      have funcs_finite : funcs.finite := rs.skolem_functions_finite_of_finite rs_finite
+      rcases funcs_finite with ⟨l_funcs, l_funcs_nodup, funcs_eq⟩
+      let overapproximation : Set (GroundTerm sig) := fun t => (t.val.depth ≤ l_funcs.length + 1 ∧ (∀ c, c ∈ t.val.leaves -> c = default) ∧ (∀ func, func ∈ t.val.innerLabels -> func ∈ l_funcs))
+      have overapproximation_finite : overapproximation.finite := by
+        exists (all_terms_limited_by_depth [default] l_funcs (l_funcs.length + 1)).eraseDupsKeepRight
+        constructor
+        . apply List.nodup_eraseDupsKeepRight
+        . intro t
+          rw [List.mem_eraseDupsKeepRight_iff]
+          rw [mem_all_terms_limited_by_depth]
+          simp only [overapproximation, List.mem_singleton]
+          rfl
+      apply Set.finite_of_subset_finite overapproximation_finite
+      intro t t_mem
+      unfold overapproximation
+      constructor
+      . apply Decidable.byContradiction
+        intro contra
+        apply isMfa t t_mem
+        apply PreGroundTerm.cyclic_of_depth_too_big t l_funcs
+        . exact l_funcs_nodup
+        . sorry
+        . simp at contra
+          apply Nat.succ_le_of_lt
+          exact contra
+      constructor
+      . sorry
+      . sorry
 
 end RuleSet
 

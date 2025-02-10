@@ -412,6 +412,65 @@ namespace List
     . intro h
       rw [h]
 
+  theorem nodup_erase_of_nodup [DecidableEq α] (l : List α) (e : α) (nodup : l.Nodup) : (l.erase e).Nodup := by
+    induction l with
+    | nil => simp [List.erase]
+    | cons hd tl ih =>
+      rw [List.nodup_cons] at nodup
+      unfold List.erase
+      cases Decidable.em (hd == e) with
+      | inl eq =>
+        simp only [eq]
+        exact nodup.right
+      | inr eq =>
+        simp only [eq]
+        rw [List.nodup_cons]
+        constructor
+        . rw [List.mem_erase_of_ne]
+          . exact nodup.left
+          . simp at eq
+            exact eq
+        . exact ih nodup.right
+
+  theorem contains_dup_of_exceeding_nodup_list_with_same_elements
+      [DecidableEq α]
+      (as bs : List α)
+      (nodup_as : as.Nodup)
+      (len_lt : as.length < bs.length)
+      (contains_all : ∀ e, e ∈ bs -> e ∈ as) :
+      ¬ bs.Nodup := by
+    induction bs generalizing as with
+    | nil => simp at len_lt
+    | cons hd tl ih =>
+      rw [List.nodup_cons]
+      intro contra
+      cases Decidable.em (hd ∈ tl) with
+      | inl mem => apply contra.left; exact mem
+      | inr mem =>
+        apply ih (as.erase hd)
+        . apply nodup_erase_of_nodup
+          exact nodup_as
+        . rw [List.length_erase]
+          have : hd ∈ as := by apply contains_all; simp
+          simp [this]
+          apply Nat.lt_of_succ_lt_succ
+          rw [Nat.succ_eq_add_one]
+          rw [Nat.sub_one_add_one]
+          . rw [List.length_cons] at len_lt
+            exact len_lt
+          . intro contra
+            rw [List.length_eq_zero] at contra
+            rw [contra] at this
+            simp at this
+        . intro e e_mem
+          rw [List.mem_erase_of_ne]
+          . apply contains_all
+            simp [e_mem]
+          . intro contra
+            rw [contra] at e_mem
+            contradiction
+        . exact contra.right
+
 end List
 
 def List.repeat (val : α) : Nat -> List α
