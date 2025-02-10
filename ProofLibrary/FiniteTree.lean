@@ -227,6 +227,16 @@ namespace FiniteTree
       | FiniteTreeList.cons t ts => FiniteTreeList.cons (mapLeaves f t) (mapLeavesList f ts)
   end
 
+  theorem length_mapLeavesList (f : β -> FiniteTree α γ) (ts : FiniteTreeList α β) : (mapLeavesList f ts).toList.length = ts.toList.length := by
+    cases ts with
+    | nil => rfl
+    | cons hd tl =>
+      unfold mapLeavesList
+      unfold FiniteTreeList.toList
+      unfold List.length
+      rw [Nat.add_right_cancel_iff]
+      apply length_mapLeavesList
+
   theorem mapLeavesList_fromList_eq_fromList_map (f : β -> FiniteTree α γ) (ts : List (FiniteTree α β)) : FiniteTree.mapLeavesList f (FiniteTreeList.fromList ts) = FiniteTreeList.fromList (ts.map (fun t => t.mapLeaves f)) := by
     induction ts with
     | nil => simp [FiniteTreeList.fromList, mapLeavesList]

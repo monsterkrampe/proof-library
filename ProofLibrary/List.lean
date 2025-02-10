@@ -390,6 +390,28 @@ namespace List
           simp [this]
         . simp
 
+  theorem eq_iff_unattach_eq {α : Type u} {p : α -> Prop} (as bs : List {x : α // p x}) : as.unattach = bs.unattach ↔ as = bs := by
+    constructor
+    . intro h
+      apply List.ext_getElem
+      . have : as.unattach.length = bs.unattach.length := by rw [h]
+        rw [List.length_unattach] at this
+        rw [List.length_unattach] at this
+        exact this
+      . rw [List.ext_getElem?_iff] at h
+        intro n le le'
+        specialize h n
+        unfold List.unattach at h
+        rw [List.getElem?_map] at h
+        rw [List.getElem?_map] at h
+        rw [List.getElem?_eq_getElem le] at h
+        rw [List.getElem?_eq_getElem le'] at h
+        simp at h
+        apply Subtype.eq
+        exact h
+    . intro h
+      rw [h]
+
 end List
 
 def List.repeat (val : α) : Nat -> List α

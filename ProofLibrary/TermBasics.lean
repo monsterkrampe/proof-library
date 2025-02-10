@@ -99,17 +99,18 @@ def GroundTerm.func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok
     exact t.property
 ⟩
 
+-- TODO: remove cases and rec if not useful
 @[elab_as_elim, cases_eliminator]
 def GroundTerm.cases
     {motive : GroundTerm sig -> Sort u}
-    (const : (c : sig.C) -> motive (GroundTerm.const c))
-    (func : (func : SkolemFS sig) -> (ts : List (GroundTerm sig)) -> (arity_ok : ts.length = func.arity) -> motive (GroundTerm.func func ts arity_ok))
-    (t : GroundTerm sig) :
+    (t : GroundTerm sig)
+    (const : (c : sig.C) -> (eq : t = GroundTerm.const c) -> motive (GroundTerm.const c))
+    (func : (func : SkolemFS sig) -> (ts : List (GroundTerm sig)) -> (arity_ok : ts.length = func.arity) -> (eq : t = GroundTerm.func func ts arity_ok) -> motive (GroundTerm.func func ts arity_ok)) :
     motive t :=
   match eq : t.val with
   | .leaf c =>
     have eq : t = GroundTerm.const c := Subtype.eq eq
-    eq ▸ const c
+    eq ▸ const c eq
   | .inner f ts => by
     let ts : List (GroundTerm sig) := ts.toList.attach.map (fun ⟨t', mem⟩ => ⟨t', by
       have prop := t.property
@@ -134,7 +135,7 @@ def GroundTerm.cases
       unfold List.unattach
       rw [List.map_map, List.map_attach]
       simp [FiniteTreeList.toListFromListIsId]
-    exact eq ▸ (func f ts arity_ok)
+    exact eq ▸ (func f ts arity_ok eq)
 
 @[elab_as_elim, induction_eliminator]
 def GroundTerm.rec
