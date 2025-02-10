@@ -40,6 +40,7 @@ section StructuralDefs
     id : Nat
     body : FunctionFreeConjunction sig
     head : List (FunctionFreeConjunction sig)
+    deriving DecidableEq
 
   structure RuleSet where
     rules : Set (Rule sig)
@@ -302,6 +303,9 @@ theorem FactSet.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) :
       . exact e_in_f
 
 def FactSet.predicates (fs : FactSet sig) : Set sig.P := fun p => ∃ f, f ∈ fs ∧ f.predicate = p
+
+def Fact.function_symbols (f : Fact sig) : Set (SkolemFS sig) := fun func => ∃ t, t ∈ f.terms ∧ func ∈ t.val.innerLabels
+def FactSet.function_symbols (fs : FactSet sig) : Set (SkolemFS sig) := fun func => ∃ f, f ∈ fs ∧ func ∈ f.function_symbols
 
 theorem FactSet.finite_of_preds_finite_of_terms_finite (fs : FactSet sig) : fs.predicates.finite -> fs.terms.finite -> fs.finite := by
   intro preds_fin terms_fin

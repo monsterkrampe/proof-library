@@ -646,6 +646,136 @@ namespace KnowledgeBase
       apply ih
       exact f_mem
 
+  theorem parallelSkolemChase_predicates (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) :
+      ∀ n, (kb.parallelSkolemChase det n).predicates ⊆ (kb.rules.predicates ∪ kb.db.toFactSet.val.predicates) := by
+    intro n
+    induction n with
+    | zero =>
+      unfold parallelSkolemChase
+      apply Set.subsetUnionSomethingStillSubset'
+      apply Set.subsetOfSelf
+    | succ n ih =>
+      unfold parallelSkolemChase
+      intro p p_mem
+      rcases p_mem with ⟨f, f_mem, p_mem⟩
+      cases f_mem with
+      | inl f_mem => apply ih; exists f
+      | inr f_mem =>
+        rcases f_mem with ⟨trg, trg_act, f_mem⟩
+        unfold PreTrigger.result at f_mem
+        unfold PreTrigger.mapped_head at f_mem
+        rw [List.getElem_map, ← List.inIffInToSet, List.getElem_map, List.mem_map] at f_mem
+        rcases f_mem with ⟨a, a_mem, f_mem⟩
+        rw [List.get_eq_getElem, List.getElem_enum] at a_mem
+        apply Or.inl
+        exists trg.val.rule
+        constructor
+        . exact trg.property
+        . unfold Rule.predicates
+          rw [List.mem_append]
+          apply Or.inr
+          rw [List.mem_flatMap]
+          exists trg.val.rule.head[0]'(by
+            unfold RuleSet.isDeterministic at det
+            unfold Rule.isDeterministic at det
+            rw [det]
+            . simp
+            . exact trg.property
+          )
+          constructor
+          . simp
+          . unfold FunctionFreeConjunction.predicates
+            rw [List.mem_map]
+            exists a
+            constructor
+            . exact a_mem
+            . rw [← p_mem, ← f_mem]
+              simp [PreTrigger.apply_to_function_free_atom]
+
+  theorem parallelSkolemChase_constants (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) :
+      ∀ n, (kb.parallelSkolemChase det n).constants ⊆ (kb.rules.head_constants ∪ kb.db.constants) := by
+    intro n
+    induction n with
+    | zero =>
+      unfold parallelSkolemChase
+      apply Set.subsetUnionSomethingStillSubset'
+      rw [Database.toFactSet_constants_same]
+      apply Set.subsetOfSelf
+    | succ n ih =>
+      unfold parallelSkolemChase
+      intro c c_mem
+      rcases c_mem with ⟨f, f_mem, c_mem⟩
+      cases f_mem with
+      | inl f_mem => apply ih; exists f
+      | inr f_mem =>
+        rcases f_mem with ⟨trg, trg_act, f_mem⟩
+        unfold PreTrigger.result at f_mem
+        unfold PreTrigger.mapped_head at f_mem
+        rw [List.getElem_map, ← List.inIffInToSet, List.getElem_map, List.mem_map] at f_mem
+        rcases f_mem with ⟨a, a_mem, f_mem⟩
+        rw [List.get_eq_getElem, List.getElem_enum] at a_mem
+        apply Or.inl
+        exists trg.val.rule
+        constructor
+        . exact trg.property
+        . unfold Rule.head_constants
+          rw [List.mem_flatMap]
+          exists trg.val.rule.head[0]'(by
+            unfold RuleSet.isDeterministic at det
+            unfold Rule.isDeterministic at det
+            rw [det]
+            . simp
+            . exact trg.property
+          )
+          constructor
+          . simp
+          . unfold FunctionFreeConjunction.consts
+            rw [List.mem_flatMap]
+            exists a
+            constructor
+            . exact a_mem
+            . rw [← f_mem] at c_mem
+              simp only [PreTrigger.apply_to_function_free_atom] at c_mem
+              sorry
+
+  theorem parallelSkolemChase_functions (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) :
+      ∀ n, (kb.parallelSkolemChase det n).function_symbols ⊆ (kb.rules.skolem_functions) := by
+    intro n
+    induction n with
+    | zero =>
+      unfold parallelSkolemChase
+      intro func func_mem
+      unfold FactSet.function_symbols at func_mem
+      rcases func_mem with ⟨f, f_mem, func_mem⟩
+      unfold Fact.function_symbols at func_mem
+      rcases func_mem with ⟨t, t_mem, func_mem⟩
+      cases eq : t.val with
+      | leaf c => simp [eq, FiniteTree.innerLabels] at func_mem
+      | inner _ _ =>
+        have func_free := kb.db.toFactSet.property.right
+        specialize func_free f f_mem t t_mem
+        rcases func_free with ⟨c, t_eq⟩
+        rw [t_eq] at eq
+        simp [GroundTerm.const] at eq
+    | succ n ih =>
+      unfold parallelSkolemChase
+      intro func func_mem
+      rcases func_mem with ⟨f, f_mem, func_mem⟩
+      cases f_mem with
+      | inl f_mem => apply ih; exists f
+      | inr f_mem =>
+        rcases f_mem with ⟨trg, trg_act, f_mem⟩
+        unfold PreTrigger.result at f_mem
+        unfold PreTrigger.mapped_head at f_mem
+        rw [List.getElem_map, ← List.inIffInToSet, List.getElem_map, List.mem_map] at f_mem
+        rcases f_mem with ⟨a, a_mem, f_mem⟩
+        rw [List.get_eq_getElem, List.getElem_enum] at a_mem
+        exists trg.val.rule
+        constructor
+        . exact trg.property
+        . unfold Rule.skolem_functions
+          sorry
+
   def skolemChaseResult (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) : FactSet sig := fun f => ∃ n, f ∈ parallelSkolemChase kb det n
 
   theorem skolemChaseResult_eq_every_chase_branch_result (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) : ∀ (cb : ChaseBranch (SkolemObsoleteness sig) kb), cb.result = kb.skolemChaseResult det := by
@@ -929,6 +1059,30 @@ namespace KnowledgeBase
             rw [← List.inIffInToSet, List.get_eq_getElem]
             simp only [disj_index_zero]
             exact f_mem
+
+  theorem skolemChaseResult_predicates (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) :
+      (kb.skolemChaseResult det).predicates ⊆ (kb.rules.predicates ∪ kb.db.toFactSet.val.predicates) := by
+    intro p p_mem
+    rcases p_mem with ⟨f, f_mem, p_mem⟩
+    rcases f_mem with ⟨n, f_mem⟩
+    apply kb.parallelSkolemChase_predicates det n
+    exists f
+
+  theorem skolemChaseResult_constants (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) :
+      (kb.skolemChaseResult det).constants ⊆ (kb.rules.head_constants ∪ kb.db.constants) := by
+    intro c c_mem
+    rcases c_mem with ⟨f, f_mem, c_mem⟩
+    rcases f_mem with ⟨n, f_mem⟩
+    apply kb.parallelSkolemChase_constants det n
+    exists f
+
+  theorem skolemChaseResult_functions (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) :
+      (kb.skolemChaseResult det).function_symbols ⊆ (kb.rules.skolem_functions) := by
+    intro func func_mem
+    rcases func_mem with ⟨f, f_mem, func_mem⟩
+    rcases f_mem with ⟨n, f_mem⟩
+    apply kb.parallelSkolemChase_functions det n
+    exists f
 
 end KnowledgeBase
 
@@ -1489,7 +1643,57 @@ namespace RuleSet
     intro isMfa
     apply rs.terminates_of_mfaSet_finite rs_finite det
     apply FactSet.finite_of_preds_finite_of_terms_finite
-    . sorry
+    . apply Set.finite_of_subset_finite _ (KnowledgeBase.skolemChaseResult_predicates (rs.mfaKb rs_finite default) (rs.mfaKb_det_of_rs_det rs_finite default det))
+      apply Set.union_finite_of_both_finite
+      . apply RuleSet.predicates_finite_of_finite
+        unfold mfaKb
+        simp only
+        rcases rs_finite with ⟨l, _, l_eq⟩
+        exists (l.map (UniformConstantMapping sig default).apply_rule).eraseDupsKeepRight
+        constructor
+        . apply List.nodup_eraseDupsKeepRight
+        . intro r
+          rw [List.mem_eraseDupsKeepRight_iff]
+          rw [List.mem_map]
+          constructor
+          . intro h
+            rcases h with ⟨r', r'_mem, r_eq⟩
+            exists r'
+            constructor
+            . rw [← l_eq]
+              exact r'_mem
+            . rw [r_eq]
+          . intro h
+            rcases h with ⟨r', r'_mem, r_eq⟩
+            exists r'
+            constructor
+            . rw [l_eq]
+              exact r'_mem
+            . rw [r_eq]
+      . have prop := (rs.mfaKb rs_finite default).db.toFactSet.property.left
+        rcases prop with ⟨l, _, l_eq⟩
+        exists (l.map (fun f => f.predicate)).eraseDupsKeepRight
+        constructor
+        . apply List.nodup_eraseDupsKeepRight
+        . intro p
+          rw [List.mem_eraseDupsKeepRight_iff]
+          rw [List.mem_map]
+          unfold FactSet.predicates
+          constructor
+          . intro h
+            rcases h with ⟨f, f_mem, p_eq⟩
+            exists f
+            constructor
+            . rw [← l_eq]
+              exact f_mem
+            . exact p_eq
+          . intro h
+            rcases h with ⟨f, f_mem, p_eq⟩
+            exists f
+            constructor
+            . rw [l_eq]
+              exact f_mem
+            . exact p_eq
     . unfold RuleSet.isMfa at isMfa
       let funcs : Set (SkolemFS sig) := rs.skolem_functions
       have funcs_finite : funcs.finite := rs.skolem_functions_finite_of_finite rs_finite
@@ -1506,6 +1710,27 @@ namespace RuleSet
           rfl
       apply Set.finite_of_subset_finite overapproximation_finite
       intro t t_mem
+
+      have : ∀ func, func ∈ t.val.innerLabels -> func ∈ l_funcs := by
+        intro func func_mem
+        rw [funcs_eq]
+        unfold funcs
+
+        have : rs.skolem_functions = (rs.mfaKb rs_finite default).rules.skolem_functions := by
+          unfold mfaKb
+          unfold RuleSet.skolem_functions
+          simp only
+          -- TODO: show more general result on Constant Mapping: constant mapping on rules do not change skolem functions
+          sorry
+        rw [this]
+
+        apply (KnowledgeBase.skolemChaseResult_functions (rs.mfaKb rs_finite default) (rs.mfaKb_det_of_rs_det rs_finite default det))
+        rcases t_mem with ⟨f, f_mem, t_mem⟩
+        exists f
+        constructor
+        . exact f_mem
+        . exists t
+
       unfold overapproximation
       constructor
       . apply Decidable.byContradiction
@@ -1513,13 +1738,19 @@ namespace RuleSet
         apply isMfa t t_mem
         apply PreGroundTerm.cyclic_of_depth_too_big t l_funcs
         . exact l_funcs_nodup
-        . sorry
+        . exact this
         . simp at contra
           apply Nat.succ_le_of_lt
           exact contra
       constructor
-      . sorry
-      . sorry
+      . intro c c_mem
+
+        have := (KnowledgeBase.skolemChaseResult_constants (rs.mfaKb rs_finite default) (rs.mfaKb_det_of_rs_det rs_finite default det))
+
+        -- TODO: show that mfaKb only features the special constant!
+
+        sorry
+      . exact this
 
 end RuleSet
 
