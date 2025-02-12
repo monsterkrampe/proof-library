@@ -389,7 +389,7 @@ def GroundTerm.func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok
     exact t.property
 ⟩
 
--- TODO: remove cases and rec if not useful
+-- TODO: we are barely using cases and rec for GroundTerm; use it more or remove it if it turns out to not be useful
 @[elab_as_elim, cases_eliminator]
 def GroundTerm.cases
     {motive : GroundTerm sig -> Sort u}

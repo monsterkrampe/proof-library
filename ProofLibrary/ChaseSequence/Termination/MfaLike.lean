@@ -498,11 +498,6 @@ section ArgumentsForImages
 
     end
 
-    /- def arguments_for_term (g : StrictConstantMapping sig) (possible_constants : List sig.C) (t : GroundTerm sig) : List (GroundTerm sig) := -/
-    /-   (g.arguments_for_pre_term possible_constants t.val).attach.map (fun ⟨t', mem⟩ => -/
-    /-     ⟨t', g.arguments_for_pre_term_arity_ok possible_constants t.val t.property t' mem⟩ -/
-    /-   ) -/
-
     def arguments_for_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : List (GroundTerm sig)) : List (List (GroundTerm sig)) :=
       (g.arguments_for_pre_term_list possible_constants (FiniteTreeList.fromList ts.unattach)).attach.map (fun ⟨ts', mem⟩ =>
         have arity_ok := g.arguments_for_pre_term_list_arity_ok possible_constants (FiniteTreeList.fromList ts.unattach) (by
