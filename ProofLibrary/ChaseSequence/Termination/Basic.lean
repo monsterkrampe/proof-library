@@ -14,6 +14,14 @@ section Definitions
     def terminates (ct : ChaseTree obs kb) : Prop := ∀ branch, branch ∈ ct.branches -> branch.terminates
   end ChaseTree
 
+  namespace KnowledgeBase
+    def terminates (kb : KnowledgeBase sig) (obs : ObsoletenessCondition sig) : Prop := ∀ (ct : ChaseTree obs kb), ct.terminates
+  end KnowledgeBase
+
+  namespace RuleSet
+    def terminates (rs : RuleSet sig) (obs : ObsoletenessCondition sig) : Prop := ∀ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.terminates obs
+  end RuleSet
+
 end Definitions
 
 section GeneralResults

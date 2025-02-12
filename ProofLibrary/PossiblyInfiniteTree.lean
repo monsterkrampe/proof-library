@@ -2,6 +2,7 @@ import ProofLibrary.Fin
 import ProofLibrary.Option
 import ProofLibrary.List
 import ProofLibrary.PossiblyInfiniteList
+import ProofLibrary.Set.Finite
 
 -- NOTE: all finite lists indicating positions are right to left; infinite lists left to right (don't ask)
 

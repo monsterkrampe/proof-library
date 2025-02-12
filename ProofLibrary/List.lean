@@ -1,4 +1,4 @@
-import ProofLibrary.Set
+import ProofLibrary.Set.Basic
 import ProofLibrary.Option
 
 section
@@ -389,6 +389,93 @@ namespace List
         . rw [eq]
           simp [this]
         . simp
+
+  theorem eq_iff_unattach_eq {α : Type u} {p : α -> Prop} (as bs : List {x : α // p x}) : as.unattach = bs.unattach ↔ as = bs := by
+    constructor
+    . intro h
+      apply List.ext_getElem
+      . have : as.unattach.length = bs.unattach.length := by rw [h]
+        rw [List.length_unattach] at this
+        rw [List.length_unattach] at this
+        exact this
+      . rw [List.ext_getElem?_iff] at h
+        intro n le le'
+        specialize h n
+        unfold List.unattach at h
+        rw [List.getElem?_map] at h
+        rw [List.getElem?_map] at h
+        rw [List.getElem?_eq_getElem le] at h
+        rw [List.getElem?_eq_getElem le'] at h
+        simp at h
+        apply Subtype.eq
+        exact h
+    . intro h
+      rw [h]
+
+  theorem nodup_erase_of_nodup [DecidableEq α] (l : List α) (e : α) (nodup : l.Nodup) : (l.erase e).Nodup := by
+    induction l with
+    | nil => simp [List.erase]
+    | cons hd tl ih =>
+      rw [List.nodup_cons] at nodup
+      unfold List.erase
+      cases Decidable.em (hd == e) with
+      | inl eq =>
+        simp only [eq]
+        exact nodup.right
+      | inr eq =>
+        simp only [eq]
+        rw [List.nodup_cons]
+        constructor
+        . rw [List.mem_erase_of_ne]
+          . exact nodup.left
+          . simp at eq
+            exact eq
+        . exact ih nodup.right
+
+  theorem contains_dup_of_exceeding_nodup_list_with_same_elements
+      [DecidableEq α]
+      (as bs : List α)
+      (nodup_as : as.Nodup)
+      (len_lt : as.length < bs.length)
+      (contains_all : ∀ e, e ∈ bs -> e ∈ as) :
+      ¬ bs.Nodup := by
+    induction bs generalizing as with
+    | nil => simp at len_lt
+    | cons hd tl ih =>
+      rw [List.nodup_cons]
+      intro contra
+      cases Decidable.em (hd ∈ tl) with
+      | inl mem => apply contra.left; exact mem
+      | inr mem =>
+        apply ih (as.erase hd)
+        . apply nodup_erase_of_nodup
+          exact nodup_as
+        . rw [List.length_erase]
+          have : hd ∈ as := by apply contains_all; simp
+          simp [this]
+          apply Nat.lt_of_succ_lt_succ
+          rw [Nat.succ_eq_add_one]
+          rw [Nat.sub_one_add_one]
+          . rw [List.length_cons] at len_lt
+            exact len_lt
+          . intro contra
+            rw [List.length_eq_zero] at contra
+            rw [contra] at this
+            simp at this
+        . intro e e_mem
+          rw [List.mem_erase_of_ne]
+          . apply contains_all
+            simp [e_mem]
+          . intro contra
+            rw [contra] at e_mem
+            contradiction
+        . exact contra.right
+
+  theorem filter_eq_of_eq (as bs : List α) : as = bs -> ∀ (f : α -> Bool), as.filter f = bs.filter f := by intro h f; rw [h]
+
+  theorem map_eq_of_eq (as bs : List α) : as = bs -> ∀ (f : α -> β), as.map f = bs.map f := by intro h f; rw [h]
+
+  theorem flatten_eq_of_eq (as bs : List (List α)) : as = bs -> as.flatten = bs.flatten := by intro h; rw [h]
 
 end List
 

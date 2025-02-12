@@ -140,8 +140,8 @@ namespace ChaseBranch
                       exists VarOrConst.var v
                   . unfold Function.surjective_for_domain_and_image_set at not_surj
                     simp at not_surj
-                    rcases not_surj with ⟨t, t_mem, no_arg_for_t⟩
-                    exists t
+                    rcases not_surj with ⟨t, t_arity_ok, t_mem, no_arg_for_t⟩
+                    exists ⟨t, t_arity_ok⟩
                     constructor
                     . exact t_mem
                     . intro t_mem_image
@@ -149,7 +149,7 @@ namespace ChaseBranch
                       rcases f_mem with ⟨f', f'_mem, f_eq⟩
                       rw [← f_eq] at t_mem_image
                       simp [GroundTermMapping.applyFact] at t_mem_image
-                      rcases t_mem_image with ⟨t', t'_mem_image, t_eq⟩
+                      rcases t_mem_image with ⟨t', _, t'_mem_image, t_eq⟩
                       apply no_arg_for_t t'
                       . exists f'
                       . exact t_eq
@@ -418,15 +418,16 @@ namespace ChaseBranch
           simp only
           constructor
           . intro t
-            cases t with
+            cases eq : t.val with
             | inner _ _ => simp
             | leaf c =>
-              simp only
+              have eq : t = GroundTerm.const c := by apply Subtype.eq; exact eq
+              simp only [eq]
               unfold h
               split
               . rfl
-              . have := altMatch.left.left (FiniteTree.leaf c)
-                simp only at this
+              . have := altMatch.left.left (GroundTerm.const c)
+                simp only [GroundTerm.const] at this
                 exact this
           . intro f f_mem
             unfold GroundTermMapping.applyFactSet at f_mem
@@ -457,7 +458,7 @@ namespace ChaseBranch
               . rw [← f_eq]
                 unfold GroundTermMapping.applyFact
                 simp
-                intro t t_mem
+                intro t _ t_mem
                 unfold h
                 split
                 case isTrue t_mem_ts =>
@@ -550,7 +551,7 @@ namespace ChaseBranch
           . apply h_alt.applyPreservesElement
             exact f_mem
           . unfold GroundTermMapping.applyFact
-            simp
+            rw [List.mem_map]
             exists n
             constructor
             . exact n_mem
@@ -632,7 +633,7 @@ namespace ChaseBranch
           . apply h_alt.applyPreservesElement
             exact f_mem
           . unfold GroundTermMapping.applyFact
-            simp
+            rw [List.mem_map]
             exists n
 
   theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSet sig) (h : GroundTermMapping sig) (hom_res : h.isHomomorphism cb.result fs) (hom_fs : h.isHomomorphism fs fs) (t : GroundTerm sig) (t_mem : t ∈ cb.result.terms) (t_not_reaches_self : ∀ j, 1 ≤ j -> (h.repeat_hom j) t ≠ t) : cb.has_alt_match_for fs := by
@@ -665,12 +666,12 @@ namespace ChaseBranch
       have db_first := cb.database_first
       rw [db_first] at prop_step
       simp [Option.is_some_and] at prop_step
-      rcases prop_step with ⟨t, t_mem, t_prop⟩
+      rcases prop_step with ⟨t, _, t_mem, t_prop⟩
       rcases t_mem with ⟨f, f_mem, t_mem⟩
 
       have isFunctionFree := kb.db.toFactSet.property.right
       specialize isFunctionFree _ f_mem
-      specialize isFunctionFree t t_mem
+      specialize isFunctionFree _ t_mem
       rcases isFunctionFree with ⟨c, t_eq⟩
 
       specialize t_prop 1 (by simp)
@@ -727,12 +728,12 @@ namespace ChaseBranch
           have reaches_self := h.repeat_each_reaches_self_of_each_reachable l_terms (by
             intro t t_mem
             rw [l_terms_eq] at t_mem
-            specialize contra t t_mem 1
-            rcases contra with ⟨k, k_le, s, s_mem, s_eq⟩
+            specialize contra t _ t_mem 1
+            rcases contra with ⟨k, k_le, s, s_arity_ok, s_mem, s_eq⟩
             exists k
             constructor
             . exact k_le
-            . exists s
+            . exists ⟨s, s_arity_ok⟩
               rw [l_terms_eq]
               constructor
               . exact s_mem
@@ -837,8 +838,8 @@ namespace ChaseBranch
               rcases f_mem with ⟨f', f'_mem, f_eq⟩
               rw [← f_eq] at t_mem
               simp [GroundTermMapping.applyFact] at t_mem
-              rcases t_mem with ⟨t', t'_mem, t_eq⟩
-              apply prop_step ((k + 1) * l) _ t'
+              rcases t_mem with ⟨t', t'_arity_ok, t'_mem, t_eq⟩
+              apply prop_step ((k + 1) * l) _ ⟨t', t'_arity_ok⟩
               . exists f'; constructor; rw [node_fact_is_prev_fact_union_origin_res]; apply Or.inr; exact f'_mem; exact t'_mem
               . exact t_eq
               . apply Nat.le_trans; apply Nat.le_succ; apply Nat.le_mul_of_pos_right; apply Nat.lt_of_succ_le; exact l_le
@@ -849,14 +850,14 @@ namespace ChaseBranch
     intro contra
     unfold Function.surjective_for_domain_and_image_set at contra
     simp at contra
-    rcases contra with ⟨t, t_mem, contra⟩
+    rcases contra with ⟨t, t_arity_ok, t_mem, contra⟩
 
 
     apply noAltMatch
-    apply cb.altMatch_of_some_not_reaches_self cb.result h endo endo t t_mem
+    apply cb.altMatch_of_some_not_reaches_self cb.result h endo endo ⟨t, t_arity_ok⟩ t_mem
 
     intro j j_le eq
-    apply contra ((h.repeat_hom (j-1)) t)
+    apply contra ((h.repeat_hom (j-1)) ⟨t, t_arity_ok⟩)
     . have hom := h.repeat_hom_isHomomorphism cb.result endo (j-1)
       rcases t_mem with ⟨f, f_mem, t_mem⟩
       exists (h.repeat_hom (j-1)).applyFact f
@@ -864,9 +865,9 @@ namespace ChaseBranch
       . apply hom.right
         apply GroundTermMapping.applyPreservesElement
         exact f_mem
-      . simp [GroundTermMapping.applyFact]
-        exists t
-    . have repeat_add := h.repeat_hom_add 1 (j - 1) t
+      . simp only [GroundTermMapping.applyFact, List.mem_map]
+        exists ⟨t, t_arity_ok⟩
+    . have repeat_add := h.repeat_hom_add 1 (j - 1) ⟨t, t_arity_ok⟩
       conv at repeat_add => right; simp [GroundTermMapping.repeat_hom]
       rw [← repeat_add]
       rw [Nat.add_comm, Nat.sub_one_add_one (Nat.not_eq_zero_of_lt (Nat.lt_of_succ_le j_le))]

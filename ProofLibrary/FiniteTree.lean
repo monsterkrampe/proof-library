@@ -151,9 +151,23 @@ namespace FiniteTree
       | FiniteTree.inner _ ts => 1 + depthList ts
 
     def depthList : FiniteTreeList α β -> Nat
-      | FiniteTreeList.nil => 0
+      | FiniteTreeList.nil => 1
       | FiniteTreeList.cons t ts => max (depth t) (depthList ts)
   end
+
+  theorem depth_le_depthList_of_mem (ts : FiniteTreeList α β) : ∀ t, t ∈ ts.toList -> t.depth ≤ depthList ts := by
+    intro t t_mem
+    cases ts with
+    | nil => simp [FiniteTreeList.toList] at t_mem
+    | cons hd tl =>
+      unfold depthList
+      unfold FiniteTreeList.toList at t_mem
+      rw [List.mem_cons] at t_mem
+      cases t_mem with
+      | inl t_mem => rw [t_mem]; apply Nat.le_max_left
+      | inr t_mem =>
+        apply Nat.le_trans (depth_le_depthList_of_mem tl t t_mem)
+        apply Nat.le_max_right
 
   mutual
     def leaves : FiniteTree α β -> List β
@@ -165,6 +179,72 @@ namespace FiniteTree
       | FiniteTreeList.cons t ts => (leaves t) ++ (leavesList ts)
   end
 
+  theorem mem_leavesList (l : FiniteTreeList α β) : ∀ e, e ∈ leavesList l ↔ ∃ t, t ∈ l.toList ∧ e ∈ t.leaves := by
+    intro e
+    cases l with
+    | nil => simp [leavesList, FiniteTreeList.toList]
+    | cons hd tl =>
+      unfold leavesList
+      rw [List.mem_append]
+      constructor
+      . intro h
+        cases h with
+        | inl h => exists hd; constructor; simp [FiniteTreeList.toList]; exact h
+        | inr h =>
+          rcases (mem_leavesList tl e).mp h with ⟨t, t_mem, e_mem⟩
+          exists t
+          constructor
+          . simp [FiniteTreeList.toList, t_mem]
+          . exact e_mem
+      . intro h
+        rcases h with ⟨t, t_mem, e_mem⟩
+        unfold FiniteTreeList.toList at t_mem
+        rw [List.mem_cons] at t_mem
+        cases t_mem with
+        | inl t_mem => apply Or.inl; rw [← t_mem]; exact e_mem
+        | inr t_mem =>
+          apply Or.inr
+          apply (mem_leavesList tl e).mpr
+          exists t
+
+  mutual
+    def innerLabels : FiniteTree α β -> List α
+    | .leaf _ => []
+    | .inner a ts => a :: (innerLabelsList ts)
+
+    def innerLabelsList : FiniteTreeList α β -> List α
+    | .nil => []
+    | .cons hd tl => (innerLabels hd) ++ (innerLabelsList tl)
+  end
+
+  theorem mem_innerLabelsList (l : FiniteTreeList α β) : ∀ e, e ∈ innerLabelsList l ↔ ∃ t, t ∈ l.toList ∧ e ∈ t.innerLabels := by
+    intro e
+    cases l with
+    | nil => simp [innerLabelsList, FiniteTreeList.toList]
+    | cons hd tl =>
+      unfold innerLabelsList
+      rw [List.mem_append]
+      constructor
+      . intro h
+        cases h with
+        | inl h => exists hd; constructor; simp [FiniteTreeList.toList]; exact h
+        | inr h =>
+          rcases (mem_innerLabelsList tl e).mp h with ⟨t, t_mem, e_mem⟩
+          exists t
+          constructor
+          . simp [FiniteTreeList.toList, t_mem]
+          . exact e_mem
+      . intro h
+        rcases h with ⟨t, t_mem, e_mem⟩
+        unfold FiniteTreeList.toList at t_mem
+        rw [List.mem_cons] at t_mem
+        cases t_mem with
+        | inl t_mem => apply Or.inl; rw [← t_mem]; exact e_mem
+        | inr t_mem =>
+          apply Or.inr
+          apply (mem_innerLabelsList tl e).mpr
+          exists t
+
   mutual
     def mapLeaves (f : β -> FiniteTree α γ) (t : FiniteTree α β) : FiniteTree α γ := match t with
       | FiniteTree.leaf b => f b
@@ -174,6 +254,16 @@ namespace FiniteTree
       | FiniteTreeList.nil => FiniteTreeList.nil
       | FiniteTreeList.cons t ts => FiniteTreeList.cons (mapLeaves f t) (mapLeavesList f ts)
   end
+
+  theorem length_mapLeavesList (f : β -> FiniteTree α γ) (ts : FiniteTreeList α β) : (mapLeavesList f ts).toList.length = ts.toList.length := by
+    cases ts with
+    | nil => rfl
+    | cons hd tl =>
+      unfold mapLeavesList
+      unfold FiniteTreeList.toList
+      unfold List.length
+      rw [Nat.add_right_cancel_iff]
+      apply length_mapLeavesList
 
   theorem mapLeavesList_fromList_eq_fromList_map (f : β -> FiniteTree α γ) (ts : List (FiniteTree α β)) : FiniteTree.mapLeavesList f (FiniteTreeList.fromList ts) = FiniteTreeList.fromList (ts.map (fun t => t.mapLeaves f)) := by
     induction ts with

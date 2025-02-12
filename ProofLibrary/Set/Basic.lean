@@ -13,8 +13,6 @@ namespace Set
     intro helem
     exists e
 
-  def finite (X : Set α) : Prop := ∃ (l : List α), l.Nodup ∧ ∀ (e : α), e ∈ l ↔ e ∈ X
-
   def union (X Y : Set α) : Set α := fun e => e ∈ X ∨ e ∈ Y
   infixr:65 " ∪ " => union
 
@@ -78,4 +76,5 @@ namespace Set
     -- inr
     apply hb
     assumption
+
 end Set

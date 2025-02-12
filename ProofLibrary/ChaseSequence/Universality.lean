@@ -6,7 +6,7 @@ variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 abbrev InductiveHomomorphismResult (ct : ChaseTree obs kb) (m : FactSet sig) (depth : Nat) := {pair : (List Nat) × (GroundTermMapping sig) // pair.1.length = depth ∧ (ct.tree.get pair.1).is_none_or (fun fs => pair.2.isHomomorphism fs.fact m) }
 
 -- TODO: split up the following definition (rather the proofs inside) to get rid of heartbeat increase
-set_option maxHeartbeats 400000
+set_option maxHeartbeats 1000000
 
 noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) (trg_ex : exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst)) : InductiveHomomorphismResult ct m (prev_depth + 1) :=
   let prev_path := prev_result.val.fst
@@ -51,7 +51,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
   let result_index_for_trg : Fin trg.val.result.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.result; unfold PreTrigger.mapped_head; simp [List.enum_with_lt_length_eq]⟩
 
   let next_hom : GroundTermMapping sig := fun t =>
-    match t with
+    match t.val with
     | FiniteTree.leaf _ => t
     | FiniteTree.inner _ _ =>
       let t_in_step_j_dec := Classical.propDecidable (∃ f, f ∈ prev_node_unwrapped.fact.val ∧ t ∈ f.terms)
@@ -97,7 +97,10 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
     | some next_node =>
     rw [Option.is_none_or]
     constructor
-    . intro term; cases term <;> simp
+    . intro term
+      cases eq : term.val with
+      | leaf c => simp [next_hom, eq]
+      | inner _ _ => simp
     have next_node_results_from_trg : next_node.fact = prev_node_unwrapped.fact ∪ trg.val.result.get result_index_for_trg := by
       have length_eq_helper_1 : trg.val.rule.head.length = trg.val.result.enum_with_lt.attach.length := by
         rw [List.length_attach, List.enum_with_lt_length_eq]
@@ -144,10 +147,13 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       intro ground_term _
       have : ∃ f, f ∈ prev_node_unwrapped.fact.val ∧ ground_term ∈ f.terms := by
         exists fact
-      cases ground_term with
-      | leaf c => simp only [next_hom]; exact prev_cond_r.left (GroundTerm.const c)
+      cases eq : ground_term.val with
+      | leaf c =>
+        have eq : ground_term = GroundTerm.const c := by apply Subtype.eq; exact eq
+        simp only [next_hom, eq]
+        apply GroundTermMapping.apply_constant_is_id_of_isIdOnConstants prev_cond_r.left c
       | inner _ _ =>
-        simp only [next_hom]
+        simp only [next_hom, eq]
         split
         . rfl
         . contradiction
@@ -185,7 +191,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       rw [terms_eq, List.map_eq_map_iff]
       intro voc voc_is_in_head_atom_for_fact
       cases voc with
-      | const _ => rw [List.getElem_enum]; simp only [Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const]
+      | const _ => rw [List.getElem_enum]; simp only [Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const, next_hom, GroundTerm.const]
       | var v_from_head_atom =>
         have : trg.val.rule.head.enum[head_index_for_m_subs.val].fst = head_index_for_m_subs.val := by rw [List.getElem_enum]
         rw [this]
@@ -200,8 +206,9 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
           rw [h_obs_at_head_index_for_m_subs.left _ v_is_in_frontier]
           simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier]
           simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier] at h_c_eq
+          have h_c_eq : (trg.val.subs v_from_head_atom) = GroundTerm.const c := by apply Subtype.eq; exact h_c_eq
           rw [h_c_eq]
-          have prev_hom_id_on_constants := prev_cond_r.left (FiniteTree.leaf c)
+          have prev_hom_id_on_constants := GroundTermMapping.apply_constant_is_id_of_isIdOnConstants prev_cond_r.left c
           simp only at prev_hom_id_on_constants
           simp only [prev_hom]
           rw [prev_hom_id_on_constants]
@@ -302,7 +309,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
                   cases s with
                   | const const_s =>
                     simp [skolem_v, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, v_not_in_frontier, GroundSubstitution.apply_skolem_term] at hs
-                    contradiction
+                    simp [GroundTerm.const] at hs
                   | var var_s =>
                     apply PreTrigger.subs_application_is_injective_for_freshly_introduced_terms
                     apply v_not_in_frontier
@@ -357,7 +364,7 @@ noncomputable def inductive_homomorphism (ct : ChaseTree obs kb) (m : FactSet si
 | .zero => ⟨([], id), by
   simp [Option.is_none_or]; rw [ct.database_first]; simp
   constructor
-  . unfold GroundTermMapping.isIdOnConstants; intro gt ; cases gt <;> simp
+  . unfold GroundTermMapping.isIdOnConstants; intro gt; cases gt.val <;> simp
   . intro el
     simp [Set.element]
     intro el_in_set
@@ -579,10 +586,12 @@ theorem inductive_homomorphism_same_on_terms_in_next_step (ct : ChaseTree obs kb
       . unfold inductive_homomorphism_with_prev_node_and_trg
         simp
         split
-        case h_1 c =>
+        case h_1 c c_eq =>
+          have c_eq : t = GroundTerm.const c := by apply Subtype.eq; exact c_eq
+          rw [c_eq]
           have property := (inductive_homomorphism ct m m_is_model i).property.right
           rw [eq] at property; simp [Option.is_none_or] at property
-          exact property.left (GroundTerm.const c)
+          exact GroundTermMapping.apply_constant_is_id_of_isIdOnConstants property.left c
         case h_2 ft =>
           split
           case h_1 _ ex_f _ => rfl
@@ -807,7 +816,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
       intro f f_in_node
       unfold GroundTermMapping.applyFact
       simp [global_h]
-      intro t t_in_f
+      intro t _ t_in_f
       split
       case h_2 _ n_ex _ =>
         apply False.elim
@@ -879,7 +888,8 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
   . constructor
     . intro gt
       split
-      case h_1 _ c =>
+      case h_1 c c_eq =>
+        have c_eq : gt = GroundTerm.const c := by apply Subtype.eq; exact c_eq
         simp [global_h]
         split
         case h_1 _ p _ =>
@@ -892,7 +902,8 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
           | none => rw [eq] at i_spec; simp [Option.is_some_and] at i_spec
           | some node =>
             rw [eq] at property; simp [Option.is_none_or] at property
-            exact property.left (GroundTerm.const c)
+            simp only [c_eq]
+            exact GroundTermMapping.apply_constant_is_id_of_isIdOnConstants property.left c
         . trivial
       . trivial
     . intro f hf
