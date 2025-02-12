@@ -217,6 +217,34 @@ namespace FiniteTree
     | .cons hd tl => (innerLabels hd) ++ (innerLabelsList tl)
   end
 
+  theorem mem_innerLabelsList (l : FiniteTreeList α β) : ∀ e, e ∈ innerLabelsList l ↔ ∃ t, t ∈ l.toList ∧ e ∈ t.innerLabels := by
+    intro e
+    cases l with
+    | nil => simp [innerLabelsList, FiniteTreeList.toList]
+    | cons hd tl =>
+      unfold innerLabelsList
+      rw [List.mem_append]
+      constructor
+      . intro h
+        cases h with
+        | inl h => exists hd; constructor; simp [FiniteTreeList.toList]; exact h
+        | inr h =>
+          rcases (mem_innerLabelsList tl e).mp h with ⟨t, t_mem, e_mem⟩
+          exists t
+          constructor
+          . simp [FiniteTreeList.toList, t_mem]
+          . exact e_mem
+      . intro h
+        rcases h with ⟨t, t_mem, e_mem⟩
+        unfold FiniteTreeList.toList at t_mem
+        rw [List.mem_cons] at t_mem
+        cases t_mem with
+        | inl t_mem => apply Or.inl; rw [← t_mem]; exact e_mem
+        | inr t_mem =>
+          apply Or.inr
+          apply (mem_innerLabelsList tl e).mpr
+          exists t
+
   mutual
     def mapLeaves (f : β -> FiniteTree α γ) (t : FiniteTree α β) : FiniteTree α γ := match t with
       | FiniteTree.leaf b => f b

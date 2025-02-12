@@ -471,6 +471,12 @@ namespace List
             contradiction
         . exact contra.right
 
+  theorem filter_eq_of_eq (as bs : List α) : as = bs -> ∀ (f : α -> Bool), as.filter f = bs.filter f := by intro h f; rw [h]
+
+  theorem map_eq_of_eq (as bs : List α) : as = bs -> ∀ (f : α -> β), as.map f = bs.map f := by intro h f; rw [h]
+
+  theorem flatten_eq_of_eq (as bs : List (List α)) : as = bs -> as.flatten = bs.flatten := by intro h; rw [h]
+
 end List
 
 def List.repeat (val : α) : Nat -> List α
