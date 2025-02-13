@@ -9,11 +9,11 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 structure ChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
   fact : { fs : FactSet sig // fs.finite }
   -- the origin is none only for the database
-  origin : Option ((trg : RTrigger obs rules) × Fin trg.val.result.length)
+  origin : Option ((trg : RTrigger (obs : LaxObsoletenessCondition sig) rules) × Fin trg.val.result.length)
   fact_contains_origin_result : origin.is_none_or (fun origin => origin.fst.val.result.get origin.snd ⊆ fact)
 
 def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
-  ∃ trg : (RTrigger obs rules), trg.val.active before.fact ∧ ∃ i, some {
+  ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.fact ∧ ∃ i, some {
     fact := ⟨
       before.fact ∪ trg.val.result.get i,
       by

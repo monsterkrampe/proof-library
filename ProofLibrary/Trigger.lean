@@ -179,11 +179,16 @@ namespace PreTrigger
     exact u_in_frontier
 end PreTrigger
 
-structure ObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
+structure LaxObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
   cond : PreTrigger sig -> FactSet sig -> Prop
   monotone : ∀ trg (A B : FactSet sig), A ⊆ B -> cond trg A -> cond trg B
+
+structure ObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] extends LaxObsoletenessCondition sig where
   cond_implies_trg_is_satisfied : cond trg F -> trg.satisfied F
   contains_trg_result_implies_cond : ∀ {trg : PreTrigger sig} {F} (disj_index : Fin trg.result.length), (trg.result.get disj_index) ⊆ F -> cond trg F
+
+instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : Coe (ObsoletenessCondition sig) (LaxObsoletenessCondition sig) where
+  coe obs := { cond := obs.cond, monotone := obs.monotone }
 
 def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) (F : FactSet sig) => ∃ i : Fin trg.mapped_head.length, (trg.mapped_head.get i).toSet ⊆ F
@@ -283,12 +288,12 @@ def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq si
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
-structure Trigger (obsolete : ObsoletenessCondition sig) extends PreTrigger sig
+structure Trigger (obsolete : LaxObsoletenessCondition sig) extends PreTrigger sig
 
-def SkolemTrigger := Trigger (SkolemObsoleteness sig)
-def RestrictedTrigger := Trigger (RestrictedObsoleteness sig)
+def SkolemTrigger := Trigger (SkolemObsoleteness sig : LaxObsoletenessCondition sig)
+def RestrictedTrigger := Trigger (RestrictedObsoleteness sig : LaxObsoletenessCondition sig)
 
-variable {obs : ObsoletenessCondition sig}
+variable {obs : LaxObsoletenessCondition sig}
 
 instance : CoeOut (Trigger obs) (PreTrigger sig) where
   coe trigger := { rule := trigger.rule, subs := trigger.subs }
@@ -298,7 +303,7 @@ namespace Trigger
     trg.loaded F ∧ ¬ (obs.cond trg F)
 end Trigger
 
-def RTrigger (obs : ObsoletenessCondition sig) (r : RuleSet sig) := { trg : Trigger obs // trg.rule ∈ r.rules}
+def RTrigger (obs : LaxObsoletenessCondition sig) (r : RuleSet sig) := { trg : Trigger obs // trg.rule ∈ r.rules}
 
 namespace RTrigger
   def equiv (trg1 trg2 : RTrigger obs rs) : Prop := trg1.val.equiv trg2.val
