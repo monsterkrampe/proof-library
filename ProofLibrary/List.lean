@@ -239,7 +239,7 @@ namespace List
         simp
         constructor
         . rw [Nat.add_assoc, Nat.add_comm 1 j]
-        . rw [← Option.someInj]; simp [eq]
+        . rw [← Option.someInj]; simp [eq, jFin]
 
   theorem get_enum (l : List α) (i : Fin l.length) : l.enum.get ⟨i.val, (by rw [length_enum]; exact i.isLt)⟩ = (i.val, l.get i) := by
     unfold enum

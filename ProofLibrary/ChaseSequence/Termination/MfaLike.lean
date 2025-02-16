@@ -139,7 +139,7 @@ namespace StrictConstantMapping
     | nil => simp
     | cons hd tl ih =>
       cases hd <;> (
-        simp only [VarOrConst.filterVars, StrictConstantMapping.apply_var_or_const]
+        simp only [List.map_cons, VarOrConst.filterVars, StrictConstantMapping.apply_var_or_const]
         rw [ih]
       )
 
@@ -479,7 +479,7 @@ section ArgumentsForImages
       theorem arguments_for_pre_term_list_arity_ok (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : FiniteTreeList (SkolemFS sig) sig.C) (arity_ok : PreGroundTerm.arity_ok_list ts) : ∀ ts', ts' ∈ (g.arguments_for_pre_term_list possible_constants ts) -> PreGroundTerm.arity_ok_list (FiniteTreeList.fromList ts') := by
         intro ts' ts'_mem
         cases ts with
-        | nil => simp [arguments_for_pre_term_list] at ts'_mem; rw [ts'_mem]; simp [PreGroundTerm.arity_ok_list]
+        | nil => simp [arguments_for_pre_term_list] at ts'_mem; rw [ts'_mem]; simp [FiniteTreeList.fromList, PreGroundTerm.arity_ok_list]
         | cons hd tl =>
           unfold PreGroundTerm.arity_ok_list at arity_ok
           rw [Bool.and_eq_true] at arity_ok

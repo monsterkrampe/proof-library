@@ -498,10 +498,10 @@ namespace FiniteDegreeTree
           cases Decidable.em (n ≤ node.length) with
           | inl le =>
             rw [this n le]
-            simp [le]
+            simp only [branch_for_node, le]
             rfl
           | inr lt =>
-            simp [lt]
+            simp only [branch_for_node, lt]
             have no_orphans := tree.tree.no_orphans (nodes.take n).reverse
             apply Eq.symm
             apply Option.decidable_eq_none.byContradiction
@@ -617,10 +617,10 @@ namespace FiniteDegreeTree
             cases Decidable.em (n ≤ node.length) with
             | inl le =>
               rw [this n le]
-              simp [le]
+              simp only [branch_for_node, le]
               rfl
             | inr lt =>
-              simp [lt]
+              simp only [branch_for_node, lt]
               have : tree.tree.infinite_tree (nodes.take (node.length + 1)).reverse = none := by
                 have child_none : (tree.children node)[nodes node.length]? = none := by
                   apply List.getElem?_eq_none
@@ -636,7 +636,7 @@ namespace FiniteDegreeTree
                 . simp
               have le : node.length + 1 ≤ n := by apply Nat.succ_le_of_lt; apply Nat.lt_of_not_ge; exact lt
               cases Nat.eq_or_lt_of_le le with
-              | inl eq => rw [← eq, this]
+              | inl eq => simp [← eq, this]
               | inr lt =>
                 have no_orphans := tree.tree.no_orphans (nodes.take n).reverse
                 apply Eq.symm

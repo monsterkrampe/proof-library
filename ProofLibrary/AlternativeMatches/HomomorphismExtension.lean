@@ -86,8 +86,10 @@ namespace ChaseBranch
         simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, v_frontier]
         unfold h'
         rw [List.find?_eq_none.mpr]
+        simp [trg']
+        intro u u_mem
         simp
-        intro u u_mem u_frontier contra
+        intro u_frontier contra
         have u_result_not_in_frontier_image := trg.val.result_term_not_in_frontier_image_of_var_not_in_frontier disj_index u u_frontier
         apply u_result_not_in_frontier_image
         rw [contra]
@@ -348,7 +350,9 @@ namespace ChaseBranch
             | none => rw [eq2] at i_spec; simp [Option.is_some_and] at i_spec
             | some node' =>
               have target_hom := (target_h (i-k)).property
-              simp only [Nat.add_sub_of_le (Nat.le_of_lt lt), eq2, Option.is_none_or] at target_hom
+              have : cb.branch.infinite_list (k + (i - k)) = cb.branch.infinite_list i := by rw [Nat.add_sub_of_le (Nat.le_of_lt lt)]
+              simp only [this] at target_hom
+              simp only [eq2, Option.is_none_or] at target_hom
               exact target_hom.left (GroundTerm.const c)
         . rfl
 
@@ -435,6 +439,8 @@ namespace ChaseBranch
                 | inr gt2 =>
                   simp at gt2
                   have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom (j - k) (i - j)
+                  have : cb.branch.infinite_list (k + (j - k)) = cb.branch.infinite_list j := by rw [Nat.add_sub_of_le (Nat.le_of_lt gt)]
+                  simp only [this] at target_h_same
                   simp only [Nat.add_sub_of_le (Nat.le_of_lt gt), eq3, Option.is_none_or] at target_h_same
                   specialize target_h_same ⟨t, t_arity_ok⟩
                   have : (j - k + (i - j)) = i - k := by omega

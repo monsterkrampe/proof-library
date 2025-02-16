@@ -721,9 +721,9 @@ section ListsOfTerms
             unfold FiniteTree.depth at contra
             simp only [eq, GroundTerm.func] at contra
             cases ts with
-            | nil => simp [FiniteTree.depthList] at contra
+            | nil => simp [FiniteTreeList.fromList, FiniteTree.depthList] at contra
             | cons t _ =>
-              simp only [FiniteTree.depthList] at contra
+              simp only [List.unattach, List.map_cons, FiniteTreeList.fromList, FiniteTree.depthList] at contra
               rw [Nat.add_comm, Nat.succ_le_succ_iff, Nat.max_le] at contra
               have contra := contra.left
               unfold FiniteTree.depth at contra

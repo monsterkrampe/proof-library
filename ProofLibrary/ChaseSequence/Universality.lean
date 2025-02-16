@@ -48,7 +48,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
   let obs_for_m_subs := Classical.choose h_head_index_for_m_subs
   let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
 
-  let result_index_for_trg : Fin trg.val.result.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.result; unfold PreTrigger.mapped_head; simp [List.enum_with_lt_length_eq]⟩
+  let result_index_for_trg : Fin trg.val.result.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.result; unfold PreTrigger.mapped_head; simp [List.enum_with_lt_length_eq]; exact head_index_for_m_subs.isLt⟩
 
   let next_hom : GroundTermMapping sig := fun t =>
     match t.val with
@@ -70,7 +70,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
           let idx_t_in_f := f.terms.idx_of t t_in_f
           have idx_t_in_f_isLt := idx_t_in_f.isLt
           have f_is_at_its_idx :
-            f = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_length_eq]⟩).get ⟨idx_f.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_getElem_snd_eq_getElem]⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
+            f = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_length_eq]; exact head_index_for_m_subs.isLt⟩).get ⟨idx_f.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_getElem_snd_eq_getElem]; exact idx_f.isLt⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
 
           have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by
               rw [f_is_at_its_idx]
@@ -113,8 +113,8 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       rw [List.map_eq_iff] at trg_result_used_for_next_chase_step
       specialize trg_result_used_for_next_chase_step head_index_for_m_subs.val
       have index_valid : head_index_for_m_subs < (ct.tree.children prev_path).length := by rw [← length_eq_helper_2]; exact head_index_for_m_subs.isLt
-      rw [List.getElem?_eq_getElem (l:=ct.tree.children prev_path) (n:=head_index_for_m_subs) index_valid] at trg_result_used_for_next_chase_step
-      rw [List.getElem?_eq_getElem (l:=trg.val.result.enum_with_lt.attach) (n:=head_index_for_m_subs) (by rw [← length_eq_helper_1]; simp)] at trg_result_used_for_next_chase_step
+      rw [List.getElem?_eq_getElem (l:=ct.tree.children prev_path) (i:=head_index_for_m_subs) index_valid] at trg_result_used_for_next_chase_step
+      rw [List.getElem?_eq_getElem (l:=trg.val.result.enum_with_lt.attach) (i:=head_index_for_m_subs) (by rw [← length_eq_helper_1]; exact head_index_for_m_subs.isLt)] at trg_result_used_for_next_chase_step
       rw [Option.map_some'] at trg_result_used_for_next_chase_step
       injection trg_result_used_for_next_chase_step with trg_result_used_for_next_chase_step
       have : some (ct.tree.children prev_path)[head_index_for_m_subs.val] = some next_node := by
@@ -180,7 +180,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
 
       simp only [head_index_for_m_subs, Fact.mk.injEq]
       constructor
-      . simp only [List.getElem_enum]
+      . simp only [List.getElem_enum]; rfl
       let head_disjunct : List (FunctionFreeAtom sig) := trg.val.rule.head[head_index_for_m_subs.val]
       have : (trg.val.rule.head.enum[head_index_for_m_subs.val]'(by rw [List.enum_length]; exact head_index_for_m_subs.isLt)).snd = head_disjunct := by rw [List.getElem_enum]
       have terms_eq : head_disjunct[idx_of_fact_in_result.val].terms = head_disjunct[idx_of_fact_in_result.val].terms := rfl
@@ -207,9 +207,9 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
           simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier]
           simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier] at h_c_eq
           have h_c_eq : (trg.val.subs v_from_head_atom) = GroundTerm.const c := by apply Subtype.eq; exact h_c_eq
+          simp only [trg_variant_for_m]
           rw [h_c_eq]
           have prev_hom_id_on_constants := GroundTermMapping.apply_constant_is_id_of_isIdOnConstants prev_cond_r.left c
-          simp only at prev_hom_id_on_constants
           simp only [prev_hom]
           rw [prev_hom_id_on_constants]
         case h_2 =>
@@ -233,6 +233,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
 
             rw [h_obs_at_head_index_for_m_subs.left]
             simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier]
+            simp only [trg_variant_for_m]
             have : trg.val.rule = trg_variant_for_m.val.rule := by rfl
             rw [← this]
             apply v_is_in_frontier
@@ -287,7 +288,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
                 let atom_in_head := (trg.val.rule.head.get head_index_for_m_subs).get idx_f
                 let idx_v_in_f := chosen_f.terms.idx_of (trg.val.apply_to_var_or_const head_index_for_m_subs v_from_head_atom) applied_v_is_in_chosen_f
                 have idx_v_in_f_isLt := idx_v_in_f.isLt
-                have f_is_at_its_idx : chosen_f = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_length_eq]⟩).get ⟨idx_f.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_getElem_snd_eq_getElem]⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
+                have f_is_at_its_idx : chosen_f = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_length_eq]; exact head_index_for_m_subs.isLt⟩).get ⟨idx_f.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_getElem_snd_eq_getElem]; exact idx_f.isLt⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
                 have v_is_at_its_idx : (trg.val.apply_to_var_or_const head_index_for_m_subs v_from_head_atom) = chosen_f.terms.get idx_v_in_f := by simp [idx_v_in_f]; apply List.idx_of_get
 
                 have atom_arity_same_as_fact : chosen_f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by
@@ -308,7 +309,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
                   intro s hs
                   cases s with
                   | const const_s =>
-                    simp [skolem_v, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, v_not_in_frontier, GroundSubstitution.apply_skolem_term] at hs
+                    simp [skolem_v, v_from_head_atom, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, v_not_in_frontier, GroundSubstitution.apply_skolem_term] at hs
                     simp [GroundTerm.const] at hs
                   | var var_s =>
                     apply PreTrigger.subs_application_is_injective_for_freshly_introduced_terms
@@ -497,7 +498,7 @@ theorem inductive_homomorphism_with_prev_node_and_trg_latest_index_lt_trg_result
 
     have : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_step (inductive_homomorphism ct m m_is_model prev_step) prev_node (by rw [prev_ex]) trg_ex).val.fst = head_index_for_m_subs.val :: prev_result.val.fst := by
       unfold inductive_homomorphism_with_prev_node_and_trg
-      simp [head_index_for_m_subs]
+      simp [head_index_for_m_subs, prev_result]
     simp [this]
     have isLt := head_index_for_m_subs.isLt
     simp only [trg_variant_for_m, trg] at isLt
@@ -654,7 +655,9 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
       simp
       rw [inductive_homomorphism_path_extends_prev]
       simp
-      exact ih
+      constructor
+      . simp only [indices, inductive_homomorphism_shortcut]
+      . exact ih
 
   let path : Nat -> Option (ChaseNode obs kb.rules) := fun n => (ct.tree.get (inductive_homomorphism_shortcut n).val.1)
   let nodes : PossiblyInfiniteList (ChaseNode obs kb.rules) := {
@@ -755,7 +758,6 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
                 exact all_none
             . intro m hm
               have m_eq := hn.right m hm
-              simp only [nodes] at m_eq
               rw [m_eq]
               simp [Option.is_none_or]
       | inr h =>
@@ -764,7 +766,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
           simp
           intro n
           induction n with
-          | zero => simp [path, inductive_homomorphism_shortcut, inductive_homomorphism]; rw [ct.database_first]; simp
+          | zero => simp [nodes, path, inductive_homomorphism_shortcut, inductive_homomorphism]; rw [ct.database_first]; simp
           | succ n ih =>
             specialize h n ih
             cases h with | intro m hm =>
@@ -840,7 +842,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
             apply Eq.symm
             simp only [inductive_homomorphism_shortcut]
             have same_all_following := inductive_homomorphism_same_on_all_following_terms ct m m_is_model i
-            simp only [branch, path, inductive_homomorphism_shortcut] at eq
+            simp only [branch, nodes, path, inductive_homomorphism_shortcut] at eq
             rw [eq] at same_all_following; simp [Option.is_none_or] at same_all_following
             apply same_all_following
             exact f_in_node
@@ -855,7 +857,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
             | none => rw [eq2] at j_spec; simp [Option.is_some_and] at j_spec
             | some _ =>
               rw [eq2] at j_spec; simp [Option.is_some_and] at j_spec
-              simp only [branch, path, inductive_homomorphism_shortcut] at eq2
+              simp only [branch, nodes, path, inductive_homomorphism_shortcut] at eq2
               rw [eq2] at same_all_following; simp [Option.is_none_or] at same_all_following
               apply same_all_following
               exact j_spec
@@ -879,7 +881,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
     exists indices
     constructor
     . intro n
-      simp only [path]
+      simp only [branch, nodes, path]
       rw [indices_aux_result]
       unfold FiniteDegreeTree.get
       unfold PossiblyInfiniteTree.get
@@ -897,7 +899,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
           let i := Classical.choose hfl
           let i_spec := Classical.choose_spec hfl
           have property := (inductive_homomorphism_shortcut i).property.right
-          simp only [branch, path] at i_spec
+          simp only [branch, nodes, path] at i_spec
           cases eq : ct.tree.get (inductive_homomorphism_shortcut i).val.fst with
           | none => rw [eq] at i_spec; simp [Option.is_some_and] at i_spec
           | some node =>
@@ -913,11 +915,12 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
       unfold GroundTermMapping.applyFactSet at hf
       cases hf with | intro e he =>
         let ⟨hel, her⟩ := he
-        simp [Set.element] at hel
+        simp only [Set.element] at hel
         cases hel with | intro n hn =>
+          simp only [branch, nodes] at hn
           rw [← her]
           specialize this n
-          simp only [branch] at this
+          simp only [branch, nodes] at this
           cases eq : path n with
           | none => rw [eq] at hn; simp [Option.is_some_and] at hn
           | some node =>

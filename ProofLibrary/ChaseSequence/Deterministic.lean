@@ -179,6 +179,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
     exists nodes
     constructor
     . intro n
+      unfold firstBranch
       unfold FiniteDegreeTree.get
       unfold PossiblyInfiniteTree.get
       have : List.repeat 0 n = (nodes.take n).reverse := by
@@ -190,6 +191,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
           unfold InfiniteList.take
           rw [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append]
           rw [ih]
+      simp only
       rw [this]
     . rfl
   . unfold ChaseBranch.result
