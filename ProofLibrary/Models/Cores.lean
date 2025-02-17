@@ -652,10 +652,10 @@ namespace FactSet
     . apply GroundTermMapping.strong_of_compose_strong h_wc_sc h_sc_wc wc.terms wc sc wc h_sc_wc_hom
       exact wc_weak.left
     constructor
-    -- injective since h_sc_wc ∘ h_wc_sc is injetive
+    -- injective since h_sc_wc ∘ h_wc_sc is injective
     . apply Function.injective_of_injective_compose h_wc_sc h_sc_wc
       exact wc_weak.right
-    -- surjective since h_wc_sc ∘ h_sc_wc is surjetive
+    -- surjective since h_wc_sc ∘ h_sc_wc is surjective
     . apply Function.surjective_of_surjective_from_subset
       . apply Function.surjective_of_surjective_compose h_sc_wc h_wc_sc sc.terms
         exact sc_strong.right.right
