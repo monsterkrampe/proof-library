@@ -1,11 +1,19 @@
-# Proof Library
+# Existential Rules in Lean
 
-This is a collection of some definitions, results, and proofs written up in LEAN 4.
-Mostly, these are vaguely related to my own research.
-I started this project in my free time to get some hands on experience with lean.
+This is a collection of some definitions, results, and proofs around
+Existential Rules (aka. Tuple-Generating Dependencies) with disjunctions
+and the Chase algorithm
+written up in LEAN 4.
+Mostly, these the formalizations related to my own research.
 
-As a first milestone, this repo contains a formalization of the restricted chase in `ProofLibrary/ChaseSequence.lean`
-and a proof that the result of such a sequence is a universal model. (This is a fundamental and well-known result in my field of research.)
+As a first milestone, this repo contains a somewhat generalized formalization of the chase on disjunctive existential rules in `ProofLibrary/ChaseSequence`.
+The generalized definition captures both the skolem and restricted chase at the same time.
+The definition of the chase for disjunctive rules involves (possibly) infinite trees of finite degree.
+
+Some key results around this definition have already been formalized:
+- The result of the chase is a universal model set (which is the fundamental property of this algorithm).
+- A chase sequence without alternative matches on rules without disjunctions yields a universal model that is a core.
+- If a rule set is model-faithful acyclic (MFA), then every chase sequence on every database terminates.
 
 ## Notes on Setup
 
