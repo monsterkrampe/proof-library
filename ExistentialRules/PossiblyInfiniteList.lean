@@ -1,4 +1,4 @@
-import ProofLibrary.List
+import ExistentialRules.List
 
 def InfiniteList (α : Type u) := Nat -> α
 

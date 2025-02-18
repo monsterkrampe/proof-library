@@ -1,7 +1,7 @@
-import ProofLibrary.SubstitutionAndHomomorphismBasics
-import ProofLibrary.Trigger
-import ProofLibrary.ChaseSequence.Basic
-import ProofLibrary.ChaseSequence.Deterministic
+import ExistentialRules.SubstitutionAndHomomorphismBasics
+import ExistentialRules.Trigger
+import ExistentialRules.ChaseSequence.Basic
+import ExistentialRules.ChaseSequence.Deterministic
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 

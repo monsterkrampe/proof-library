@@ -1,5 +1,5 @@
-import ProofLibrary.ChaseSequence.Basic
-import ProofLibrary.ChaseSequence.Universality
+import ExistentialRules.ChaseSequence.Basic
+import ExistentialRules.ChaseSequence.Universality
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}

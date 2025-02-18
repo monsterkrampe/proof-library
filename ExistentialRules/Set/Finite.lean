@@ -1,5 +1,5 @@
-import ProofLibrary.Set.Basic
-import ProofLibrary.List
+import ExistentialRules.Set.Basic
+import ExistentialRules.List
 
 namespace Set
 

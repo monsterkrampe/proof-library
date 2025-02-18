@@ -1,7 +1,7 @@
-import ProofLibrary.List
-import ProofLibrary.FiniteTree
-import ProofLibrary.Set.Basic
-import ProofLibrary.Set.Finite
+import ExistentialRules.List
+import ExistentialRules.FiniteTree
+import ExistentialRules.Set.Basic
+import ExistentialRules.Set.Finite
 
 structure Signature where
   P : Type u

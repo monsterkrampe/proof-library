@@ -1,8 +1,8 @@
-import ProofLibrary.KnowledgeBaseBasics
-import ProofLibrary.Models.Basic
-import ProofLibrary.Trigger
-import ProofLibrary.Logic
-import ProofLibrary.PossiblyInfiniteTree
+import ExistentialRules.KnowledgeBaseBasics
+import ExistentialRules.Models.Basic
+import ExistentialRules.Trigger
+import ExistentialRules.Logic
+import ExistentialRules.PossiblyInfiniteTree
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 

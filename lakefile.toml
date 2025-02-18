@@ -1,6 +1,17 @@
-name = "ProofLibrary"
+name = "ExistentialRules"
 version = "0.1.0"
-defaultTargets = ["ProofLibrary"]
+defaultTargets = ["ExistentialRules"]
 
 [[lean_lib]]
-name = "ProofLibrary"
+name = "ExistentialRules"
+
+[[require]]
+name = "BasicLeanDatastructures"
+git = "https://github.com/monsterkrampe/Basic-Lean-Datastructures.git"
+rev = "main"
+
+[[require]]
+name = "PossiblyInfiniteTrees"
+git = "https://github.com/monsterkrampe/Possibly-Infinite-Trees.git"
+rev = "main"
+

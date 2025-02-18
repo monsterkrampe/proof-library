@@ -1,5 +1,5 @@
 -- NOTE: Inductive Trees are always finite!
-import ProofLibrary.List
+import ExistentialRules.List
 
 mutual
   inductive FiniteTree (α : Type u) (β : Type v) where

@@ -1,5 +1,5 @@
-import ProofLibrary.Set.Basic
-import ProofLibrary.Option
+import ExistentialRules.Set.Basic
+import ExistentialRules.Option
 
 section
   -- copied from mathlib

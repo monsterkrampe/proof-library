@@ -6,7 +6,7 @@ and the Chase algorithm
 written up in LEAN 4.
 Mostly, these the formalizations related to my own research.
 
-As a first milestone, this repo contains a somewhat generalized formalization of the chase on disjunctive existential rules in `ProofLibrary/ChaseSequence`.
+As a first milestone, this repo contains a somewhat generalized formalization of the chase on disjunctive existential rules in `ExistentialRules/ChaseSequence`.
 The generalized definition captures both the skolem and restricted chase at the same time.
 The definition of the chase for disjunctive rules involves (possibly) infinite trees of finite degree.
 

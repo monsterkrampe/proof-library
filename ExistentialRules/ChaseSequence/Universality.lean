@@ -1,4 +1,4 @@
-import ProofLibrary.ChaseSequence.Basic
+import ExistentialRules.ChaseSequence.Basic
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}

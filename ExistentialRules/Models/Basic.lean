@@ -1,5 +1,5 @@
-import ProofLibrary.KnowledgeBaseBasics
-import ProofLibrary.SubstitutionAndHomomorphismBasics
+import ExistentialRules.KnowledgeBaseBasics
+import ExistentialRules.SubstitutionAndHomomorphismBasics
 
 namespace FactSet
   variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]

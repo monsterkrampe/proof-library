@@ -1,7 +1,7 @@
-import ProofLibrary.List
-import ProofLibrary.Set.Basic
-import ProofLibrary.Set.Finite
-import ProofLibrary.TermBasics
+import ExistentialRules.List
+import ExistentialRules.Set.Basic
+import ExistentialRules.Set.Finite
+import ExistentialRules.TermBasics
 
 section StructuralDefs
 

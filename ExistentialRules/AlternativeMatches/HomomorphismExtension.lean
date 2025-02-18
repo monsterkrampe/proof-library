@@ -1,4 +1,4 @@
-import ProofLibrary.AlternativeMatches.Basic
+import ExistentialRules.AlternativeMatches.Basic
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 

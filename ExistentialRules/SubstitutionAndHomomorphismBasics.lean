@@ -1,5 +1,5 @@
-import ProofLibrary.List
-import ProofLibrary.KnowledgeBaseBasics
+import ExistentialRules.List
+import ExistentialRules.KnowledgeBaseBasics
 
 section Defs
 

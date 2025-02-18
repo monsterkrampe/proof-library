@@ -1,4 +1,4 @@
-import ProofLibrary.ChaseSequence.Termination.Basic
+import ExistentialRules.ChaseSequence.Termination.Basic
 
 section Defs
 

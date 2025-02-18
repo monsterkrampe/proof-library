@@ -1,5 +1,5 @@
-import ProofLibrary.SubstitutionAndHomomorphismBasics
-import ProofLibrary.Models.Basic
+import ExistentialRules.SubstitutionAndHomomorphismBasics
+import ExistentialRules.Models.Basic
 
 namespace List
 

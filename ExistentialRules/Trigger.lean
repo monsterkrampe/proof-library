@@ -1,5 +1,5 @@
-import ProofLibrary.KnowledgeBaseBasics
-import ProofLibrary.SubstitutionAndHomomorphismBasics
+import ExistentialRules.KnowledgeBaseBasics
+import ExistentialRules.SubstitutionAndHomomorphismBasics
 
 structure PreTrigger (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
   rule : Rule sig
