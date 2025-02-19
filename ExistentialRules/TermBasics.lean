@@ -1,7 +1,7 @@
-import ExistentialRules.List
-import ExistentialRules.FiniteTree
-import ExistentialRules.Set.Basic
-import ExistentialRules.Set.Finite
+import BasicLeanDatastructures.List.Basic
+import BasicLeanDatastructures.FiniteTree
+import BasicLeanDatastructures.Set.Basic
+import BasicLeanDatastructures.Set.Finite
 
 structure Signature where
   P : Type u

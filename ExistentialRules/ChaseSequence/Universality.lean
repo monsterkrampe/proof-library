@@ -35,8 +35,9 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       apply PreTrigger.term_mapping_preserves_loadedness
       . exact prev_hom_is_homomorphism.left
       . exact trg_active_for_current_step.left
-    apply Set.subsetTransitive
-    exact ⟨this, prev_hom_is_homomorphism.right⟩
+    apply Set.subset_trans
+    . exact this
+    . exact prev_hom_is_homomorphism.right
   have trg_variant_satisfied_on_m : trg_variant_for_m.val.satisfied m := by
     have m_models_rule : m.modelsRule trg_variant_for_m.val.rule := by exact m_is_model.right trg.val.rule trg.property
     unfold FactSet.modelsRule at m_models_rule
@@ -48,7 +49,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
   let obs_for_m_subs := Classical.choose h_head_index_for_m_subs
   let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
 
-  let result_index_for_trg : Fin trg.val.result.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.result; unfold PreTrigger.mapped_head; simp [List.enum_with_lt_length_eq]; exact head_index_for_m_subs.isLt⟩
+  let result_index_for_trg : Fin trg.val.result.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.result; unfold PreTrigger.mapped_head; simp [List.length_enum_with_lt]; exact head_index_for_m_subs.isLt⟩
 
   let next_hom : GroundTermMapping sig := fun t =>
     match t.val with
@@ -67,10 +68,10 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
 
           let idx_f := trg.val.idx_of_fact_in_result f result_index_for_trg f_in_trg_result
           let atom_in_head := (trg.val.rule.head.get head_index_for_m_subs).get idx_f
-          let idx_t_in_f := f.terms.idx_of t t_in_f
+          let idx_t_in_f := f.terms.idx_of t_in_f
           have idx_t_in_f_isLt := idx_t_in_f.isLt
           have f_is_at_its_idx :
-            f = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_length_eq]; exact head_index_for_m_subs.isLt⟩).get ⟨idx_f.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_getElem_snd_eq_getElem]; exact idx_f.isLt⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
+            f = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by simp [PreTrigger.mapped_head, List.length_enum_with_lt]; exact head_index_for_m_subs.isLt⟩).get ⟨idx_f.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_getElem_snd_eq_getElem]; exact idx_f.isLt⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
 
           have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by
               rw [f_is_at_its_idx]
@@ -103,7 +104,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       | inner _ _ => simp
     have next_node_results_from_trg : next_node.fact = prev_node_unwrapped.fact ∪ trg.val.result.get result_index_for_trg := by
       have length_eq_helper_1 : trg.val.rule.head.length = trg.val.result.enum_with_lt.attach.length := by
-        rw [List.length_attach, List.enum_with_lt_length_eq]
+        rw [List.length_attach, List.length_enum_with_lt]
         unfold PreTrigger.result
         unfold PreTrigger.mapped_head
         rw [List.map_map, List.length_map, List.enum_length]
@@ -166,7 +167,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       unfold GroundTermMapping.applyFact
 
       apply h_obs_at_head_index_for_m_subs.right
-      rw [← List.inIffInToSet]
+      rw [List.mem_toSet]
       rw [List.mem_iff_get]
       exists ⟨idx_of_fact_in_result.val, (by
         simp only [GroundSubstitution.apply_function_free_conj, List.length_map]
@@ -247,8 +248,8 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
                 constructor
                 . apply trg_active_for_current_step.left
                   unfold PreTrigger.mapped_body
-                  apply List.mappedElemInMappedList
-                  rw [← List.inIffInToSet]
+                  rw [List.mem_toSet]
+                  apply List.mem_map_of_mem
                   apply hf.left
                 . simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier, GroundSubstitution.apply_function_free_atom]
                   rw [List.mem_map]
@@ -286,9 +287,9 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
 
                 let idx_f := trg.val.idx_of_fact_in_result chosen_f result_index_for_trg chosen_f_in_result
                 let atom_in_head := (trg.val.rule.head.get head_index_for_m_subs).get idx_f
-                let idx_v_in_f := chosen_f.terms.idx_of (trg.val.apply_to_var_or_const head_index_for_m_subs v_from_head_atom) applied_v_is_in_chosen_f
+                let idx_v_in_f := chosen_f.terms.idx_of applied_v_is_in_chosen_f
                 have idx_v_in_f_isLt := idx_v_in_f.isLt
-                have f_is_at_its_idx : chosen_f = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_length_eq]; exact head_index_for_m_subs.isLt⟩).get ⟨idx_f.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_getElem_snd_eq_getElem]; exact idx_f.isLt⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
+                have f_is_at_its_idx : chosen_f = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by simp [PreTrigger.mapped_head, List.length_enum_with_lt]; exact head_index_for_m_subs.isLt⟩).get ⟨idx_f.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_getElem_snd_eq_getElem]; exact idx_f.isLt⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
                 have v_is_at_its_idx : (trg.val.apply_to_var_or_const head_index_for_m_subs v_from_head_atom) = chosen_f.terms.get idx_v_in_f := by simp [idx_v_in_f]; apply List.idx_of_get
 
                 have atom_arity_same_as_fact : chosen_f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by
@@ -420,14 +421,14 @@ theorem inductive_homomorphism_path_not_empty {ct : ChaseTree obs kb} : ∀ n, (
   apply inductive_homomorphism_with_prev_node_and_trg_path_not_empty
 
 theorem inductive_homomorphism_with_prev_node_and_trg_path_extends_prev (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) (trg_ex : exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst)) : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex).val.1 = ((inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex).val.1.head (by apply inductive_homomorphism_with_prev_node_and_trg_path_not_empty)) :: prev_result.val.fst := by
-  conv => left; rw [List.head_cons_tail _ (inductive_homomorphism_with_prev_node_and_trg_path_not_empty ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex)]
+  conv => left; rw [List.head_cons_tail_of_ne_nil (inductive_homomorphism_with_prev_node_and_trg_path_not_empty ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex)]
   simp
   unfold inductive_homomorphism_with_prev_node_and_trg
   simp
 
 theorem inductive_homomorphism_path_extends_prev {ct : ChaseTree obs kb} : ∀ n, (inductive_homomorphism ct m m_is_model (n+1)).val.1 = ((inductive_homomorphism ct m m_is_model (n+1)).val.1.head (by apply inductive_homomorphism_path_not_empty)) :: (inductive_homomorphism ct m m_is_model n).val.1 := by
   intro n
-  conv => left; rw [List.head_cons_tail _ (inductive_homomorphism_path_not_empty n)]
+  conv => left; rw [List.head_cons_tail_of_ne_nil (inductive_homomorphism_path_not_empty n)]
   simp
   conv => left; unfold inductive_homomorphism
   split
@@ -486,8 +487,9 @@ theorem inductive_homomorphism_with_prev_node_and_trg_latest_index_lt_trg_result
         apply PreTrigger.term_mapping_preserves_loadedness
         . exact prev_hom_is_homomorphism.left
         . exact trg_active_for_current_step.left
-      apply Set.subsetTransitive
-      exact ⟨this, prev_hom_is_homomorphism.right⟩
+      apply Set.subset_trans
+      . exact this
+      . exact prev_hom_is_homomorphism.right
     have trg_variant_satisfied_on_m : trg_variant_for_m.val.satisfied m := by
       have m_models_rule : m.modelsRule trg_variant_for_m.val.rule := by exact m_is_model.right trg.val.rule trg.property
       unfold FactSet.modelsRule at m_models_rule
@@ -555,7 +557,7 @@ theorem inductive_homomorphism_tree_get_path_none_means_layer_empty {ct : ChaseT
           let trg_spec := Classical.choose_spec ex
           rw [← trg_spec.right]
           simp
-          rw [List.enum_with_lt_length_eq]
+          rw [List.length_enum_with_lt]
           apply inductive_homomorphism_with_prev_node_and_trg_latest_index_lt_trg_result_length
           rw [heq]
       ⟩
@@ -709,7 +711,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
           constructor
           . exact h.left
           let i : Fin trg.val.result.length := ⟨((inductive_homomorphism_shortcut (n+1)).val.fst.head (inductive_homomorphism_path_not_empty n)), inductive_homomorphism_latest_index_lt_trg_result_length n node (by rw [← eq]) ex_trg⟩
-          let i' : Fin (ct.tree.children (inductive_homomorphism_shortcut n).val.1).length := ⟨i.val, by rw [← h.right]; simp; rw [List.enum_with_lt_length_eq]; exact i.isLt⟩
+          let i' : Fin (ct.tree.children (inductive_homomorphism_shortcut n).val.1).length := ⟨i.val, by rw [← h.right]; simp; rw [List.length_enum_with_lt]; exact i.isLt⟩
           exists i
           rw [inductive_homomorphism_path_extends_prev]
           rw [← ct.tree.getElem_children_eq_get_tree _ i']

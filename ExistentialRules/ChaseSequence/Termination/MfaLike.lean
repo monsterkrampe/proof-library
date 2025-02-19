@@ -1,3 +1,5 @@
+import BasicLeanDatastructures.List.Repeat
+
 import ExistentialRules.ChaseSequence.Termination.Basic
 
 section Defs
@@ -651,8 +653,7 @@ def DeterministicSkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [Decid
     intro trg A B A_sub_B
     simp
     intro head_sub_A i
-    apply Set.subsetTransitive
-    constructor
+    apply Set.subset_trans
     . apply head_sub_A
     . apply A_sub_B
 }
@@ -671,7 +672,7 @@ namespace KnowledgeBase
 
   theorem parallelSkolemChase_subset_all_following (kb : KnowledgeBase sig) (n m : Nat) : kb.parallelSkolemChase n ⊆ kb.parallelSkolemChase (n+m) := by
     induction m with
-    | zero => apply Set.subsetOfSelf
+    | zero => apply Set.subset_refl
     | succ m ih =>
       rw [← Nat.add_assoc]
       conv => right; unfold parallelSkolemChase
@@ -686,8 +687,8 @@ namespace KnowledgeBase
     induction n with
     | zero =>
       unfold parallelSkolemChase
-      apply Set.subsetUnionSomethingStillSubset'
-      apply Set.subsetOfSelf
+      apply Set.subset_union_of_subset_right
+      apply Set.subset_refl
     | succ n ih =>
       unfold parallelSkolemChase
       intro p p_mem
@@ -699,7 +700,7 @@ namespace KnowledgeBase
         unfold PreTrigger.result at f_mem
         unfold PreTrigger.mapped_head at f_mem
         rcases f_mem with ⟨i, f_mem⟩
-        rw [List.get_eq_getElem, List.getElem_map, ← List.inIffInToSet, List.getElem_map, List.mem_map] at f_mem
+        rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet, List.getElem_map, List.mem_map] at f_mem
         rcases f_mem with ⟨a, a_mem, f_mem⟩
         rw [List.get_eq_getElem, List.getElem_enum] at a_mem
         apply Or.inl
@@ -727,9 +728,9 @@ namespace KnowledgeBase
     induction n with
     | zero =>
       unfold parallelSkolemChase
-      apply Set.subsetUnionSomethingStillSubset'
+      apply Set.subset_union_of_subset_right
       rw [Database.toFactSet_constants_same]
-      apply Set.subsetOfSelf
+      apply Set.subset_refl
     | succ n ih =>
       unfold parallelSkolemChase
       intro c c_mem
@@ -741,7 +742,7 @@ namespace KnowledgeBase
         unfold PreTrigger.result at f_mem
         unfold PreTrigger.mapped_head at f_mem
         rcases f_mem with ⟨i, f_mem⟩
-        rw [List.get_eq_getElem, List.getElem_map, ← List.inIffInToSet, List.getElem_map, List.mem_map] at f_mem
+        rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet, List.getElem_map, List.mem_map] at f_mem
         rcases f_mem with ⟨a, a_mem, f_mem⟩
         rw [List.get_eq_getElem, List.getElem_enum] at a_mem
 
@@ -794,7 +795,7 @@ namespace KnowledgeBase
             exists trg.val.subs.apply_function_free_atom b
             constructor
             . apply trg_act.left
-              rw [← List.inIffInToSet]
+              rw [List.mem_toSet]
               unfold PreTrigger.mapped_body
               simp only [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
               rw [List.mem_map]
@@ -826,7 +827,7 @@ namespace KnowledgeBase
             exists trg.val.subs.apply_function_free_atom b
             constructor
             . apply trg_act.left
-              rw [← List.inIffInToSet]
+              rw [List.mem_toSet]
               unfold PreTrigger.mapped_body
               simp only [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
               rw [List.mem_map]
@@ -873,7 +874,7 @@ namespace KnowledgeBase
         unfold PreTrigger.result at f_mem
         unfold PreTrigger.mapped_head at f_mem
         rcases f_mem with ⟨i, f_mem⟩
-        rw [List.get_eq_getElem, List.getElem_map, ← List.inIffInToSet, List.getElem_map, List.mem_map] at f_mem
+        rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet, List.getElem_map, List.mem_map] at f_mem
         rcases f_mem with ⟨a, a_mem, f_mem⟩
         rw [List.get_eq_getElem, List.getElem_enum] at a_mem
 
@@ -901,7 +902,7 @@ namespace KnowledgeBase
             exists (trg.val.subs.apply_function_free_atom body_atom)
             constructor
             . apply trg_act.left
-              rw [← List.inIffInToSet]
+              rw [List.mem_toSet]
               simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
               rw [List.mem_map]
               exists body_atom
@@ -954,7 +955,7 @@ namespace KnowledgeBase
               exists (trg.val.subs.apply_function_free_atom body_atom)
               constructor
               . apply trg_act.left
-                rw [← List.inIffInToSet]
+                rw [List.mem_toSet]
                 simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
                 rw [List.mem_map]
                 exists body_atom
@@ -1071,8 +1072,7 @@ namespace KnowledgeBase
                   . unfold Trigger.active
                     constructor
                     . unfold PreTrigger.loaded
-                      apply Set.subsetTransitive _ prev_node.fact.val _
-                      constructor
+                      apply Set.subset_trans (b := prev_node.fact.val)
                       . exact trg_active.left
                       . exact prev_subs
                     . intro contra
@@ -1109,7 +1109,7 @@ namespace KnowledgeBase
                 | some node_from_ih =>
                 rw [eq_from_ih, Option.is_some_and] at from_ih
 
-                have from_hd := ih hd (by apply trg_active.left; rw [← List.inIffInToSet]; apply l_sub; simp)
+                have from_hd := ih hd (by apply trg_active.left; rw [List.mem_toSet]; apply l_sub; simp)
                 rcases from_hd with ⟨n_from_hd, from_hd⟩
 
                 cases eq_from_hd : cb.branch.infinite_list n_from_hd with
@@ -1158,7 +1158,7 @@ namespace KnowledgeBase
               rw [Option.is_some_and]
               rw [eq, Option.is_some_and] at this
               intro f
-              rw [← List.inIffInToSet]
+              rw [List.mem_toSet]
               apply this
           rcases trg_loaded_somewhere with ⟨loaded_n, trg_loaded_somewhere⟩
           cases eq_node_loaded : cb.branch.infinite_list loaded_n with
@@ -1207,8 +1207,8 @@ namespace KnowledgeBase
               simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length] at isLt
               rw [det _ trg.property, Nat.lt_one_iff] at isLt
               exact isLt
-            rw [List.get_eq_getElem, List.getElem_map, ← List.inIffInToSet] at f_mem
-            rw [← List.inIffInToSet, List.get_eq_getElem]
+            rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet] at f_mem
+            rw [List.mem_toSet, List.get_eq_getElem]
             simp only [disj_index_zero]
             simp only [i_zero] at f_mem
             exact f_mem
@@ -1238,8 +1238,8 @@ namespace KnowledgeBase
               simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length] at isLt
               rw [det _ trg.property, Nat.lt_one_iff] at isLt
               exact isLt
-            rw [List.get_eq_getElem, List.getElem_map, ← List.inIffInToSet] at f_mem
-            rw [← List.inIffInToSet, List.get_eq_getElem]
+            rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet] at f_mem
+            rw [List.mem_toSet, List.get_eq_getElem]
             simp only [disj_index_zero]
             simp only [i_zero] at f_mem
             exact f_mem
@@ -1284,7 +1284,7 @@ namespace RuleSet
       constructor
       . apply List.nodup_eraseDupsKeepRight
       . intro f
-        rw [List.mem_eraseDupsKeepRight_iff]
+        rw [List.mem_eraseDupsKeepRight]
         simp [Set.element]
         constructor
         . intro h
@@ -1465,7 +1465,7 @@ namespace RuleSet
                   constructor
                   . apply List.nodup_eraseDupsKeepRight
                   . intro f
-                    rw [List.mem_eraseDupsKeepRight_iff, List.mem_filter]
+                    rw [List.mem_eraseDupsKeepRight, List.mem_filter]
                     rw [prev_l_eq]
                     unfold prev_filtered
                     simp [preds_l_eq, Set.element, And.comm]
@@ -1535,21 +1535,23 @@ namespace RuleSet
               rw [Classical.or_iff_not_imp_left]
               intro f_not_in_prev
 
-              exists ⟨⟨(UniformConstantMapping sig special_const).apply_rule trg.val.rule, (UniformConstantMapping sig special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs⟩, by
+              let adjusted_trg : RTrigger (DeterministicSkolemObsoleteness sig) (rs.mfaKb finite special_const).rules := ⟨⟨(UniformConstantMapping sig special_const).apply_rule trg.val.rule, (UniformConstantMapping sig special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs⟩, by
                 simp only [RuleSet.mfaKb]
                 exists trg.val.rule
                 constructor
                 . exact trg.property
                 . rfl
               ⟩
+
+              exists adjusted_trg
               constructor
               . constructor
-                . apply Set.subsetTransitive _ (fun f => f.predicate ∈ rs.predicates ∧ f ∈ ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set prev_node.fact.val)) _
-                  constructor
+                . apply Set.subset_trans (b := fun f => f.predicate ∈ rs.predicates ∧ f ∈ ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set prev_node.fact.val))
                   . intro f f_mem
-                    rw [← List.inIffInToSet] at f_mem
+                    rw [List.mem_toSet] at f_mem
                     simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map] at f_mem
                     rcases f_mem with ⟨a, a_mem, f_eq⟩
+                    unfold adjusted_trg at a_mem
                     unfold StrictConstantMapping.apply_rule at a_mem
                     unfold StrictConstantMapping.apply_function_free_conj at a_mem
                     simp only [List.mem_map] at a_mem
@@ -1575,7 +1577,7 @@ namespace RuleSet
                     . exists trg.val.subs.apply_function_free_atom a'
                       constructor
                       . apply trg_active.left
-                        rw [← List.inIffInToSet]
+                        rw [List.mem_toSet]
                         simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map]
                         exists a'
                       . rw [← f_eq]
@@ -1588,7 +1590,7 @@ namespace RuleSet
                         intro voc voc_mem
                         cases voc with
                         | var v =>
-                          simp [GroundSubstitution.apply_var_or_const, StrictConstantMapping.apply_var_or_const]
+                          simp [adjusted_trg, GroundSubstitution.apply_var_or_const, StrictConstantMapping.apply_var_or_const]
                         | const c =>
                           simp [GroundSubstitution.apply_var_or_const, StrictConstantMapping.apply_var_or_const, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
                   . intro f f_mem
@@ -1600,12 +1602,13 @@ namespace RuleSet
                       exact f_pred
                     . exact f'_mem
                 . intro contra
-                  simp only [SkolemObsoleteness] at contra
+                  simp only [DeterministicSkolemObsoleteness] at contra
                   apply f_not_in_prev
                   apply contra ⟨disj_index.val, by
                     have isLt := disj_index.isLt
                     unfold PreTrigger.result
                     simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length]
+                    unfold adjusted_trg
                     unfold StrictConstantMapping.apply_rule
                     simp only [List.length_map]
                     unfold PreTrigger.result at isLt
@@ -1614,19 +1617,20 @@ namespace RuleSet
                   ⟩
                   rw [List.get_eq_getElem]
                   unfold PreTrigger.result
-                  rw [List.getElem_map, ← List.inIffInToSet]
+                  rw [List.getElem_map, List.mem_toSet]
                   unfold PreTrigger.mapped_head
                   simp
                   unfold PreTrigger.result at f_mem
                   unfold PreTrigger.mapped_head at f_mem
                   rw [List.get_eq_getElem] at f_mem
                   simp at f_mem
-                  rw [← List.inIffInToSet, List.mem_map] at f_mem
+                  rw [List.mem_toSet, List.mem_map] at f_mem
                   rcases f_mem with ⟨a, a_mem, f_eq⟩
 
                   exists (UniformConstantMapping sig special_const).apply_function_free_atom a
                   constructor
-                  . unfold StrictConstantMapping.apply_rule
+                  . unfold adjusted_trg
+                    unfold StrictConstantMapping.apply_rule
                     unfold StrictConstantMapping.apply_function_free_conj
                     simp only [List.getElem_map, List.mem_map]
                     exists a
@@ -1646,30 +1650,35 @@ namespace RuleSet
                       simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
               . unfold PreTrigger.result at f_mem
                 simp only [List.get_eq_getElem] at f_mem
-                rw [List.getElem_map, ← List.inIffInToSet] at f_mem
+                rw [List.getElem_map, List.mem_toSet] at f_mem
                 unfold PreTrigger.mapped_head at f_mem
                 simp at f_mem
                 rcases f_mem with ⟨a, a_mem, f_eq⟩
 
-                exists ⟨disj_index.val, by
+                let adjusted_disj_index : Fin adjusted_trg.val.result.length := ⟨disj_index.val, by
                   have isLt := disj_index.isLt
                   unfold PreTrigger.result
                   simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length]
+                  unfold adjusted_trg
                   unfold StrictConstantMapping.apply_rule
                   simp only [List.length_map]
                   unfold PreTrigger.result at isLt
                   simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length] at isLt
                   exact isLt
                 ⟩
+                exists adjusted_disj_index
                 unfold PreTrigger.result
                 rw [List.get_eq_getElem, List.getElem_map]
-                apply List.listElementAlsoToSetElement
+                have mem_toSet := List.mem_toSet (l := adjusted_trg.val.mapped_head[adjusted_disj_index.val]'(by have isLt := adjusted_disj_index.isLt; unfold PreTrigger.result at isLt; simp only [List.length_map] at isLt; exact isLt)) (e := (UniformConstantMapping sig special_const).toConstantMapping.apply_fact f)
+                unfold Set.element at mem_toSet
+                rw [mem_toSet]
                 unfold PreTrigger.mapped_head
                 simp
 
                 exists (UniformConstantMapping sig special_const).apply_function_free_atom a
                 constructor
-                . unfold StrictConstantMapping.apply_rule
+                . unfold adjusted_trg
+                  unfold StrictConstantMapping.apply_rule
                   unfold StrictConstantMapping.apply_function_free_conj
                   simp only [List.getElem_map, List.mem_map]
                   exists a
@@ -1737,7 +1746,7 @@ namespace RuleSet
         constructor
         . apply List.nodup_eraseDupsKeepRight
         . intro f
-          rw [List.mem_eraseDupsKeepRight_iff, List.mem_flatMap]
+          rw [List.mem_eraseDupsKeepRight, List.mem_flatMap]
           constructor
           . intro h
             rcases h with ⟨f', f'_mem, f_mem⟩
@@ -1817,7 +1826,7 @@ namespace RuleSet
                   constructor
                   . -- since f occur in the trigger result, its predicate occurs in the rule and must therefore occur in the ruleset
                     simp only [List.get_eq_getElem, PreTrigger.result, List.getElem_map] at f_mem
-                    rw [← List.inIffInToSet] at f_mem
+                    rw [List.mem_toSet] at f_mem
                     simp only [PreTrigger.mapped_head] at f_mem
                     simp at f_mem
                     rcases f_mem with ⟨a, a_mem, f_eq⟩
@@ -1879,7 +1888,7 @@ namespace RuleSet
         constructor
         . apply List.nodup_eraseDupsKeepRight
         . intro r
-          rw [List.mem_eraseDupsKeepRight_iff]
+          rw [List.mem_eraseDupsKeepRight]
           rw [List.mem_map]
           constructor
           . intro h
@@ -1902,7 +1911,7 @@ namespace RuleSet
         constructor
         . apply List.nodup_eraseDupsKeepRight
         . intro p
-          rw [List.mem_eraseDupsKeepRight_iff]
+          rw [List.mem_eraseDupsKeepRight]
           rw [List.mem_map]
           unfold FactSet.predicates
           constructor
@@ -1930,7 +1939,7 @@ namespace RuleSet
         constructor
         . apply List.nodup_eraseDupsKeepRight
         . intro t
-          rw [List.mem_eraseDupsKeepRight_iff]
+          rw [List.mem_eraseDupsKeepRight]
           rw [mem_all_terms_limited_by_depth]
           simp only [overapproximation, List.mem_singleton]
           rfl

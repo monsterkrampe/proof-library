@@ -1,3 +1,5 @@
+import BasicLeanDatastructures.List.Repeat
+
 import ExistentialRules.ChaseSequence.Basic
 import ExistentialRules.ChaseSequence.Universality
 
@@ -49,7 +51,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                   rw [List.map_eq_nil_iff, List.attach_eq_nil_iff]
                   unfold PreTrigger.result
                   rw [← List.isEmpty_eq_true, List.isEmpty_iff_length_eq_zero]
-                  rw [List.enum_with_lt_length_eq]
+                  rw [List.length_enum_with_lt]
                   rw [List.length_map]
                   rw [← trg.val.head_length_eq_mapped_head_length]
                   exact eq2
@@ -73,7 +75,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                   simp
                 have length_aux_2 : 0 < (ct.tree.children (List.repeat 0 n)).length := by
                   rw [← trg_ex.right]
-                  rw [List.length_map, List.length_attach, List.enum_with_lt_length_eq]
+                  rw [List.length_map, List.length_attach, List.length_enum_with_lt]
                   exact length_aux_1
                 exists ⟨0, length_aux_1⟩
                 unfold List.repeat
@@ -250,7 +252,7 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
                   have n_succ_in_ct := Eq.symm n_succ_in_ct
                   rw [List.getElem?_eq_some_iff] at n_succ_in_ct
                   cases n_succ_in_ct with | intro isLt n_succ_in_ct =>
-                    rw [List.length_map, List.length_attach, List.enum_with_lt_length_eq] at isLt
+                    rw [List.length_map, List.length_attach, List.length_enum_with_lt] at isLt
                     unfold PreTrigger.result at isLt
                     rw [List.length_map] at isLt
                     rw [← PreTrigger.head_length_eq_mapped_head_length] at isLt
@@ -521,7 +523,7 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
                 rw [FiniteDegreeTree.getElem_children_eq_getElem_tree_children]
                 rw [PossiblyInfiniteTree.getElem_children_eq_get_tree]
                 unfold PossiblyInfiniteTree.get
-                rw [List.getElem?_eq_getElem (by rw [List.length_attach, List.enum_with_lt_length_eq]; rw [res_length]; simp)]
+                rw [List.getElem?_eq_getElem (by rw [List.length_attach, List.length_enum_with_lt]; rw [res_length]; simp)]
                 have : (0::l).all (fun e => e = 0) = true := by
                   rw [List.all_cons, eq]
                   simp
@@ -537,7 +539,7 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
                 unfold PossiblyInfiniteTree.get
                 rw [List.getElem?_eq_none]
                 . simp
-                . rw [List.length_attach, List.enum_with_lt_length_eq, res_length]
+                . rw [List.length_attach, List.length_enum_with_lt, res_length]
                   simp
           | inr cb_trgs =>
             apply Or.inr

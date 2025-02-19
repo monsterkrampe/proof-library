@@ -1,4 +1,5 @@
-import ExistentialRules.List
+import BasicLeanDatastructures.List.Basic
+
 import ExistentialRules.KnowledgeBaseBasics
 
 section Defs
@@ -75,7 +76,8 @@ namespace GroundSubstitution
       apply Eq.symm
       apply ht
       constructor
-      . apply List.listGetInToSet
+      . rw [List.get_eq_getElem]
+        apply List.get_mem_toSet
       . rw [hi]
     . intro ⟨i, hi⟩
       let j : Fin f.terms.length := ⟨i.val, (by rw [← eq_under_subs_means_same_length σ a f h]; exact i.isLt)⟩
@@ -84,9 +86,9 @@ namespace GroundSubstitution
       rw [hi]
 
   -- TODO: is the extra assumption with injectivity reasonable?
-  theorem eq_under_subs_means_indices_of_elements_are_preserved (σ : GroundSubstitution sig) (a : Atom sig) (f : Fact sig) (h : σ.apply_atom a = f) (t : SkolemTerm sig) (ht : t ∈ a.terms) (hs : ∀ s, s ∈ a.terms.toSet ∧ σ.apply_skolem_term t = σ.apply_skolem_term s -> t = s) : (f.terms.idx_of (σ.apply_skolem_term t) (by rw [eq_under_subs_means_elements_are_preserved σ a f h t hs]; exact ht)).val = ((a.terms.idx_of t) ht).val := by
+  theorem eq_under_subs_means_indices_of_elements_are_preserved (σ : GroundSubstitution sig) (a : Atom sig) (f : Fact sig) (h : σ.apply_atom a = f) (t : SkolemTerm sig) (ht : t ∈ a.terms) (hs : ∀ s, s ∈ a.terms.toSet ∧ σ.apply_skolem_term t = σ.apply_skolem_term s -> t = s) : (f.terms.idx_of (by rw [eq_under_subs_means_elements_are_preserved σ a f h t hs]; exact ht)).val = (a.terms.idx_of ht).val := by
     have : f.terms = a.terms.map σ.apply_skolem_term := by rw [← h]; unfold apply_atom; simp
-    rw [List.idx_of_eq_of_list_eq _ _ this _ _]
+    rw [List.idx_of_eq_of_list_eq this]
     apply Eq.symm
     apply List.idx_of_eq_under_map
     apply hs

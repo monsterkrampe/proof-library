@@ -1,6 +1,8 @@
-import ExistentialRules.List
-import ExistentialRules.Set.Basic
-import ExistentialRules.Set.Finite
+import BasicLeanDatastructures.List.Basic
+import BasicLeanDatastructures.List.EraseDupsKeepRight
+import BasicLeanDatastructures.Set.Basic
+import BasicLeanDatastructures.Set.Finite
+
 import ExistentialRules.TermBasics
 
 section StructuralDefs
@@ -87,8 +89,8 @@ namespace FunctionFreeAtom
         | inr hr => apply Or.inr; apply ih; apply hr
 
     intro mem
-    rw [← List.inIffInToSet] at mem
-    rw [← List.inIffInToSet]
+    rw [List.mem_toSet] at mem
+    rw [List.mem_toSet]
     apply this a.terms
     exact mem
 
@@ -156,7 +158,7 @@ namespace RuleSet
     constructor
     . apply List.nodup_eraseDupsKeepRight
     . intro p
-      rw [List.mem_eraseDupsKeepRight_iff]
+      rw [List.mem_eraseDupsKeepRight]
       unfold predicates
       simp only [List.mem_flatMap]
       constructor <;> (intro h; rcases h with ⟨r, h⟩; exists r)
@@ -172,7 +174,7 @@ namespace RuleSet
     constructor
     . apply List.nodup_eraseDupsKeepRight
     . intro c
-      rw [List.mem_eraseDupsKeepRight_iff]
+      rw [List.mem_eraseDupsKeepRight]
       unfold head_constants
       simp only [List.mem_flatMap]
       constructor <;> (intro h; rcases h with ⟨r, h⟩; exists r)
@@ -188,7 +190,7 @@ namespace RuleSet
     constructor
     . apply List.nodup_eraseDupsKeepRight
     . intro c
-      rw [List.mem_eraseDupsKeepRight_iff]
+      rw [List.mem_eraseDupsKeepRight]
       unfold skolem_functions
       simp only [List.mem_flatMap]
       constructor <;> (intro h; rcases h with ⟨r, h⟩; exists r)
@@ -207,7 +209,7 @@ theorem FactSet.constants_finite_of_finite (fs : FactSet sig) (fin : fs.finite) 
   constructor
   . apply List.nodup_eraseDupsKeepRight
   . intro c
-    rw [List.mem_eraseDupsKeepRight_iff]
+    rw [List.mem_eraseDupsKeepRight]
     rw [List.mem_flatMap]
     unfold constants
     constructor
@@ -283,7 +285,7 @@ theorem FactSet.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) :
     constructor
     . intro in_l
       unfold FactSet.terms
-      simp [List.mem_eraseDupsKeepRight_iff, List.mem_flatten] at in_l
+      simp [List.mem_eraseDupsKeepRight, List.mem_flatten] at in_l
       rcases in_l with ⟨terms, ex_f, e_in_terms⟩
       rcases ex_f with ⟨f, f_in_l, terms_eq⟩
       exists f
@@ -292,7 +294,7 @@ theorem FactSet.terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) :
       . rw [terms_eq]; exact e_in_terms
     . intro in_fs
       unfold FactSet.terms at in_fs
-      simp [List.mem_eraseDupsKeepRight_iff, List.mem_flatten]
+      simp [List.mem_eraseDupsKeepRight, List.mem_flatten]
       rcases in_fs with ⟨f, f_in_fs, e_in_f⟩
       exists f.terms
       constructor
@@ -327,7 +329,7 @@ theorem FactSet.finite_of_preds_finite_of_terms_finite (fs : FactSet sig) : fs.p
     constructor
     . apply List.nodup_eraseDupsKeepRight
     . intro f
-      rw [List.mem_eraseDupsKeepRight_iff]
+      rw [List.mem_eraseDupsKeepRight]
       simp only [List.mem_flatMap, List.mem_map, List.mem_attach, true_and, Subtype.exists]
       constructor
       . intro h
@@ -369,7 +371,7 @@ def Database.constants (db : Database sig) : { C : Set sig.C // C.finite } := �
     constructor
     . apply List.nodup_eraseDupsKeepRight
     . intro c
-      rw [List.mem_eraseDupsKeepRight_iff, List.mem_flatMap]
+      rw [List.mem_eraseDupsKeepRight, List.mem_flatMap]
       constructor
       . intro h
         rcases h with ⟨f, f_mem, c_mem⟩
@@ -395,7 +397,7 @@ def Database.toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite ∧
     constructor
     . apply List.nodup_eraseDupsKeepRight
     . intro f
-      rw [List.mem_eraseDupsKeepRight_iff]
+      rw [List.mem_eraseDupsKeepRight]
       rw [List.mem_map]
       simp only [l_eq]
       simp [Set.element]

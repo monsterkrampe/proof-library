@@ -1,8 +1,9 @@
+import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.Basic
+
 import ExistentialRules.KnowledgeBaseBasics
 import ExistentialRules.Models.Basic
 import ExistentialRules.Trigger
 import ExistentialRules.Logic
-import ExistentialRules.PossiblyInfiniteTree
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
@@ -28,17 +29,17 @@ def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig
           constructor
           . apply List.nodup_eraseDupsKeepRight
           . intro e
-            simp [new_list, List.mem_eraseDupsKeepRight_iff]
+            simp [new_list, List.mem_eraseDupsKeepRight]
             constructor
             . intro h'; cases h' with
               | inl h' => apply Or.inl; rw [← h.right]; exact h'
-              | inr h' => apply Or.inr; rw [List.inIffInToSet] at h'; exact h'
+              | inr h' => apply Or.inr; rw [← List.mem_toSet] at h'; exact h'
             . intro h'; cases h' with
               | inl h' => apply Or.inl; rw [h.right]; exact h'
-              | inr h' => apply Or.inr; rw [List.inIffInToSet]; exact h'
+              | inr h' => apply Or.inr; rw [← List.mem_toSet]; exact h'
     ⟩
     origin := some ⟨trg, i⟩
-    fact_contains_origin_result := by simp [Option.is_none_or]; apply Set.subsetUnionSomethingStillSubset'; apply Set.subsetOfSelf
+    fact_contains_origin_result := by simp [Option.is_none_or]; apply Set.subset_union_of_subset_right; apply Set.subset_refl
   } = after
 
 def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) (trg : RTrigger obs rules) : Prop :=
@@ -58,22 +59,22 @@ def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : Rul
           constructor
           . apply List.nodup_eraseDupsKeepRight
           . intro e
-            simp [new_terms, List.mem_eraseDupsKeepRight_iff]
+            simp [new_terms, List.mem_eraseDupsKeepRight]
             constructor
             . intro h'; cases h' with
               | inl h' => apply Or.inl; rw [← h_before.right]; exact h'
-              | inr h' => apply Or.inr; rw [List.inIffInToSet] at h'; rw [h] at h'; exact h'
+              | inr h' => apply Or.inr; rw [← List.mem_toSet] at h'; rw [h] at h'; exact h'
             . intro h'; cases h' with
               | inl h' => apply Or.inl; rw [h_before.right]; exact h'
-              | inr h' => apply Or.inr; rw [List.inIffInToSet]; rw [h]; exact h'
+              | inr h' => apply Or.inr; rw [← List.mem_toSet]; rw [h]; exact h'
     ⟩
     origin := some ⟨trg, i⟩
     fact_contains_origin_result := by
       have : fs = trg.val.result[i.val] := by rw [List.mk_mem_enum_with_lt_iff_getElem] at h; rw [h]
       simp [Option.is_none_or]
-      apply Set.subsetUnionSomethingStillSubset'
+      apply Set.subset_union_of_subset_right
       rw [this]
-      apply Set.subsetOfSelf
+      apply Set.subset_refl
   }) = after
 
 def exists_trigger_list (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) : Prop :=
@@ -310,7 +311,7 @@ by
         | none => simp [Option.is_none_or]
         | some fs3 =>
           simp [Option.is_none_or]; simp [eq3, Option.is_none_or] at step;
-          apply Set.subsetTransitive; constructor; apply ih; apply step
+          apply Set.subset_trans; exact ih; exact step
 
 theorem chaseTreeSetIsSubsetOfAllFollowing (ct : ChaseTree obs kb) : ∀ (n m : List Nat),
   match ct.tree.get n with
@@ -349,13 +350,11 @@ by
         | none => simp [Option.is_none_or]
         | some fs3 =>
           simp [Option.is_none_or]
-          apply Set.subsetTransitive
-          constructor
-          apply ih
-          apply step
-
-          rw [ct.tree.in_children_iff_index_exists]
-          exists i
+          apply Set.subset_trans
+          . exact ih
+          . apply step
+            rw [ct.tree.in_children_iff_index_exists]
+            exists i
 
 theorem chaseBranchSetIsSubsetOfResult (cb : ChaseBranch obs kb) : ∀ n : Nat, (cb.branch.infinite_list n).is_none_or (fun fs => fs.fact ⊆ cb.result) := by
   intro n
@@ -404,8 +403,8 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
     rw [cb.database_first, Option.is_none_or]
     simp only
     rw [Database.toFactSet_constants_same]
-    apply Set.subsetUnionSomethingStillSubset
-    apply Set.subsetOfSelf
+    apply Set.subset_union_of_subset_left
+    apply Set.subset_refl
   | succ n ih =>
     cases eq_node : cb.branch.infinite_list (n+1) with
     | none => simp [Option.is_none_or]
@@ -442,7 +441,7 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
             unfold Fact.constants at c_mem
             unfold PreTrigger.result at f_mem
             rw [List.get_eq_getElem, List.getElem_map] at f_mem
-            rw [← List.inIffInToSet] at f_mem
+            rw [List.mem_toSet] at f_mem
             unfold PreTrigger.mapped_head at f_mem
             simp at f_mem
             rcases f_mem with ⟨a, a_mem, f_eq⟩
@@ -494,7 +493,7 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
                 exists trg.val.subs.apply_function_free_atom b
                 constructor
                 . apply trg_active.left
-                  rw [← List.inIffInToSet]
+                  rw [List.mem_toSet]
                   unfold PreTrigger.mapped_body
                   simp only [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
                   rw [List.mem_map]
@@ -526,7 +525,7 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
                 exists trg.val.subs.apply_function_free_atom b
                 constructor
                 . apply trg_active.left
-                  rw [← List.inIffInToSet]
+                  rw [List.mem_toSet]
                   unfold PreTrigger.mapped_body
                   simp only [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
                   rw [List.mem_map]
@@ -564,7 +563,7 @@ theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (cb : ChaseBranch obs kb) 
     have ex_tail_n := by
       apply ih
       simp [List.toSet] at loaded
-      have ⟨ _, tailSubs ⟩ := (Set.unionSubsetEachSubset _ _ _).mp loaded
+      have ⟨ _, tailSubs ⟩ := (Set.union_subset_iff_both_subset _ _ _).mp loaded
       exact tailSubs
     cases ex_head_n with | intro i hi =>
       cases ex_tail_n with | intro j hj =>
@@ -598,14 +597,13 @@ theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (cb : ChaseBranch obs kb) 
 
         case h_2 heq =>
           simp
-          rw [Set.unionSubsetEachSubset]
+          rw [Set.union_subset_iff_both_subset]
           constructor
           . unfold Option.is_some_and at hi
             split at hi
             . contradiction
             case h_2 a heq2 =>
-              apply Set.subsetTransitive _ a.fact _
-              constructor
+              apply Set.subset_trans (b := a.fact)
               . intro e he
                 simp [Set.element] at he
                 rw [he]
@@ -628,10 +626,9 @@ theorem trgLoadedForChaseResultMeansLoadedAtSomeIndex (cb : ChaseBranch obs kb) 
                 rw [← hm] at heq
                 rw [heq] at subsOfAllFollowing
                 simp [Option.is_none_or] at subsOfAllFollowing
-                apply Set.subsetTransitive
-                constructor
-                apply hj
-                apply subsOfAllFollowing
+                apply Set.subset_trans
+                . exact hj
+                . exact subsOfAllFollowing
 
 theorem trgActiveForChaseResultMeansActiveAtSomeIndex (cb : ChaseBranch obs kb) : ∀ trg : Trigger obs, trg.active cb.result -> ∃ n : Nat, (cb.branch.infinite_list n).is_some_and (fun fs => trg.active fs.fact) := by
   intro trg
@@ -722,9 +719,9 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
               unfold FiniteDegreeTree.get at node_is_at_path
               rw [← node_is_at_path] at this
               contradiction
-            have head_lt_aux_1 : head < trg'.val.result.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.enum_with_lt_length_eq] at head_lt_tail_children_length; exact head_lt_tail_children_length
-            have head_lt_aux_2 : head < trg'.val.rule.head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.enum_with_lt_length_eq] at head_lt_tail_children_length; rw [PreTrigger.head_length_eq_mapped_head_length]; unfold PreTrigger.result at head_lt_tail_children_length; simp at head_lt_tail_children_length; exact head_lt_tail_children_length
-            have head_lt_aux_3 : head < trg'.val.mapped_head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.enum_with_lt_length_eq] at head_lt_tail_children_length; unfold PreTrigger.result at head_lt_tail_children_length; simp at head_lt_tail_children_length; exact head_lt_tail_children_length
+            have head_lt_aux_1 : head < trg'.val.result.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.length_enum_with_lt] at head_lt_tail_children_length; exact head_lt_tail_children_length
+            have head_lt_aux_2 : head < trg'.val.rule.head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.length_enum_with_lt] at head_lt_tail_children_length; rw [PreTrigger.head_length_eq_mapped_head_length]; unfold PreTrigger.result at head_lt_tail_children_length; simp at head_lt_tail_children_length; exact head_lt_tail_children_length
+            have head_lt_aux_3 : head < trg'.val.mapped_head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.length_enum_with_lt] at head_lt_tail_children_length; unfold PreTrigger.result at head_lt_tail_children_length; simp at head_lt_tail_children_length; exact head_lt_tail_children_length
 
             rw [← ct.tree.getElem_children_eq_get_tree tail ⟨head, head_lt_tail_children_length⟩] at node_is_at_path
             injection node_is_at_path with node_is_at_path
@@ -804,9 +801,9 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
                           unfold PreTrigger.mapped_body
                           simp [SubsTarget.apply]
                           unfold GroundSubstitution.apply_function_free_conj
-                          apply List.mappedElemInMappedList
-                          rw [← List.inIffInToSet]
-                          apply h_body_atom_for_f.left
+                          rw [List.mem_toSet]
+                          apply List.mem_map_of_mem
+                          exact h_body_atom_for_f.left
                         . simp [SubsTarget.apply, GroundSubstitution.apply_function_free_atom]
                           simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const] at this
                           rw [this]
@@ -831,7 +828,7 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
             simp [← htrg'.right] at node_is_at_path
             rw [node_is_at_path]
             simp
-            rw [List.enum_with_lt_getElem_fst_eq_index _ _ head_lt_aux_1]
+            rw [List.enum_with_lt_getElem_fst_eq_index head_lt_aux_1]
             exact this
 
 theorem funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : (some node = ct.tree.get node_path) ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> trg.val.result.get result_index ⊆ node.fact := by
@@ -855,16 +852,15 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (ct : ChaseTree ob
           simp [PreTrigger.result_eq_of_equiv _ _ h.left]
           exact fact_contains_origin_result
 
-      apply Set.subsetTransitive
-      constructor
-      apply this
+      apply Set.subset_trans
+      . exact this
 
-      have subsetAllFollowing := chaseTreeSetIsSubsetOfAllFollowing ct (node_path.drop drop_number) (node_path.take drop_number)
-      rw [eq] at subsetAllFollowing
-      rw [List.take_append_drop] at subsetAllFollowing
-      rw [← node_is_at_path] at subsetAllFollowing
-      simp [Option.is_none_or] at subsetAllFollowing
-      exact subsetAllFollowing
+      . have subsetAllFollowing := chaseTreeSetIsSubsetOfAllFollowing ct (node_path.drop drop_number) (node_path.take drop_number)
+        rw [eq] at subsetAllFollowing
+        rw [List.take_append_drop] at subsetAllFollowing
+        rw [← node_is_at_path] at subsetAllFollowing
+        simp [Option.is_none_or] at subsetAllFollowing
+        exact subsetAllFollowing
 
 theorem chaseBranchResultModelsKb (cb : ChaseBranch obs kb) : cb.result.modelsKb kb := by
   constructor
@@ -908,8 +904,7 @@ theorem chaseBranchResultModelsKb (cb : ChaseBranch obs kb) : cb.result.modelsKb
             | none => rw [eq] at active_i; simp at active_i
             | some step_i =>
               rw [eq] at active_i; simp at active_i
-              apply Set.subsetTransitive
-              constructor
+              apply Set.subset_trans
               . apply active_i.left
               . cases Decidable.em (i ≤ j) with
                 | inl j_ge_i =>

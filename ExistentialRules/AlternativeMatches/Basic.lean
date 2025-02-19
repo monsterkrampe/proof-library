@@ -30,7 +30,7 @@ namespace PreTrigger
       exists v
     . intro f f_mem
       apply is_alt_match.left.right
-      rw [← List.inIffInToSet] at f_mem
+      rw [List.mem_toSet] at f_mem
       unfold GroundSubstitution.apply_function_free_conj at f_mem
       simp at f_mem
       simp [PreTrigger.result, PreTrigger.mapped_head]
@@ -38,7 +38,7 @@ namespace PreTrigger
       rcases f_mem with ⟨a, a_mem, a_eq⟩
       exists trg.apply_to_function_free_atom disj_index a
       constructor
-      . rw [← List.inIffInToSet]
+      . rw [List.mem_toSet]
         simp
         exists a
       . unfold PreTrigger.apply_to_function_free_atom
@@ -70,11 +70,11 @@ namespace PreTrigger
       unfold GroundTermMapping.applyFactSet at f_mem
       rcases f_mem with ⟨f', f'_mem, f'_eq⟩
       simp [PreTrigger.result, PreTrigger.mapped_head] at f'_mem
-      rw [← List.inIffInToSet] at f'_mem
+      rw [List.mem_toSet] at f'_mem
       simp at f'_mem
       rcases f'_mem with ⟨a, a_mem, a_eq⟩
 
-      rw [← List.inIffInToSet]
+      rw [List.mem_toSet]
       simp [GroundSubstitution.apply_function_free_conj]
       exists a
       constructor

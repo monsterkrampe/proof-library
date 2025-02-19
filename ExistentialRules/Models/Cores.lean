@@ -526,7 +526,7 @@ namespace FactSet
     have mem_terms_list : ∀ e, e ∈ terms_list ↔ e ∈ fs.terms := by
       simp only [terms_list]
       intro e
-      rw [List.mem_eraseDupsKeepRight_iff]
+      rw [List.mem_eraseDupsKeepRight]
       unfold FactSet.terms
       simp
       constructor
@@ -546,8 +546,8 @@ namespace FactSet
     have closed : ∀ e, e ∈ terms_list -> h e ∈ terms_list := by
       simp only [terms_list]
       intro e
-      rw [List.mem_eraseDupsKeepRight_iff]
-      rw [List.mem_eraseDupsKeepRight_iff]
+      rw [List.mem_eraseDupsKeepRight]
+      rw [List.mem_eraseDupsKeepRight]
       simp
       intro f f_mem e_in_f
       let f' := h.applyFact f
@@ -682,8 +682,7 @@ namespace FactSet
     have h_sc_wc_hom : h_fs_wc.isHomomorphism sc wc := by
       constructor
       . exact h_fs_wc_hom.left
-      . apply Set.subsetTransitive _ (h_fs_wc.applyFactSet fs) _
-        constructor
+      . apply Set.subset_trans (b := h_fs_wc.applyFactSet fs)
         . apply GroundTermMapping.applyFactSet_subset_of_subset
           exact sub_sc
         . exact h_fs_wc_hom.right
@@ -691,8 +690,7 @@ namespace FactSet
     have h_wc_sc_hom : h_fs_sc.isHomomorphism wc sc := by
       constructor
       . exact h_fs_sc_hom.left
-      . apply Set.subsetTransitive _ (h_fs_sc.applyFactSet fs) _
-        constructor
+      . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
         . apply GroundTermMapping.applyFactSet_subset_of_subset
           exact sub_wc
         . exact h_fs_sc_hom.right
@@ -721,8 +719,7 @@ namespace FactSet
     have h_fs_sc_endo_sc : h_fs_sc.isHomomorphism sc sc := by
       constructor
       . exact h_fs_sc_hom.left
-      . apply Set.subsetTransitive _ (h_fs_sc.applyFactSet fs) _
-        constructor
+      . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
         . apply GroundTermMapping.applyFactSet_subset_of_subset
           exact sc_sub
         . exact h_fs_sc_hom.right
@@ -835,21 +832,19 @@ namespace FactSet
 
       have fs_models_rule := fs_model.right r r_mem (inv ∘ subs)
       specialize fs_models_rule (by
-        apply Set.subsetTransitive _ (inv.applyFactSet sc) _
-        constructor
+        apply Set.subset_trans (b := inv.applyFactSet sc)
         . intro f f_mem
           unfold GroundSubstitution.apply_function_free_conj at f_mem
-          rw [← List.inIffInToSet, List.mem_map] at f_mem
+          rw [List.mem_toSet, List.mem_map] at f_mem
           rcases f_mem with ⟨a, a_mem, f_eq⟩
           rw [GroundSubstitution.apply_function_free_atom_compose _ _ inv_hom.left] at f_eq
           rw [← f_eq]
           apply GroundTermMapping.applyPreservesElement
           apply loaded
           unfold GroundSubstitution.apply_function_free_conj
-          rw [← List.inIffInToSet, List.mem_map]
+          rw [List.mem_toSet, List.mem_map]
           exists a
-        . apply Set.subsetTransitive _ sc _
-          constructor
+        . apply Set.subset_trans (b := sc)
           . exact inv_hom.right
           . exact sc_sub
       )
@@ -873,7 +868,7 @@ namespace FactSet
           constructor
           . apply loaded
             unfold GroundSubstitution.apply_function_free_conj
-            rw [← List.inIffInToSet, List.mem_map]
+            rw [List.mem_toSet, List.mem_map]
             exists a
           . unfold GroundSubstitution.apply_function_free_atom
             rw [List.mem_map]
@@ -884,18 +879,17 @@ namespace FactSet
               exact v_mem
             . rfl
         )]
-      . apply Set.subsetTransitive _ (h_fs_sc.applyFactSet fs) _
-        constructor
+      . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
         . intro f f_mem
           unfold GroundSubstitution.apply_function_free_conj at f_mem
-          rw [← List.inIffInToSet, List.mem_map] at f_mem
+          rw [List.mem_toSet, List.mem_map] at f_mem
           rcases f_mem with ⟨a, a_mem, f_eq⟩
           rw [GroundSubstitution.apply_function_free_atom_compose _ _ h_fs_sc_hom.left] at f_eq
           rw [← f_eq]
           apply GroundTermMapping.applyPreservesElement
           apply sub_mapping
           unfold GroundSubstitution.apply_function_free_conj
-          rw [← List.inIffInToSet, List.mem_map]
+          rw [List.mem_toSet, List.mem_map]
           exists a
         . exact h_fs_sc_hom.right
 
@@ -911,8 +905,7 @@ namespace FactSet
       exists h
       constructor
       . exact h_hom.left
-      . apply Set.subsetTransitive _ (h.applyFactSet fs) _
-        constructor
+      . apply Set.subset_trans (b := h.applyFactSet fs)
         . apply GroundTermMapping.applyFactSet_subset_of_subset
           exact sc_sub.left
         . exact h_hom.right

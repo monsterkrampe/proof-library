@@ -71,7 +71,7 @@ namespace PreTrigger
 
   def idx_of_fact_in_result (trg : PreTrigger sig) (f : Fact sig) (disj_index : Fin trg.result.length) (f_in_res : f ∈ trg.result.get disj_index) : Fin (trg.rule.head.get ⟨disj_index.val, (by rw [head_length_eq_mapped_head_length]; have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩).length :=
     let disj_index_mapped_head : Fin trg.mapped_head.length := ⟨disj_index.val, (by have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩
-    let fin_mapped := (trg.mapped_head.get disj_index_mapped_head).idx_of f ((trg.mapped_head.get disj_index_mapped_head).listToSetElementAlsoListElement f (by unfold result at f_in_res; simp at f_in_res; apply f_in_res))
+    let fin_mapped := (trg.mapped_head.get disj_index_mapped_head).idx_of (((trg.mapped_head.get disj_index_mapped_head).mem_toSet (e := f)).mp (by unfold result at f_in_res; simp at f_in_res; apply f_in_res))
     have fin_mapped_isLt := fin_mapped.isLt
     ⟨fin_mapped.val, by simp [mapped_head] at fin_mapped_isLt; exact fin_mapped_isLt⟩
 
@@ -147,16 +147,17 @@ namespace PreTrigger
           rw [← h.left]
           simp [VarOrConst.skolemize, v_in_frontier]
           apply h.right
-          apply List.listElementAlsoToSetElement
+          rw [List.mem_toSet]
           apply v_in_frontier
         | inr v_not_in_frontier =>
           simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term]
           rw [← h.left]
           simp [VarOrConst.skolemize, v_not_in_frontier]
           apply congrArg
-          apply List.map_eq_map_if_functions_eq
+          rw [List.map_inj_left]
           intro w hw
           rw [← h.right w]
+          rw [List.mem_toSet]
           exact hw
 
     unfold result
@@ -197,10 +198,9 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
     simp
     intro i head_sub_A
     exists i
-    apply Set.subsetTransitive
-    constructor
-    . apply head_sub_A
-    . apply A_sub_B
+    apply Set.subset_trans
+    . exact head_sub_A
+    . exact A_sub_B
   cond_implies_trg_is_satisfied := by
     intro trg F
     simp
@@ -246,10 +246,9 @@ def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq si
     exists subs
     constructor
     . apply frontier_same_under_subs
-    . apply Set.subsetTransitive
-      constructor
-      . apply applied_head_sub_A
-      . apply A_sub_B
+    . apply Set.subset_trans
+      . exact applied_head_sub_A
+      . exact A_sub_B
   cond_implies_trg_is_satisfied := by intro _ _ h; exact h
   contains_trg_result_implies_cond := by
     intro trg F i result_in_F
@@ -340,7 +339,7 @@ namespace RTrigger
         rw [← this] at right
         rw [List.map_eq_map_iff] at right
         intro v v_mem
-        rw [← List.inIffInToSet] at v_mem
+        rw [List.mem_toSet] at v_mem
         apply Subtype.eq
         apply right
         exact v_mem

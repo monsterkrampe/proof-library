@@ -108,14 +108,12 @@ namespace ChaseBranch
                 . constructor
                   . constructor
                     . exact h_k_hom.left
-                    . apply Set.subsetTransitive _ (h_k.applyFactSet cb.result) _
-                      constructor
+                    . apply Set.subset_trans (b := h_k.applyFactSet cb.result)
                       . apply GroundTermMapping.applyFactSet_subset_of_subset
-                        apply Set.subsetTransitive _ node.fact.val _
-                        constructor
+                        apply Set.subset_trans (b := node.fact.val)
                         . rw [node_fact_is_prev_fact_union_origin_res]
-                          apply Set.subsetUnionSomethingStillSubset'
-                          apply Set.subsetOfSelf
+                          apply Set.subset_union_of_subset_right
+                          apply Set.subset_refl
                         . have subset_res := chaseBranchSetIsSubsetOfResult cb (k+1)
                           rw [eq, Option.is_none_or] at subset_res
                           exact subset_res
@@ -129,7 +127,7 @@ namespace ChaseBranch
                     exists origin.fst.val.subs.apply_function_free_atom a
                     constructor
                     . apply origin_trg_active.left
-                      rw [← List.inIffInToSet]
+                      rw [List.mem_toSet]
                       simp [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
                       exists a
                       constructor
@@ -192,8 +190,7 @@ namespace ChaseBranch
                 . apply h_k.repeat_hom_id_on_const
                   exact h_k_hom.left
                 . have is_hom := h_k.repeat_hom_isHomomorphism cb.result h_k_hom repetition_number
-                  apply Set.subsetTransitive _ (inv.applyFactSet cb.result) _
-                  constructor
+                  apply Set.subset_trans (b := inv.applyFactSet cb.result)
                   . apply inv.applyFactSet_subset_of_subset
                     have subset_res := chaseBranchSetIsSubsetOfResult cb (k+1)
                     rw [eq, Option.is_none_or] at subset_res
@@ -464,7 +461,7 @@ namespace ChaseBranch
                 case isTrue t_mem_ts =>
                   simp only [PreTrigger.result, PreTrigger.mapped_head] at f'_mem
                   simp at f'_mem
-                  rw [← List.inIffInToSet] at f'_mem
+                  rw [List.mem_toSet] at f'_mem
                   simp at f'_mem
 
                   rcases f'_mem with ⟨a, a_mem, f'_eq⟩
@@ -558,7 +555,7 @@ namespace ChaseBranch
             . -- this is all copy pasted from an argument already given above
               simp only [PreTrigger.result, PreTrigger.mapped_head] at f_mem
               simp at f_mem
-              rw [← List.inIffInToSet] at f_mem
+              rw [List.mem_toSet] at f_mem
               simp at f_mem
 
               rcases f_mem with ⟨a, a_mem, f_eq⟩
@@ -783,11 +780,9 @@ namespace ChaseBranch
             . exact hom_res'.left
             . have origin_res_in_fact := node.fact_contains_origin_result
               rw [eq_origin, Option.is_none_or] at origin_res_in_fact
-              apply Set.subsetTransitive _ ((h.repeat_hom ((k + 1) * l)).applyFactSet node.fact.val) _
-              constructor
+              apply Set.subset_trans (b := (h.repeat_hom ((k + 1) * l)).applyFactSet node.fact.val)
               . exact ((h.repeat_hom ((k + 1) * l)).applyFactSet_subset_of_subset _ _ origin_res_in_fact)
-              . apply Set.subsetTransitive _ ((h.repeat_hom ((k + 1) * l)).applyFactSet cb.result) _
-                constructor
+              . apply Set.subset_trans (b := (h.repeat_hom ((k + 1) * l)).applyFactSet cb.result)
                 . apply GroundTermMapping.applyFactSet_subset_of_subset
                   have subs_res := chaseBranchSetIsSubsetOfResult cb step
                   rw [eq, Option.is_none_or] at subs_res
@@ -808,7 +803,7 @@ namespace ChaseBranch
             exists origin.fst.val.subs.apply_function_free_atom a
             constructor
             . apply loaded
-              rw [← List.inIffInToSet]
+              rw [List.mem_toSet]
               simp only [SubsTarget.apply]
               unfold GroundSubstitution.apply_function_free_conj
               simp
@@ -897,16 +892,14 @@ namespace ChaseBranch
     have hom_fs : h.isHomomorphism fs fs := by
       constructor
       . apply hom.left
-      . apply Set.subsetTransitive _ sub_fs _
-        constructor
+      . apply Set.subset_trans (b := sub_fs)
         . apply hom.right
         . exact sub_fs_sub
 
     have hom_sub_fs : h.isHomomorphism sub_fs sub_fs := by
       constructor
       . apply hom.left
-      . apply Set.subsetTransitive _ (h.applyFactSet fs) _
-        constructor
+      . apply Set.subset_trans (b := h.applyFactSet fs)
         . apply GroundTermMapping.applyFactSet_subset_of_subset; exact sub_fs_sub
         . apply hom.right
 
@@ -981,8 +974,7 @@ namespace ChaseBranch
     . exact not_repeats
     . constructor
       . apply hom.left
-      . apply Set.subsetTransitive _ (h.applyFactSet fs) _
-        constructor
+      . apply Set.subset_trans (b := h.applyFactSet fs)
         . apply GroundTermMapping.applyFactSet_subset_of_subset
           exact fs_super
         . apply hom_fs.right

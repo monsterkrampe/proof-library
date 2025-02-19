@@ -1,3 +1,5 @@
+import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.KoenigsLemma
+
 import ExistentialRules.ChaseSequence.Basic
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
@@ -257,7 +259,7 @@ section GeneralResults
                 . exact trg_active
                 . have length_eq : trg.val.result.length = (ct.tree.children (nodes.take n).reverse).length := by
                     rw [← trg_eq]
-                    simp [List.enum_with_lt_length_eq]
+                    simp [List.length_enum_with_lt]
 
                   have get_node_eq : (ct.tree.children (nodes.take n).reverse)[nodes n]? = b.infinite_list (n+1) := by
                     rw [FiniteDegreeTree.getElem_children_eq_getElem_tree_children]
@@ -290,7 +292,7 @@ section GeneralResults
                     constructor
                     . rw [List.enum_with_lt_getElem_snd_eq_getElem]
                     . rw [List.enum_with_lt_getElem_fst_eq_index]
-                  . simp [List.enum_with_lt_length_eq]
+                  . simp [List.length_enum_with_lt]
                     exact nodes_n_le
           fairness := by
             intro trg
@@ -343,7 +345,7 @@ section GeneralResults
       . apply List.nodup_eraseDupsKeepRight
       . intro e
         unfold filtered
-        rw [List.mem_eraseDupsKeepRight_iff]
+        rw [List.mem_eraseDupsKeepRight]
         unfold branches
         simp
         constructor
@@ -387,7 +389,7 @@ section GeneralResults
       constructor
       . apply List.nodup_eraseDupsKeepRight
       . intro fs
-        rw [List.mem_eraseDupsKeepRight_iff]
+        rw [List.mem_eraseDupsKeepRight]
         simp
         constructor
         . intro h

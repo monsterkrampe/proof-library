@@ -22,8 +22,7 @@ namespace ChaseBranch
 
     let trg' : PreTrigger sig := ⟨trg.val.rule, h ∘ trg.val.subs⟩
     have trg'_loaded : trg'.loaded cb.result := by
-      apply Set.subsetTransitive _ (h.applyFactSet node.fact) _
-      constructor
+      apply Set.subset_trans (b := h.applyFactSet node.fact)
       . apply PreTrigger.term_mapping_preserves_loadedness
         . exact hom.left
         . exact trg_active.left
@@ -166,9 +165,9 @@ namespace ChaseBranch
             have : (subs.apply_function_free_conj (trg'.rule.head.get disj_index')).toSet = h'.applyFactSet (trg.val.result.get disj_index) := by
               apply funext
               intro f
-              have inIffInToSet := (subs.apply_function_free_conj (trg'.rule.head.get disj_index')).inIffInToSet f
-              simp only [Set.element] at inIffInToSet
-              rw [← inIffInToSet]
+              have mem_toSet := (subs.apply_function_free_conj (trg'.rule.head.get disj_index')).mem_toSet (e := f)
+              simp only [Set.element] at mem_toSet
+              rw [mem_toSet]
               unfold GroundTermMapping.applyFactSet
               unfold GroundSubstitution.apply_function_free_conj
               unfold PreTrigger.result
@@ -179,7 +178,7 @@ namespace ChaseBranch
                 rcases pre with ⟨a, a_mem, a_eq⟩
                 exists trg.val.apply_to_function_free_atom disj_index.val a
                 constructor
-                . rw [← List.inIffInToSet]; simp; exists a
+                . rw [List.mem_toSet]; simp; exists a
                 . rw [← a_eq]
                   simp [PreTrigger.apply_to_function_free_atom, GroundTermMapping.applyFact, GroundSubstitution.apply_function_free_atom]
                   intro voc voc_mem
@@ -198,7 +197,7 @@ namespace ChaseBranch
                       exact voc_mem
               . intro pre
                 rcases pre with ⟨b, b_mem, b_eq⟩
-                rw [← List.inIffInToSet] at b_mem
+                rw [List.mem_toSet] at b_mem
                 simp at b_mem
                 rcases b_mem with ⟨a, a_mem, a_eq⟩
                 exists a
