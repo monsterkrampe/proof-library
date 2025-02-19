@@ -41,7 +41,7 @@ namespace ChaseBranch
     intro noAltMatch h_0 h_0_hom
     apply Classical.byContradiction
     intro contra
-    have contra := implToNotOr (notAndDeMorgan contra)
+    rw [Classical.not_and_iff_or_not_not] at contra
 
     have : ∀ k, (cb.branch.infinite_list k).is_none_or (fun node => ∃ (h_k : GroundTermMapping sig), (h_k.isHomomorphism cb.result cb.result) ∧ ((∀ (f : Fact sig), (∀ (t : GroundTerm sig), t ∈ f.terms -> t ∈ cb.result.terms) -> ¬ f ∈ cb.result -> h_0.applyFact f ∈ cb.result -> h_k.applyFact f ∈ cb.result) ∧ (∀ s t, s ∈ cb.result.terms -> t ∈ cb.result.terms -> s ≠ t -> h_0 s = h_0 t -> h_k s = h_k t)) ∧ (∀ t, t ∈ node.fact.val.terms -> h_k t = t)) := by
       intro k

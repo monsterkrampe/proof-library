@@ -3,7 +3,6 @@ import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.Basic
 import ExistentialRules.KnowledgeBaseBasics
 import ExistentialRules.Models.Basic
 import ExistentialRules.Trigger
-import ExistentialRules.Logic
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
