@@ -3,7 +3,7 @@ import BasicLeanDatastructures.List.EraseDupsKeepRight
 import BasicLeanDatastructures.Set.Basic
 import BasicLeanDatastructures.Set.Finite
 
-import ExistentialRules.TermBasics
+import ExistentialRules.Terms.Basic
 
 section StructuralDefs
 

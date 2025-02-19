@@ -1,5 +1,3 @@
-import ExistentialRules.SubstitutionAndHomomorphismBasics
-import ExistentialRules.Trigger
 import ExistentialRules.ChaseSequence.Basic
 import ExistentialRules.ChaseSequence.Deterministic
 

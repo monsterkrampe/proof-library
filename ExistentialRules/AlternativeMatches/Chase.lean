@@ -1,7 +1,6 @@
 import ExistentialRules.AlternativeMatches.Basic
 import ExistentialRules.AlternativeMatches.HomomorphismExtension
 import ExistentialRules.Models.Cores
-import ExistentialRules.KnowledgeBaseBasics
 
 theorem prop_for_nat_has_minimal_such_nat (prop : Nat -> Prop) : ∀ i, prop i -> (∃ i, prop i ∧ ∀ (j : Fin i), ¬ prop j.val) := by
   intro i h

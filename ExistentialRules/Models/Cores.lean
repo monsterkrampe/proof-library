@@ -1,4 +1,3 @@
-import ExistentialRules.SubstitutionAndHomomorphismBasics
 import ExistentialRules.Models.Basic
 
 namespace List

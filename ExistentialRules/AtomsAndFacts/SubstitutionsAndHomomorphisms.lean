@@ -1,6 +1,6 @@
 import BasicLeanDatastructures.List.Basic
 
-import ExistentialRules.KnowledgeBaseBasics
+import ExistentialRules.AtomsAndFacts.Basic
 
 section Defs
 

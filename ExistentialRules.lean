@@ -1,15 +1,15 @@
 import ExistentialRules.AlternativeMatches.Basic
 import ExistentialRules.AlternativeMatches.Chase
 import ExistentialRules.AlternativeMatches.HomomorphismExtension
+import ExistentialRules.AtomsAndFacts.Basic
+import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 import ExistentialRules.ChaseSequence.Basic
 import ExistentialRules.ChaseSequence.Universality
 import ExistentialRules.ChaseSequence.Deterministic
 import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Termination.MfaLike
-import ExistentialRules.KnowledgeBaseBasics
 import ExistentialRules.Models.Basic
 import ExistentialRules.Models.Cores
-import ExistentialRules.SubstitutionAndHomomorphismBasics
-import ExistentialRules.TermBasics
-import ExistentialRules.Trigger
+import ExistentialRules.Terms.Basic
+import ExistentialRules.Triggers.Basic
 

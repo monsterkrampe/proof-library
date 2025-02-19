@@ -1,8 +1,7 @@
 import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.Basic
 
-import ExistentialRules.KnowledgeBaseBasics
 import ExistentialRules.Models.Basic
-import ExistentialRules.Trigger
+import ExistentialRules.Triggers.Basic
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
