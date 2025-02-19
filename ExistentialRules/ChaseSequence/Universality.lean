@@ -119,7 +119,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       rw [Option.map_some'] at trg_result_used_for_next_chase_step
       injection trg_result_used_for_next_chase_step with trg_result_used_for_next_chase_step
       have : some (ct.tree.children prev_path)[head_index_for_m_subs.val] = some next_node := by
-        rw [ct.tree.getElem_children_eq_get_tree prev_path ⟨head_index_for_m_subs.val, index_valid⟩]
+        rw [ct.tree.getElem_children_eq_get prev_path ⟨head_index_for_m_subs.val, index_valid⟩]
         exact next_node_eq
       injection this with this
       rw [this] at trg_result_used_for_next_chase_step
@@ -348,7 +348,7 @@ noncomputable def inductive_homomorphism_with_prev_node (ct : ChaseTree obs kb) 
       constructor
       . simp; exact prev_cond.left
       . have : ct.tree.get (0::prev_path) = none := by
-          apply FiniteDegreeTree.children_empty_means_all_following_none
+          apply FiniteDegreeTree.each_successor_none_of_children_empty
           let triggers_exist := ct.triggers_exist prev_path
           rw [prev_node_eq] at triggers_exist
           simp [Option.is_none_or] at triggers_exist
@@ -544,12 +544,12 @@ theorem inductive_homomorphism_tree_get_path_none_means_layer_empty {ct : ChaseT
   unfold inductive_homomorphism at succ_none
   simp at succ_none
   split at succ_none
-  . simp at succ_none; apply ct.tree.first_child_none_means_children_empty; exact succ_none
+  . simp at succ_none; apply ct.tree.children_empty_of_first_successor_none; exact succ_none
   case h_2 _ heq =>
     unfold inductive_homomorphism_with_prev_node at succ_none
     simp at succ_none
     split at succ_none
-    . simp at succ_none; apply ct.tree.first_child_none_means_children_empty; exact succ_none
+    . simp at succ_none; apply ct.tree.children_empty_of_first_successor_none; exact succ_none
     case h_2 _ ex _ =>
       let child_index : Fin (ct.tree.children (inductive_homomorphism ct m m_is_model n).val.fst).length := ⟨
         (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model n _ _ heq ex).val.1.head (by apply inductive_homomorphism_with_prev_node_and_trg_path_not_empty),
@@ -565,7 +565,7 @@ theorem inductive_homomorphism_tree_get_path_none_means_layer_empty {ct : ChaseT
       let child := (ct.tree.children (inductive_homomorphism ct m m_is_model n).val.fst)[child_index.val]
       have : some child = ct.tree.get (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model n _ _ heq ex).val.fst := by
         simp only [child]
-        rw [ct.tree.getElem_children_eq_get_tree _ child_index]
+        rw [ct.tree.getElem_children_eq_get _ child_index]
         have : child_index.val :: (inductive_homomorphism ct m m_is_model n).val.fst = (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model n _ _ heq ex).val.fst := by rw [inductive_homomorphism_with_prev_node_and_trg_path_extends_prev]
         rw [this]
 
@@ -714,7 +714,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
           let i' : Fin (ct.tree.children (inductive_homomorphism_shortcut n).val.1).length := ⟨i.val, by rw [← h.right]; simp; rw [List.length_enum_with_lt]; exact i.isLt⟩
           exists i
           rw [inductive_homomorphism_path_extends_prev]
-          rw [← ct.tree.getElem_children_eq_get_tree _ i']
+          rw [← ct.tree.getElem_children_eq_get _ i']
           simp only [← h.right]
           simp
           constructor
@@ -727,7 +727,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
           constructor
           . exact ex_trg.left
           rw [inductive_homomorphism_path_extends_prev]
-          apply ct.tree.children_empty_means_all_following_none
+          apply ct.tree.each_successor_none_of_children_empty
           exact ex_trg.right
     fairness := by
       intro trg
@@ -754,7 +754,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
                 apply funext
                 have next_none := hn.right (n+1) (by simp)
                 have children_empty := inductive_homomorphism_tree_get_path_none_means_layer_empty n next_none
-                have all_none := ct.tree.children_empty_means_all_following_none _ children_empty
+                have all_none := ct.tree.each_successor_none_of_children_empty _ children_empty
                 unfold FiniteDegreeTree.get at all_none
                 unfold PossiblyInfiniteTree.get at all_none
                 exact all_none

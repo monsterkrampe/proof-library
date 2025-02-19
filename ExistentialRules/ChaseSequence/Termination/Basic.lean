@@ -239,7 +239,7 @@ section GeneralResults
               cases trgs_ex with
               | inr trgs_ex =>
                 unfold not_exists_trigger_list at trgs_ex
-                have all_none := ct.tree.children_empty_means_all_following_none _ trgs_ex.right
+                have all_none := ct.tree.each_successor_none_of_children_empty _ trgs_ex.right
                 specialize all_none (nodes n)
                 apply False.elim
                 apply contra
@@ -262,8 +262,8 @@ section GeneralResults
                     simp [List.length_enum_with_lt]
 
                   have get_node_eq : (ct.tree.children (nodes.take n).reverse)[nodes n]? = b.infinite_list (n+1) := by
-                    rw [FiniteDegreeTree.getElem_children_eq_getElem_tree_children]
-                    rw [PossiblyInfiniteTree.getElem_children_eq_get_tree]
+                    rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
+                    rw [PossiblyInfiniteTree.getElem_children_eq_get]
                     rw [b_mem]
                     conv => right; unfold InfiniteList.take
                     simp
@@ -327,7 +327,7 @@ section GeneralResults
 
       -- Koenig's Lemma
       have : ct.tree.branches.finite := by
-        apply ct.tree.branches_finite_of_each_finite
+        apply ct.tree.branches_finite_of_each_branch_finite
         apply this
 
       rcases this with ⟨l, l_nodup, l_eq⟩

@@ -79,7 +79,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                   exact length_aux_1
                 exists ⟨0, length_aux_1⟩
                 unfold List.repeat
-                rw [← ct.tree.getElem_children_eq_get_tree (List.repeat 0 n) ⟨0, length_aux_2⟩]
+                rw [← ct.tree.getElem_children_eq_get (List.repeat 0 n) ⟨0, length_aux_2⟩]
                 simp only [← trg_ex.right]
                 simp only [Option.some.injEq, List.getElem_map]
                 simp only [ChaseNode.mk.injEq, List.getElem_attach, Subtype.mk.injEq]
@@ -95,7 +95,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
           constructor
           . exact trg_ex.left
           unfold List.repeat
-          apply ct.tree.children_empty_means_all_following_none
+          apply ct.tree.each_successor_none_of_children_empty
           exact trg_ex.right
     fairness := by
       intro trg
@@ -124,8 +124,8 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                 apply funext
                 have next_none := hn.right (n+1) (by simp)
                 unfold List.repeat at next_none
-                have children_empty := ct.tree.first_child_none_means_children_empty (List.repeat 0 n) next_none
-                have all_none := ct.tree.children_empty_means_all_following_none _ children_empty
+                have children_empty := ct.tree.children_empty_of_first_successor_none (List.repeat 0 n) next_none
+                have all_none := ct.tree.each_successor_none_of_children_empty _ children_empty
                 unfold FiniteDegreeTree.get at all_none
                 unfold PossiblyInfiniteTree.get at all_none
                 exact all_none
@@ -243,7 +243,7 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
                 cases trg_ex with | intro trg h_trg =>
                   unfold InfiniteList.take at n_succ_in_ct
                   rw [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append] at n_succ_in_ct
-                  have children_get_eq := ct.tree.tree.getElem_children_eq_get_tree (nodes.take n).reverse (nodes n)
+                  have children_get_eq := ct.tree.tree.getElem_children_eq_get (nodes.take n).reverse (nodes n)
                   unfold PossiblyInfiniteTree.get at children_get_eq
                   rw [← children_get_eq] at n_succ_in_ct
                   rw [← FiniteDegreeTree.children_eq_lifted_children] at n_succ_in_ct
@@ -264,7 +264,7 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
                     exact isLt
               | inr trg_ex =>
                 unfold not_exists_trigger_list at trg_ex
-                have contra := ct.tree.children_empty_means_all_following_none (nodes.take n).reverse trg_ex.right (nodes n)
+                have contra := ct.tree.each_successor_none_of_children_empty (nodes.take n).reverse trg_ex.right (nodes n)
                 have branch_in_ct := branch_in_ct.left (n+1)
                 unfold InfiniteList.take at branch_in_ct
                 rw [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append] at branch_in_ct
@@ -346,7 +346,7 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
                     exact trg_ex'.left
                 | inr trg_ex' =>
                   unfold not_exists_trigger_list at trg_ex'
-                  apply FiniteDegreeTree.children_empty_means_all_following_none
+                  apply FiniteDegreeTree.each_successor_none_of_children_empty
                   exact trg_ex'.right
         apply funext
         intro f
@@ -451,7 +451,7 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
         cases eq : cb.branch.infinite_list (l.length + 1) with
         | none =>
           exists 0
-          rw [PossiblyInfiniteTree.getElem_children_eq_get_tree]
+          rw [PossiblyInfiniteTree.getElem_children_eq_get]
           unfold PossiblyInfiniteTree.get
           cases eq2 : l.all (fun e => e = 0) with
           | false => simp [eq2, eq]; intro k; have isLt := k.isLt; simp at isLt
@@ -460,16 +460,16 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
           cases eq2 : l.all (fun e => e = 0) with
           | false =>
             exists 0
-            rw [PossiblyInfiniteTree.getElem_children_eq_get_tree]
+            rw [PossiblyInfiniteTree.getElem_children_eq_get]
             unfold PossiblyInfiniteTree.get
             simp [eq2]
             intro k; have isLt := k.isLt; simp at isLt
           | true =>
             exists 1
-            rw [PossiblyInfiniteTree.getElem_children_eq_get_tree]
+            rw [PossiblyInfiniteTree.getElem_children_eq_get]
             unfold PossiblyInfiniteTree.get
             simp
-            rw [PossiblyInfiniteTree.getElem_children_eq_get_tree]
+            rw [PossiblyInfiniteTree.getElem_children_eq_get]
             unfold PossiblyInfiniteTree.get
             simp
             constructor
@@ -520,8 +520,8 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
               intro j
               cases j with
               | zero =>
-                rw [FiniteDegreeTree.getElem_children_eq_getElem_tree_children]
-                rw [PossiblyInfiniteTree.getElem_children_eq_get_tree]
+                rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
+                rw [PossiblyInfiniteTree.getElem_children_eq_get]
                 unfold PossiblyInfiniteTree.get
                 rw [List.getElem?_eq_getElem (by rw [List.length_attach, List.length_enum_with_lt]; rw [res_length]; simp)]
                 have : (0::l).all (fun e => e = 0) = true := by
@@ -534,8 +534,8 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
                 . rw [Subtype.mk.injEq, i_eq, List.enum_with_lt_getElem_snd_eq_getElem, List.get_eq_getElem]
                 . rw [i_eq, List.enum_with_lt_getElem_fst_eq_index]
               | succ j =>
-                rw [FiniteDegreeTree.getElem_children_eq_getElem_tree_children]
-                rw [PossiblyInfiniteTree.getElem_children_eq_get_tree]
+                rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
+                rw [PossiblyInfiniteTree.getElem_children_eq_get]
                 unfold PossiblyInfiniteTree.get
                 rw [List.getElem?_eq_none]
                 . simp
@@ -547,7 +547,7 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
             unfold not_exists_trigger_list
             constructor
             . exact cb_trgs.left
-            . apply FiniteDegreeTree.first_child_none_means_children_empty
+            . apply FiniteDegreeTree.children_empty_of_first_successor_none
               unfold FiniteDegreeTree.get
               unfold PossiblyInfiniteTree.get
               have : (0::l).all (fun e => e = 0) = true := by
@@ -562,7 +562,7 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
       unfold PossiblyInfiniteTree.leaves at leaf_mem
       unfold PossiblyInfiniteTree.get at leaf_mem
       rcases leaf_mem with ⟨node, node_eq, node_children⟩
-      have all_none := PossiblyInfiniteTree.children_empty_means_all_following_none _ _ node_children
+      have all_none := PossiblyInfiniteTree.each_successor_none_of_children_empty _ _ node_children
       cases eq : node.all (fun e => e = 0) with
       | false => simp [eq] at node_eq
       | true =>

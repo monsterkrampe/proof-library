@@ -259,7 +259,7 @@ theorem chaseTreeSetIsSubsetOfEachNext (ct : ChaseTree obs kb) : ∀ address : L
 by
   intro address
   cases eq : ct.tree.get address with
-  | none => simp; apply FiniteDegreeTree.children_empty_when_not_existing; exact eq
+  | none => simp; apply FiniteDegreeTree.children_empty_of_get_eq_none; exact eq
   | some fs =>
     simp
     intro fs2 h
@@ -330,7 +330,7 @@ by
       simp [eq] at ih
       have step := chaseTreeSetIsSubsetOfEachNext ct (m ++ n)
       simp [ih] at step
-      apply FiniteDegreeTree.children_empty_means_all_following_none
+      apply FiniteDegreeTree.each_successor_none_of_children_empty
       apply step
     | some fs =>
       simp
@@ -340,7 +340,7 @@ by
       | none =>
         simp [eq2] at step
         unfold Option.is_none_or
-        have helper := ct.tree.children_empty_means_all_following_none (m ++ n) step
+        have helper := ct.tree.each_successor_none_of_children_empty (m ++ n) step
         rw [helper]
         simp
       | some fs2 =>
@@ -698,7 +698,7 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
         | inr no_trg_ex =>
           unfold not_exists_trigger_list at no_trg_ex
           have : ct.tree.get (head::tail) = none := by
-            apply ct.tree.children_empty_means_all_following_none
+            apply ct.tree.each_successor_none_of_children_empty
             exact no_trg_ex.right
           rw [this] at node_is_at_path
           simp at node_is_at_path
@@ -713,8 +713,8 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
                 apply Eq.symm
                 apply List.getElem?_eq_none
                 exact contra
-              rw [FiniteDegreeTree.getElem_children_eq_getElem_tree_children] at this
-              rw [PossiblyInfiniteTree.getElem_children_eq_get_tree] at this
+              rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children] at this
+              rw [PossiblyInfiniteTree.getElem_children_eq_get] at this
               unfold FiniteDegreeTree.get at node_is_at_path
               rw [← node_is_at_path] at this
               contradiction
@@ -722,7 +722,7 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
             have head_lt_aux_2 : head < trg'.val.rule.head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.length_enum_with_lt] at head_lt_tail_children_length; rw [PreTrigger.head_length_eq_mapped_head_length]; unfold PreTrigger.result at head_lt_tail_children_length; simp at head_lt_tail_children_length; exact head_lt_tail_children_length
             have head_lt_aux_3 : head < trg'.val.mapped_head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.length_enum_with_lt] at head_lt_tail_children_length; unfold PreTrigger.result at head_lt_tail_children_length; simp at head_lt_tail_children_length; exact head_lt_tail_children_length
 
-            rw [← ct.tree.getElem_children_eq_get_tree tail ⟨head, head_lt_tail_children_length⟩] at node_is_at_path
+            rw [← ct.tree.getElem_children_eq_get tail ⟨head, head_lt_tail_children_length⟩] at node_is_at_path
             injection node_is_at_path with node_is_at_path
 
             have : ∃ f, f ∈ trg'.val.result[head] ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms := by
