@@ -1,6 +1,7 @@
 import BasicLeanDatastructures.List.Repeat
 
 import ExistentialRules.ChaseSequence.Termination.Basic
+import ExistentialRules.Terms.Cyclic
 
 section Defs
 
@@ -855,14 +856,14 @@ namespace KnowledgeBase
       rcases func_mem with ⟨f, f_mem, func_mem⟩
       unfold Fact.function_symbols at func_mem
       rcases func_mem with ⟨t, t_mem, func_mem⟩
-      cases eq : t.val with
-      | leaf c => simp [eq, FiniteTree.innerLabels] at func_mem
-      | inner _ _ =>
+      cases eq : t with
+      | const c => simp [eq, GroundTerm.const, FiniteTree.innerLabels] at func_mem
+      | func _ _ =>
         have func_free := kb.db.toFactSet.property.right
         specialize func_free f f_mem t t_mem
         rcases func_free with ⟨c, t_eq⟩
         rw [t_eq] at eq
-        simp [GroundTerm.const] at eq
+        simp [GroundTerm.const, GroundTerm.func] at eq
     | succ n ih =>
       unfold parallelSkolemChase
       intro func func_mem

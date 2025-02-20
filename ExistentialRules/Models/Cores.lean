@@ -462,16 +462,18 @@ namespace GroundTermMapping
     | zero => unfold repeat_hom; unfold isIdOnConstants; intro t; split <;> simp
     | succ i ih =>
       intro t
-      cases eq : t.val with
-      | inner _ _ => simp
-      | leaf c =>
-        simp
+      cases eq : t with
+      | func _ _ => simp [GroundTerm.func]
+      | const c =>
+        simp only [GroundTerm.const]
         unfold repeat_hom
-        simp
-        have : t = GroundTerm.const c := by apply Subtype.eq; exact eq
+        rw [Function.comp_apply]
+        have := GroundTermMapping.apply_constant_is_id_of_isIdOnConstants ih c
+        unfold GroundTerm.const at this
         rw [this]
-        rw [GroundTermMapping.apply_constant_is_id_of_isIdOnConstants ih c]
-        rw [GroundTermMapping.apply_constant_is_id_of_isIdOnConstants idOnConst c]
+        have := GroundTermMapping.apply_constant_is_id_of_isIdOnConstants idOnConst c
+        unfold GroundTerm.const at this
+        rw [this]
 
   variable [DecidableEq sig.P]
 
@@ -747,23 +749,25 @@ namespace FactSet
       . exact inv_id
       . constructor
         . intro t
-          cases eq : t.val with
-          | inner _ _ => simp
-          | leaf c =>
-            have eq : t = GroundTerm.const c := by apply Subtype.eq; exact eq
-            simp only
+          cases eq : t with
+          | func _ _ => simp [GroundTerm.func]
+          | const c =>
+            simp only [GroundTerm.const]
             unfold inv
             cases Classical.em (GroundTerm.const c ∈ sc.terms) with
-            | inr n_mem => rw [eq]; simp [n_mem]
+            | inr n_mem => unfold GroundTerm.const at n_mem; simp [n_mem]
             | inl mem =>
-              rw [eq]
+              unfold GroundTerm.const at mem
               simp [mem]
               have spec := Classical.choose_spec (sc_strong.right.right (GroundTerm.const c) mem)
               apply sc_strong.right.left
               . exact spec.left
               . exact mem
               . rw [spec.right]
-                rw [h_fs_sc_hom.left (GroundTerm.const c)]
+                have := h_fs_sc_hom.left (GroundTerm.const c)
+                simp only [GroundTerm.const] at this
+                rw [this]
+                simp [GroundTerm.const]
         . intro f f_mem
           rcases f_mem with ⟨f', f'_mem, f_eq⟩
           have strong := sc_strong.left

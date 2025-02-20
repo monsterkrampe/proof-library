@@ -11,5 +11,7 @@ import ExistentialRules.ChaseSequence.Termination.MfaLike
 import ExistentialRules.Models.Basic
 import ExistentialRules.Models.Cores
 import ExistentialRules.Terms.Basic
+import ExistentialRules.Terms.Cyclic
+import ExistentialRules.Terms.ListsOfTerms
 import ExistentialRules.Triggers.Basic
 

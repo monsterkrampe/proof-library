@@ -99,9 +99,9 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
     rw [Option.is_none_or]
     constructor
     . intro term
-      cases eq : term.val with
-      | leaf c => simp [next_hom, eq]
-      | inner _ _ => simp
+      cases eq : term with
+      | const c => simp [GroundTerm.const, next_hom, eq]
+      | func _ _ => simp [GroundTerm.func]
     have next_node_results_from_trg : next_node.fact = prev_node_unwrapped.fact ∪ trg.val.result.get result_index_for_trg := by
       have length_eq_helper_1 : trg.val.rule.head.length = trg.val.result.enum_with_lt.attach.length := by
         rw [List.length_attach, List.length_enum_with_lt]
@@ -148,16 +148,16 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       intro ground_term _
       have : ∃ f, f ∈ prev_node_unwrapped.fact.val ∧ ground_term ∈ f.terms := by
         exists fact
-      cases eq : ground_term.val with
-      | leaf c =>
-        have eq : ground_term = GroundTerm.const c := by apply Subtype.eq; exact eq
-        simp only [next_hom, eq]
+      cases eq : ground_term with
+      | const c =>
+        simp only [GroundTerm.const, next_hom, eq]
         apply GroundTermMapping.apply_constant_is_id_of_isIdOnConstants prev_cond_r.left c
-      | inner _ _ =>
-        simp only [next_hom, eq]
+      | func _ _ =>
+        simp only [GroundTerm.func, next_hom, eq]
         split
         . rfl
-        . contradiction
+        . simp only [eq, GroundTerm.func] at this
+          contradiction
     | inr fact_in_trg_result =>
       let idx_of_fact_in_result := trg.val.idx_of_fact_in_result fact result_index_for_trg fact_in_trg_result
       have fact_is_at_its_idx :
@@ -366,7 +366,7 @@ noncomputable def inductive_homomorphism (ct : ChaseTree obs kb) (m : FactSet si
 | .zero => ⟨([], id), by
   simp [Option.is_none_or]; rw [ct.database_first]; simp
   constructor
-  . unfold GroundTermMapping.isIdOnConstants; intro gt; cases gt.val <;> simp
+  . unfold GroundTermMapping.isIdOnConstants; intro gt; cases gt <;> simp [GroundTerm.const, GroundTerm.func]
   . intro el
     simp [Set.element]
     intro el_in_set
@@ -892,9 +892,8 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
   . constructor
     . intro gt
       split
-      case h_1 c c_eq =>
-        have c_eq : gt = GroundTerm.const c := by apply Subtype.eq; exact c_eq
-        simp [global_h]
+      case h_1 _ c =>
+        simp only [global_h]
         split
         case h_1 _ p _ =>
           let hfl := (Classical.choose_spec p).left
@@ -906,7 +905,6 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
           | none => rw [eq] at i_spec; simp [Option.is_some_and] at i_spec
           | some node =>
             rw [eq] at property; simp [Option.is_none_or] at property
-            simp only [c_eq]
             exact GroundTermMapping.apply_constant_is_id_of_isIdOnConstants property.left c
         . trivial
       . trivial

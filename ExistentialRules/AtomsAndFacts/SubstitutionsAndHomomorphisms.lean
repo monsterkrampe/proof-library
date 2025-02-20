@@ -112,9 +112,9 @@ namespace GroundTermMapping
   variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
   def isIdOnConstants (h : GroundTermMapping sig) : Prop :=
-    ∀ (t : GroundTerm sig), match t.val with
-    | .leaf _ => h t = t
-    | .inner _ _ => True
+    ∀ (t : GroundTerm sig), match t with
+    | .const _ => h t = t
+    | _ => True
 
   theorem apply_constant_is_id_of_isIdOnConstants {h : GroundTermMapping sig} (isId : h.isIdOnConstants) (c : sig.C) : h (GroundTerm.const c) = GroundTerm.const c := isId (GroundTerm.const c)
 
@@ -176,15 +176,15 @@ namespace GroundTermMapping
     intro g_hom h_hom
     constructor
     . intro t
-      cases eq : t.val with
-      | inner _ _ => simp
-      | leaf c =>
-        simp
+      cases eq : t with
+      | func _ _ => simp [GroundTerm.func]
+      | const c =>
+        simp only [GroundTerm.const, Function.comp_apply]
         have g_const := g_hom.left t
-        simp only [eq] at g_const
+        simp only [eq, GroundTerm.const] at g_const
         rw [g_const]
         have h_const := h_hom.left t
-        simp only [eq] at h_const
+        simp only [eq, GroundTerm.const] at h_const
         rw [h_const]
     . rw [applyFactSet_compose]
       intro f f_mem_compose

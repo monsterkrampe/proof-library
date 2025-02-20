@@ -62,19 +62,16 @@ namespace ChaseBranch
 
     have h'_is_id_on_const : h'.isIdOnConstants := by
       intro term
-      cases eq : term.val with
-      | inner _ _ => simp
-      | leaf c =>
-        have : term = GroundTerm.const c := by apply Subtype.eq; exact eq
-        rw [this]
-        simp
+      cases eq : term with
+      | func _ _ => simp [GroundTerm.func]
+      | const c =>
+        simp only [GroundTerm.const]
         unfold h'
         rw [List.find?_eq_none.mpr]
         . simp; exact GroundTermMapping.apply_constant_is_id_of_isIdOnConstants hom.left c
         . simp
           intro v _ not_frontier contra
           simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, not_frontier] at contra
-          simp [GroundTerm.const] at contra
 
     have h'_is_subs_on_head_vars : ∀ v, v ∈ (trg.val.rule.head.get disj_index').vars -> (h' (trg.val.apply_to_var_or_const disj_index.val (VarOrConst.var v))) = subs v := by
       intro v v_mem
@@ -482,11 +479,9 @@ namespace ChaseBranch
         . contradiction
       . constructor
         . intro t
-          cases eq : t.val with
-          | inner _ _ => simp
-          | leaf c =>
-            have eq : t = GroundTerm.const c := by apply Subtype.eq; exact eq
-            rw [eq]
+          cases eq : t with
+          | func _ _ => simp [GroundTerm.func]
+          | const c =>
             exact id_on_const c
         . intro f f_mem
           unfold GroundTermMapping.applyFactSet at f_mem

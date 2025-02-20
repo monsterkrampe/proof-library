@@ -414,11 +414,10 @@ namespace ChaseBranch
           simp only
           constructor
           . intro t
-            cases eq : t.val with
-            | inner _ _ => simp
-            | leaf c =>
-              have eq : t = GroundTerm.const c := by apply Subtype.eq; exact eq
-              simp only [eq]
+            cases eq : t with
+            | func _ _ => simp [GroundTerm.func]
+            | const c =>
+              simp only [GroundTerm.const]
               unfold h
               split
               . rfl

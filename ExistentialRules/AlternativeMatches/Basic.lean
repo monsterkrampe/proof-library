@@ -106,9 +106,9 @@ namespace PreTrigger
     exists h_alt
     constructor
     . constructor
-      . intro t; cases eq : t.val with
-        | leaf c => simp [h_alt, eq]
-        | inner _ _ => simp
+      . intro t; cases eq : t with
+        | const c => simp [GroundTerm.const, h_alt, eq]
+        | func _ _ => simp [GroundTerm.func]
       . exact this
     constructor
     . intro t ht; simp only [h_alt, ht]; simp

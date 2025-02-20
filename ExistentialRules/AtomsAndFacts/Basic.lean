@@ -4,6 +4,7 @@ import BasicLeanDatastructures.Set.Basic
 import BasicLeanDatastructures.Set.Finite
 
 import ExistentialRules.Terms.Basic
+import ExistentialRules.Terms.ListsOfTerms
 
 section StructuralDefs
 
